@@ -8,7 +8,7 @@ public class AuthSample {
     final static String PATH = "/zk-book-auth_test";
     public static void main(String[] args) throws Exception {
 
-        ZooKeeper zookeeper = new ZooKeeper("192.168.85.128:2181",50000,null);
+        ZooKeeper zookeeper = new ZooKeeper("localhost:2181",50000,null);
         zookeeper.addAuthInfo("digest", "foo:true".getBytes());
         zookeeper.create( PATH, "init".getBytes(), Ids.CREATOR_ALL_ACL, CreateMode.EPHEMERAL );
         Thread.sleep( Integer.MAX_VALUE );

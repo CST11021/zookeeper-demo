@@ -10,7 +10,7 @@ public class NodeCache_Sample {
 
     static String path = "/zk-book/nodecache";
     static CuratorFramework client = CuratorFrameworkFactory.builder()
-            .connectString("192.168.85.128:2181")
+            .connectString("localhost:2181")
             .sessionTimeoutMs(5000)
             .retryPolicy(new ExponentialBackoffRetry(1000, 3))
             .build();

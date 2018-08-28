@@ -19,7 +19,7 @@ public class GetData_API_Sync_Usage implements Watcher {
     public static void main(String[] args) throws Exception {
 
     	String path = "/zk-book";
-    	zk = new ZooKeeper("192.168.85.128:2181",
+    	zk = new ZooKeeper("localhost:2181",
 				5000, //
 				new GetData_API_Sync_Usage());
         connectedSemaphore.await();

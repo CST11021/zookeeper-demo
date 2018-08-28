@@ -7,7 +7,7 @@ import org.apache.zookeeper.ZooKeeper;
  */
 public class Sample_AuthFailed1 implements Watcher {
 
-    final static String SERVER_LIST = "192.168.85.128:2181";
+    final static String SERVER_LIST = "localhost:2181";
 
     static ZooKeeper zkClient = null;
 

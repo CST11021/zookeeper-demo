@@ -10,7 +10,7 @@ public class Create_Session_Sample_fluent {
         RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
         CuratorFramework client =
         CuratorFrameworkFactory.builder()
-                             .connectString("192.168.85.128:2181")
+                             .connectString("localhost:2181")
                              .sessionTimeoutMs(5000)
                              .retryPolicy(retryPolicy)
                              .build();

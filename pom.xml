@@ -8,7 +8,8 @@
 	<modules>
 		<module>zookeeper-3.5.4</module>
 		<module>zookeeper-client</module>
-	</modules>
+        <module>zookeeper-curator</module>
+    </modules>
 	<packaging>pom</packaging>
 
 	<properties>

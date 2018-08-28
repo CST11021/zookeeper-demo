@@ -11,7 +11,7 @@ public class Recipes_DistAtomicInt {
 
 	static String distatomicint_path = "/curator_recipes_distatomicint_path";
     static CuratorFramework client = CuratorFrameworkFactory.builder()
-            .connectString("192.168.85.128:2181")
+            .connectString("localhost:2181")
             .retryPolicy(new ExponentialBackoffRetry(1000, 3)).build();
 	public static void main( String[] args ) throws Exception {
 		client.start();

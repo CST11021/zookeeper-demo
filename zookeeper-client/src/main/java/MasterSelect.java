@@ -41,7 +41,7 @@ public class MasterSelect implements Watcher {
     void getLock(String path, String data, CreateMode createMode) throws IOException, KeeperException,
             InterruptedException {
         if (zk == null) {
-            zk = this.createSession("192.168.85.128:2181", 2000, this);
+            zk = this.createSession("localhost:2181", 2000, this);
         }
         zk.create(path, data.getBytes(), Ids.OPEN_ACL_UNSAFE, createMode);
     }
@@ -50,7 +50,7 @@ public class MasterSelect implements Watcher {
     void exists(String path) throws KeeperException, InterruptedException, IOException {
 
         if (zk == null) {
-            zk = this.createSession("192.168.85.128:2181", 5000, this);
+            zk = this.createSession("localhost:2181", 5000, this);
         }
         zk.exists(path, true);
     }

@@ -39,7 +39,7 @@ public class ZooKeeper_GetChildren_API_ASync_Usage_Deadlock implements Watcher {
             InterruptedException {
 
         if (zk == null) {
-            zk = this.createSession("192.168.85.128:2181", 5000, this);
+            zk = this.createSession("localhost:2181", 5000, this);
         }
         zk.create(path, data.getBytes(), Ids.OPEN_ACL_UNSAFE, createMode);
     }
@@ -49,7 +49,7 @@ public class ZooKeeper_GetChildren_API_ASync_Usage_Deadlock implements Watcher {
 
         System.out.println("===Start to get children znodes.===");
         if (zk == null) {
-            zk = this.createSession("192.168.85.128:2181", 5000, this);
+            zk = this.createSession("localhost:2181", 5000, this);
         }
 
         final CountDownLatch _semaphore_get_children = new CountDownLatch(1);

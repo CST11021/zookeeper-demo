@@ -8,11 +8,11 @@ public class AuthSample_Get {
     final static String PATH = "/zk-book-auth_test";
     public static void main(String[] args) throws Exception {
 
-        ZooKeeper zookeeper1 = new ZooKeeper("192.168.85.128:2181",5000,null);
+        ZooKeeper zookeeper1 = new ZooKeeper("localhost:2181",5000,null);
         zookeeper1.addAuthInfo("digest", "foo:true".getBytes());
         zookeeper1.create( PATH, "init".getBytes(), Ids.CREATOR_ALL_ACL, CreateMode.EPHEMERAL );
         
-        ZooKeeper zookeeper2 = new ZooKeeper("192.168.85.128:2181",50000,null);
+        ZooKeeper zookeeper2 = new ZooKeeper("localhost:2181",50000,null);
         zookeeper2.getData( PATH, false, null );
     }
 }

@@ -9,7 +9,7 @@ public class Create_Session_Sample {
     public static void main(String[] args) throws Exception{
         RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
         CuratorFramework client =
-        CuratorFrameworkFactory.newClient("192.168.85.128:2181",
+        CuratorFrameworkFactory.newClient("localhost:2181",
         		5000,
         		3000,
         		retryPolicy);

@@ -11,7 +11,7 @@ public class NodeCache_Node_Not_Exist_Sample {
 
     static String path = "/curator_nodecache_sample";
     static CuratorFramework client = CuratorFrameworkFactory.builder()
-            .connectString("192.168.85.128:2181")
+            .connectString("localhost:2181")
             .sessionTimeoutMs(5000)
             .retryPolicy(new ExponentialBackoffRetry(1000, 3))
             .build();
