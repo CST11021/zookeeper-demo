@@ -1,4 +1,4 @@
-package book.chapter05.$5_4_2;
+package com.whz.zookeeper.curator;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.CountDownLatch;

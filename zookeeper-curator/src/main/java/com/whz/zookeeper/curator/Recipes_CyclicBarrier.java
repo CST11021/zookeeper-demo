@@ -1,4 +1,4 @@
-package book.chapter05.$5_4_2;
+package com.whz.zookeeper.curator;
 import java.io.IOException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -15,6 +15,7 @@ public class Recipes_CyclicBarrier {
 		executor.shutdown();
 	}
 }
+
 class Runner implements Runnable {
 	private String name;
 	public Runner( String name ) {

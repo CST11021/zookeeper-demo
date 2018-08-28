@@ -1,8 +1,9 @@
-package book.chapter05.$5_4_2;
+package com.whz.zookeeper.curator;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.recipes.barriers.DistributedDoubleBarrier;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+
 public class Recipes_Barrier2 {
 	static String barrier_path = "/curator_recipes_barrier_path";
 	public static void main(String[] args) throws Exception {

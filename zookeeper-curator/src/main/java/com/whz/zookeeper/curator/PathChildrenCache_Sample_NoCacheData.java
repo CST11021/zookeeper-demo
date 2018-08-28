@@ -1,4 +1,4 @@
-package book.chapter05.$5_4_2;
+package com.whz.zookeeper.curator;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
