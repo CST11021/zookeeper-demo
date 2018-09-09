@@ -29,20 +29,22 @@ public enum CreateMode {
     
     /**
      * The znode will not be automatically deleted upon client's disconnect.
+     * 持久节点：当客户端断开连接时，znode将不会被自动删除
      */
     PERSISTENT (0, false, false, false, false),
     /**
-    * The znode will not be automatically deleted upon client's disconnect,
-    * and its name will be appended with a monotonically increasing number.
-    */
+     * The znode will not be automatically deleted upon client's disconnect, and its name will be appended with a monotonically increasing number.
+     * 持久有序：当客户端断开连接时，znode将不会被自动删除，它的名称将以单调递增的数字追加。
+     */
     PERSISTENT_SEQUENTIAL (2, false, true, false, false),
     /**
      * The znode will be deleted upon the client's disconnect.
+     * 临时节点：当客户端断开连接时，znode将被删除。
      */
     EPHEMERAL (1, true, false, false, false),
     /**
-     * The znode will be deleted upon the client's disconnect, and its name
-     * will be appended with a monotonically increasing number.
+     * The znode will be deleted upon the client's disconnect, and its name will be appended with a monotonically increasing number.
+     * 临时有序的节点：当客户端断开连接时，znode将被删除，它的名称将以单调递增的数字追加
      */
     EPHEMERAL_SEQUENTIAL (3, true, true, false, false),
     /**
