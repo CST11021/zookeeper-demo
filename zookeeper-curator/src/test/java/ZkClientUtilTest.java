@@ -2,6 +2,9 @@ import com.whz.zookeeper.curator.ZkClientUtil;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.api.BackgroundCallback;
 import org.apache.curator.framework.api.CuratorEvent;
+import org.apache.curator.framework.recipes.cache.NodeCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
 import org.apache.zookeeper.CreateMode;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -98,6 +101,52 @@ public class ZkClientUtilTest {
     public void read2() throws Exception {
         byte[] data = ZkClientUtil.read(zkClient, "/whz/test1");
         System.out.println(new String(data));
+    }
+
+    @Test
+    public void setNodeListenerTest() throws Exception {
+        ZkClientUtil.setNodeListener(zkClient, "/whz/testNodeByListener", new ZkClientUtil.NodeListener() {
+
+            @Override
+            public void nodeChanged(NodeCache cache) throws Exception {
+                System.out.println("Node data update, new data: " +
+                        new String(cache.getCurrentData().getData()));
+            }
+        });
+    }
+
+    @Test
+    public void setChildrenListenerTest() throws Exception {
+        String path = "/whz/testChildrenByListener";
+        ZkClientUtil.setChildrenListener(zkClient, path, new PathChildrenCacheListener() {
+            public void childEvent(CuratorFramework client,
+                                   PathChildrenCacheEvent event) throws Exception {
+                switch (event.getType()) {
+                    case CHILD_ADDED:
+                        System.out.println("CHILD_ADDED," + event.getData().getPath());
+                        break;
+                    case CHILD_UPDATED:
+                        System.out.println("CHILD_UPDATED," + event.getData().getPath());
+                        break;
+                    case CHILD_REMOVED:
+                        System.out.println("CHILD_REMOVED," + event.getData().getPath());
+                        break;
+                    default:
+                        break;
+                }
+            }
+        });
+
+        ZkClientUtil.create(zkClient, path);
+        Thread.sleep( 1000 );
+        ZkClientUtil.create(zkClient, path+"/c1");
+        Thread.sleep( 1000 );
+        ZkClientUtil.update(zkClient, path+"/c1", "abc".getBytes());
+        Thread.sleep( 1000 );
+        ZkClientUtil.deleteLeafNode(zkClient, path+"/c1");
+        Thread.sleep( 1000 );
+        ZkClientUtil.deleteLeafNode(zkClient, path);
+        Thread.sleep(Integer.MAX_VALUE);
     }
 
 }

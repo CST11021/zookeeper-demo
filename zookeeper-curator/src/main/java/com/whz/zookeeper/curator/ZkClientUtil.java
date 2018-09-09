@@ -5,15 +5,13 @@ import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.BackgroundCallback;
-import org.apache.curator.framework.api.CuratorEvent;
+import org.apache.curator.framework.recipes.cache.*;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
 
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  *
@@ -251,14 +249,30 @@ public class ZkClientUtil {
     // 更新节点
 
     /**
+     *
+     * 更新节点数据，该方法是非线程安全，推荐使用{@link #updateByCAS(CuratorFramework, String, byte[])}线程安全的方法
+     *
      * @param client
      * @param path
      * @param data
-     * @return
+     * @return 返回更新后的stat
      * @throws Exception
      */
     public static Stat update(CuratorFramework client, String path, byte[] data) throws Exception {
-        return client.setData().forPath(path);
+        return client.setData().forPath(path, data);
+    }
+
+    /**
+     * 使用乐观锁的方式更新节点数据
+     * @param client
+     * @param path
+     * @param data
+     * @return 返回更新后的stat
+     * @throws Exception
+     */
+    public static Stat updateByCAS(CuratorFramework client, String path, byte[] data) throws Exception {
+        Stat stat = getCurrentStat(client, path);
+        return update(client, path, data, stat.getVersion());
     }
 
     /**
@@ -269,11 +283,11 @@ public class ZkClientUtil {
      * @param path
      * @param data
      * @param version
-     * @return
+     * @return 返回更新后的stat
      * @throws Exception
      */
     public static Stat update(CuratorFramework client, String path, byte[] data, int version) throws Exception {
-        return client.setData().withVersion(version).forPath(path);
+        return client.setData().withVersion(version).forPath(path, data);
     }
 
     // 删除节点
@@ -340,6 +354,85 @@ public class ZkClientUtil {
      */
     public static List<String> getChildren(CuratorFramework client, String path) throws Exception {
         return client.getChildren().forPath(path);
+    }
+
+    // 获取当前指定节点的Stat
+
+    /**
+     * 获取当前指定节点的Stat
+     * @param client
+     * @param path
+     * @return
+     * @throws Exception
+     */
+    public static Stat getCurrentStat(CuratorFramework client, String path) throws Exception {
+        Stat stat = new Stat();
+        client.getData().storingStatIn(stat).forPath(path);
+        return stat;
+    }
+
+
+
+    // 节点事件监听
+
+    /**
+     * NodeCache不仅可以用于监听数据节点的内容变更，也能监听指定节点是否存在。如果原本节点不存在，那么Cache就会在节点被创建后触发
+     * NodeCacheListener，但是，如果该数据节点被删除，那么Curator就无法触发NodeCacheListener监听的方法了
+     * @param client        Curator客户端
+     * @param path          要监听的节点路径
+     * @param listener      监听器
+     * @throws Exception
+     */
+    public static void setNodeListener(CuratorFramework client, String path, NodeListener listener) throws Exception {
+        final NodeCache cache = new NodeCache(client,path,false);
+        // 默认为false，这里设备为true时，NodeCache在第一次启动的时候就会立刻从Zookeeper上读取对应的节点的数据内容，并保存在Cache中
+        cache.start(true);
+        cache.getListenable().addListener(new NodeCacheListener() {
+
+            @Override
+            public void nodeChanged() throws Exception {
+                listener.nodeChanged(cache);
+            }
+        });
+
+    }
+
+    /**
+     * 监听子节点变更：当指定节点的子节点发生变化时，就会调用{@link PathChildrenCacheListener#childEvent(CuratorFramework, PathChildrenCacheEvent)}
+     * 方法，{@link PathChildrenCacheEvent}中定义了所有的事件类型，主要包括新增子节点、子节点数据变更和子节点删除三类
+     *
+     * 注意：
+     * 1、该方法只监听指定节点的子节点，指定的节点本身的变更，并没有调用监听方法；
+     * 2、和其他Zookeeper客户端一样，Curator也无法对二级子节点进行事件监听。也就说，如果使用{@link PathChildrenCache}对"/zk-book"
+     * 进行监听，那么当"/zk-book/c1/c2"节点被创建或删除的时候，是无法触发子节点变更事件的。
+     *
+     * @param client
+     * @param path
+     * @param listener
+     * @throws Exception
+     */
+    public static void setChildrenListener(CuratorFramework client, String path, PathChildrenCacheListener listener) throws Exception {
+
+        PathChildrenCache cache = new PathChildrenCache(client, path, true);
+        cache.start(PathChildrenCache.StartMode.POST_INITIALIZED_EVENT);
+        cache.getListenable().addListener(listener);
+
+    }
+
+    /**
+     * 对Curator事件监听的封装
+     */
+    public abstract static class NodeListener implements NodeCacheListener {
+
+        NodeCache cache;
+
+        @Override
+        public void nodeChanged() throws Exception {
+            nodeChanged(cache);
+        }
+
+        public abstract void nodeChanged(NodeCache cache) throws Exception;
+
     }
 
 }
