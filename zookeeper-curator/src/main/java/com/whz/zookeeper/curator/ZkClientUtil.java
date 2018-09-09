@@ -12,6 +12,7 @@ import org.apache.zookeeper.data.Stat;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 /**
  *
@@ -398,13 +399,6 @@ public class ZkClientUtil {
     }
 
     /**
-     * 监听子节点变更：当指定节点的子节点发生变化时，就会调用{@link PathChildrenCacheListener#childEvent(CuratorFramework, PathChildrenCacheEvent)}
-     * 方法，{@link PathChildrenCacheEvent}中定义了所有的事件类型，主要包括新增子节点、子节点数据变更和子节点删除三类
-     *
-     * 注意：
-     * 1、该方法只监听指定节点的子节点，指定的节点本身的变更，并没有调用监听方法；
-     * 2、和其他Zookeeper客户端一样，Curator也无法对二级子节点进行事件监听。也就说，如果使用{@link PathChildrenCache}对"/zk-book"
-     * 进行监听，那么当"/zk-book/c1/c2"节点被创建或删除的时候，是无法触发子节点变更事件的。
      *
      * @param client
      * @param path
@@ -418,6 +412,32 @@ public class ZkClientUtil {
         cache.getListenable().addListener(listener);
 
     }
+
+    /**
+     * 监听子节点变更：当指定节点的子节点发生变化时，就会调用{@link PathChildrenCacheListener#childEvent(CuratorFramework, PathChildrenCacheEvent)}
+     * 方法，{@link PathChildrenCacheEvent}中定义了所有的事件类型，主要包括新增子节点、子节点数据变更和子节点删除等
+     *
+     * 注意：
+     * 1、该方法只监听指定节点的子节点，指定的节点本身的变更，并没有调用监听方法；
+     * 2、和其他Zookeeper客户端一样，Curator也无法对二级子节点进行事件监听。也就说，如果使用{@link PathChildrenCache}对"/zk-book"
+     * 进行监听，那么当"/zk-book/c1/c2"节点被创建或删除的时候，是无法触发子节点变更事件的。
+     *
+     * @param client
+     * @param path
+     * @param executor      通过线程池来异步处理事件通知
+     * @param cacheData     用于配置是否把节点的内容数据缓存起来，如果配置为true，那么客户端在接收到节点列表变更的同时，也能获取到节点
+     *                      的数据内容；如果配置为false，则无法获取到节点的数据内容
+     * @param listener      监听接口
+     * @throws Exception
+     */
+    public static void setChildrenListener(CuratorFramework client, String path, boolean cacheData, ExecutorService executor, PathChildrenCacheListener listener) throws Exception {
+
+        PathChildrenCache cache = new PathChildrenCache(client, path, cacheData, false, executor);
+        cache.start(PathChildrenCache.StartMode.POST_INITIALIZED_EVENT);
+        cache.getListenable().addListener(listener);
+
+    }
+
 
     /**
      * 对Curator事件监听的封装
