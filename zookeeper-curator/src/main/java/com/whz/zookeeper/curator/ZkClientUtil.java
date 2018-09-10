@@ -6,6 +6,9 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.BackgroundCallback;
 import org.apache.curator.framework.recipes.cache.*;
+import org.apache.curator.framework.recipes.leader.LeaderSelector;
+import org.apache.curator.framework.recipes.leader.LeaderSelectorListenerAdapter;
+import org.apache.curator.framework.recipes.locks.InterProcessMutex;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
@@ -438,6 +441,48 @@ public class ZkClientUtil {
 
     }
 
+    // master选举
+
+    /**
+     * master选举
+     * 实现思路：选择一个根节点，例如/master_select，多台机器同时向该节点创建一个子节点/master_select/lock，利用Zookeeper的特性，最终
+     * 只有一台机器能够创建成功，成功的那台就作为master
+     *
+     * Curator会在竞争到Master后自动调用{@link LeaderSelectorListenerAdapter#takeLeadership(CuratorFramework)}方法，开发者可以
+     * 在这个方法中实现自己的业务逻辑。需要注意的是：一旦执行完takeleadership方法,Curator就会立即释放Master权利,然后重新开始新一轮的
+     * Master选举。当一个应用实例成为Master后,其他应用实例会进入等待,直到当前Master挂了或退出后才会开始选举新的Master。
+     *
+     * @param client
+     * @param masterPath
+     * @param adapter
+     */
+    public static void masterSelect(CuratorFramework client, String masterPath, LeaderSelectorListenerAdapter adapter) {
+        LeaderSelector selector = new LeaderSelector(client, masterPath, adapter);
+
+        selector.autoRequeue();
+        selector.start();
+    }
+
+    // 分布式锁
+
+    /**
+     * 给指定的业务逻辑添加分布式锁
+     * @param client
+     * @param lockPath
+     * @param handler
+     * @return
+     * @throws Exception
+     */
+    public static Object distributedLock(CuratorFramework client, String lockPath, Handler handler) throws Exception {
+        final InterProcessMutex lock = new InterProcessMutex(client, lockPath);
+        try {
+
+            lock.acquire();
+            return handler.doHandler();
+        } finally {
+            lock.release();
+        }
+    }
 
     /**
      * 对Curator事件监听的封装
@@ -451,8 +496,17 @@ public class ZkClientUtil {
             nodeChanged(cache);
         }
 
+        /**
+         * 监听器
+         * @param cache
+         * @throws Exception
+         */
         public abstract void nodeChanged(NodeCache cache) throws Exception;
 
+    }
+
+    public interface Handler<T> {
+        public T doHandler();
     }
 
 }

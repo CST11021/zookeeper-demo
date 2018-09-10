@@ -5,6 +5,7 @@ import org.apache.curator.framework.api.CuratorEvent;
 import org.apache.curator.framework.recipes.cache.NodeCache;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheListener;
+import org.apache.curator.framework.recipes.leader.LeaderSelectorListenerAdapter;
 import org.apache.zookeeper.CreateMode;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -149,4 +150,15 @@ public class ZkClientUtilTest {
         Thread.sleep(Integer.MAX_VALUE);
     }
 
+    @Test
+    public void masterSelectTest() throws Exception {
+        ZkClientUtil.masterSelect(zkClient, "/masterPath", new LeaderSelectorListenerAdapter() {
+            public void takeLeadership(CuratorFramework client) throws Exception {
+                System.out.println("成为Master角色");
+                Thread.sleep( 3000 );
+                System.out.println( "完成Master操作，释放Master权利" );
+            }
+        });
+        Thread.sleep(Integer.MAX_VALUE);
+    }
 }
