@@ -1,4 +1,4 @@
-package com.whz.zookeeper.curator;
+package com.whz.zookeeper.curator.barrier;
 import java.io.IOException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -6,9 +6,11 @@ import java.util.concurrent.Executors;
 
 public class Recipes_CyclicBarrier {
 
-	public static CyclicBarrier barrier = new CyclicBarrier( 3 );
+	private final static int PARTIES = 3;
+
+	public static CyclicBarrier barrier = new CyclicBarrier(PARTIES);
 	public static void main( String[] args ) throws IOException, InterruptedException {
-		ExecutorService executor = Executors.newFixedThreadPool( 3 );
+		ExecutorService executor = Executors.newFixedThreadPool(PARTIES);
 		executor.submit( new Thread( new Runner( "1号选手" ) ) );
 		executor.submit( new Thread( new Runner( "2号选手" ) ) );
 		executor.submit( new Thread( new Runner( "3号选手" ) ) );

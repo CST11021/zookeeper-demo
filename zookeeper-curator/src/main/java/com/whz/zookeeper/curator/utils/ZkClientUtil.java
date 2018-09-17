@@ -1,15 +1,19 @@
-package com.whz.zookeeper.curator;
+package com.whz.zookeeper.curator.utils;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.BackgroundCallback;
+import org.apache.curator.framework.recipes.atomic.AtomicValue;
+import org.apache.curator.framework.recipes.atomic.DistributedAtomicInteger;
+import org.apache.curator.framework.recipes.barriers.DistributedDoubleBarrier;
 import org.apache.curator.framework.recipes.cache.*;
 import org.apache.curator.framework.recipes.leader.LeaderSelector;
 import org.apache.curator.framework.recipes.leader.LeaderSelectorListenerAdapter;
 import org.apache.curator.framework.recipes.locks.InterProcessMutex;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.curator.retry.RetryNTimes;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.data.Stat;
 
@@ -483,6 +487,45 @@ public class ZkClientUtil {
             lock.release();
         }
     }
+
+    /**
+     * 有了分布式锁实现的基础，我们就很容易基于其实现一个分布式计数器。分布式计数器的一个典型场景是统计系统的在线人数。基于Zookeeper的分
+     * 布式计数器的实现思路也非常简单：指定一个Zookeeper数据节点作为计数器，多个应用实例在分布式锁的控制下，通过更新该数据节点的内容来实
+     * 现技术功能。
+     *
+     * @param client
+     * @param distatomicintPath
+     * @param delta
+     * @return
+     * @throws Exception
+     */
+    public static AtomicValue<Integer> distAtomicInt(CuratorFramework client, String distatomicintPath, int delta) throws Exception {
+        RetryNTimes retryNTimes = new RetryNTimes( 3, 1000 );
+        DistributedAtomicInteger atomicInteger = new DistributedAtomicInteger( client, distatomicintPath, retryNTimes);
+        AtomicValue<Integer> rc = atomicInteger.add(delta);
+
+        System.out.println( "是否执行成功：" + rc.succeeded() + "，更新前的值：" + rc.preValue() + "，更新后的值：" + rc.preValue());
+        return rc;
+    }
+
+    private static final String CONNECT_PATH = "192.168.66.110:2181,192.168.66.110:2182,192.168.66.110:2183";
+
+    // Session 超时时间
+    private static final int SESSION_TIME_OUT = 60000;
+
+    // 连接超时
+    private static final int CONNECT_TIME_OUT = 5000;
+
+    public static void dobuleBarrirer(CuratorFramework client, String dobuleBarrirerPath, int taskNum) throws Exception {
+        //设置Barrier  5个同时准备的情况，这个是放在Thread 里面，就相当于每个线程都获取DistributedDoubleBarrier,然后更新操作里面的值
+        DistributedDoubleBarrier barrier = new DistributedDoubleBarrier(client, dobuleBarrirerPath, taskNum);
+        System.out.println(Thread.currentThread().getName()+"\t同时等待");
+        barrier.enter();
+        System.out.println(Thread.currentThread().getName()+"\t同时执行任务");
+        barrier.leave();
+    }
+
+
 
     /**
      * 对Curator事件监听的封装

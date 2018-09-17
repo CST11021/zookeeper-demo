@@ -1,4 +1,4 @@
-import com.whz.zookeeper.curator.ZkClientUtil;
+import com.whz.zookeeper.curator.utils.ZkClientUtil;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.api.BackgroundCallback;
 import org.apache.curator.framework.api.CuratorEvent;
