@@ -1,12 +1,5 @@
 package book.chapter05.$5_3_1;
 
-import java.util.concurrent.CountDownLatch;
-
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.Watcher;
-import org.apache.zookeeper.Watcher.Event.KeeperState;
-import org.apache.zookeeper.ZooKeeper;
-
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
@@ -18,6 +11,7 @@ import java.util.concurrent.CountDownLatch;
  */
 public class ZooKeeper_Constructor_Usage_Simple implements Watcher {
 
+    /** 使用闭锁的方式实现信号量功能 */
     private static CountDownLatch connectedSemaphore = new CountDownLatch(1);
 
     public static void main(String[] args) throws Exception{
@@ -28,6 +22,7 @@ public class ZooKeeper_Constructor_Usage_Simple implements Watcher {
                 new ZooKeeper_Constructor_Usage_Simple());
         System.out.println(zookeeper.getState());
         try {
+            // 线程进行等待，直到闭锁事件（即客户端成功连接上zk，并创建了session）发生
             connectedSemaphore.await();
         } catch (InterruptedException e) {
             e.printStackTrace();
