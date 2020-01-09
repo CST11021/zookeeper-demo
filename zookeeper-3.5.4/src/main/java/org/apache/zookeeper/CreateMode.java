@@ -28,59 +28,51 @@ import org.slf4j.LoggerFactory;
 public enum CreateMode {
     
     /**
-     * The znode will not be automatically deleted upon client's disconnect.
      * 持久节点：当客户端断开连接时，znode将不会被自动删除
      */
     PERSISTENT (0, false, false, false, false),
     /**
-     * The znode will not be automatically deleted upon client's disconnect, and its name will be appended with a monotonically increasing number.
-     * 持久有序：当客户端断开连接时，znode将不会被自动删除，它的名称将以单调递增的数字追加。
+     * 持久有序：当客户端断开连接时，znode将不会被自动删除，并且节点的名称将在后面追加一个递增的数字。
      */
     PERSISTENT_SEQUENTIAL (2, false, true, false, false),
     /**
-     * The znode will be deleted upon the client's disconnect.
      * 临时节点：当客户端断开连接时，znode将被删除。
      */
     EPHEMERAL (1, true, false, false, false),
     /**
-     * The znode will be deleted upon the client's disconnect, and its name will be appended with a monotonically increasing number.
-     * 临时有序的节点：当客户端断开连接时，znode将被删除，它的名称将以单调递增的数字追加
+     * 临时有序的节点：当客户端断开连接时，znode将被删除，并且节点的名称将在后面追加一个递增的数字。
      */
     EPHEMERAL_SEQUENTIAL (3, true, true, false, false),
     /**
-     * The znode will be a container node. Container
-     * nodes are special purpose nodes useful for recipes such as leader, lock,
-     * etc. When the last child of a container is deleted, the container becomes
-     * a candidate to be deleted by the server at some point in the future.
-     * Given this property, you should be prepared to get
-     * {@link org.apache.zookeeper.KeeperException.NoNodeException}
-     * when creating children inside of this container node.
+     * 容器节点：如果节点中最后一个子Znode被删除，将会触发删除该Znode。
+     * 容器节点是一种特殊用途的节点，对诸如leader、lock等非常有用。
+     *
      */
     CONTAINER (4, false, false, true, false),
     /**
-     * The znode will not be automatically deleted upon client's disconnect.
-     * However if the znode has not been modified within the given TTL, it
-     * will be deleted once it has no children.
+     * 客户端断开连接后不会自动删除 Znode，如果该 Znode 没有子 Znode 且在给定 TTL 时间内无修改，该 Znode 将会被删除；TTL 单位是毫秒，必须大于0 且小于或等于 EphemeralType.MAX_TTL
      */
     PERSISTENT_WITH_TTL(5, false, false, false, true),
     /**
-     * The znode will not be automatically deleted upon client's disconnect,
-     * and its name will be appended with a monotonically increasing number.
-     * However if the znode has not been modified within the given TTL, it
-     * will be deleted once it has no children.
+     * 客户端断开连接后不会自动删除 Znode，如果该 Znode 没有子 Znode 且在给定 TTL 时间内无修改，该 Znode 将会被删除；TTL 单位是毫秒，必须大于0 且小于或等于 EphemeralType.MAX_TTL
+     * 与{@link #PERSISTENT_WITH_TTL} 的区别是，该类型是有序的
      */
     PERSISTENT_SEQUENTIAL_WITH_TTL(6, false, true, false, true);
 
     private static final Logger LOG = LoggerFactory.getLogger(CreateMode.class);
 
+    /** 是否为临时节点 */
     private boolean ephemeral;
+    /** 是否有序 */
     private boolean sequential;
+    /** 是否为容器节点 */
     private final boolean isContainer;
+    /** 表示枚举值 */
     private int flag;
+    /** 键值系统有一个对应用配置很有帮助的特性，可以给每一个键或目录指定一个存活时限（TTL，即Time To Life）。TTL的单位是秒，当指定的秒数过去以后，如果相应的键或目录没有得到更新，就会被自动从Etcd记录中移除。 */
     private boolean isTTL;
 
-    CreateMode(int flag, boolean ephemeral, boolean sequential,
-               boolean isContainer, boolean isTTL) {
+    CreateMode(int flag, boolean ephemeral, boolean sequential, boolean isContainer, boolean isTTL) {
         this.flag = flag;
         this.ephemeral = ephemeral;
         this.sequential = sequential;

@@ -18,12 +18,12 @@
 
 package org.apache.zookeeper;
 
-import java.util.ArrayList;
-import java.util.Collections;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
+
+import java.util.ArrayList;
+import java.util.Collections;
 
 @InterfaceAudience.Public
 public class ZooDefs {
@@ -110,29 +110,27 @@ public class ZooDefs {
         public final Id ANYONE_ID_UNSAFE = new Id("world", "anyone");
 
         /**
-         * This Id is only usable to set ACLs. It will get substituted with the
-         * Id's the client authenticated with.
+         * This Id is only usable to set ACLs. It will get substituted with the Id's the client authenticated with.
          */
         public final Id AUTH_IDS = new Id("auth", "");
 
         /**
-         * This is a completely open ACL .
+         * 这是一个完全开放的ACL，没有权限限制
          */
         public final ArrayList<ACL> OPEN_ACL_UNSAFE = new ArrayList<ACL>(
                 Collections.singletonList(new ACL(Perms.ALL, ANYONE_ID_UNSAFE)));
 
         /**
-         * This ACL gives the creators authentication id's all permissions.
+         * 为通过身份认证的id提供所有权限
          */
         public final ArrayList<ACL> CREATOR_ALL_ACL = new ArrayList<ACL>(
                 Collections.singletonList(new ACL(Perms.ALL, AUTH_IDS)));
 
         /**
-         * This ACL gives the world the ability to read.
+         * 所有的用户都有只读权限
          */
         public final ArrayList<ACL> READ_ACL_UNSAFE = new ArrayList<ACL>(
-                Collections
-                        .singletonList(new ACL(Perms.READ, ANYONE_ID_UNSAFE)));
+                Collections.singletonList(new ACL(Perms.READ, ANYONE_ID_UNSAFE)));
     }
 
     final public static String[] opNames = { "notification", "create",

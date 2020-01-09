@@ -17,11 +17,11 @@
  */
 package org.apache.zookeeper;
 
-import java.util.List;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
+
+import java.util.List;
 
 /**
  * Interface definitions of asynchronous callbacks.
@@ -90,15 +90,11 @@ public interface AsyncCallback {
          *
          * @param rc   The return code or the result of the call.
          * @param path The path that we passed to asynchronous calls.
-         * @param ctx  Whatever context object that we passed to
-         *             asynchronous calls.
-         * @param data The {@link org.apache.zookeeper.server.DataNode#data}
-         *             of the node.
-         * @param stat {@link org.apache.zookeeper.data.Stat} object of
-         *             the node on given path.
+         * @param ctx  Whatever context object that we passed to asynchronous calls.
+         * @param data The {@link org.apache.zookeeper.server.DataNode#data} of the node.
+         * @param stat object of the node on given path.
          */
-        public void processResult(int rc, String path, Object ctx, byte data[],
-                Stat stat);
+        public void processResult(int rc, String path, Object ctx, byte data[], Stat stat);
     }
 
     /**

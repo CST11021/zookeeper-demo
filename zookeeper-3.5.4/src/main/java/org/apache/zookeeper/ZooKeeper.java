@@ -2412,8 +2412,19 @@ public class ZooKeeper implements AutoCloseable {
                 + cnxn);
     }
 
+
+
+
+
+
+
+
+
+
+
+
     /*
-     * Methods to aid in testing follow.
+     * 下面是帮助测试的方法。
      *
      * THESE METHODS ARE EXPECTED TO BE USED FOR TESTING ONLY!!!
      */
