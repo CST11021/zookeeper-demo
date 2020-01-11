@@ -55,8 +55,7 @@ public class RecordReader {
         }
     }
     
-    static private InputArchive createArchive(InputStream in, String format)
-    throws IOException {
+    static private InputArchive createArchive(InputStream in, String format) throws IOException {
         Method factory = (Method) archiveFactory.get(format);
         if (factory != null) {
             Object[] params = { in };
@@ -72,13 +71,13 @@ public class RecordReader {
         }
         return null;
     }
+
     /**
      * Creates a new instance of RecordReader.
      * @param in Stream from which to deserialize a record
      * @param format Deserialization format ("binary", "xml", or "csv")
      */
-    public RecordReader(InputStream in, String format)
-    throws IOException {
+    public RecordReader(InputStream in, String format) throws IOException {
         archive = createArchive(in, format);
     }
     

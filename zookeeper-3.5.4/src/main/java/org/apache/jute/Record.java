@@ -15,7 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.jute;
 
 import org.apache.yetus.audience.InterfaceAudience;
@@ -23,7 +22,9 @@ import org.apache.yetus.audience.InterfaceAudience;
 import java.io.IOException;
 
 /**
- * Interface that is implemented by generated classes.
+ * Jute生成的类会实现该接口：
+ *
+ * Record提供了2个方法分别是serialize和deserialize，各自都有2个参数，OutputArchive表示序列化器，InputArchive表示反序列器，tag用于标识对象，主要是因为同一个序列化器可以序列化多个对象，所以需要给每个对象一个标识。
  * 
  */
 @InterfaceAudience.Public

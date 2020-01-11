@@ -21,10 +21,10 @@ package org.apache.jute;
 import java.io.IOException;
 
 /**
- * Interface that all the Deserializers have to implement.
- *
+ * 所有反序列化器都必须实现的接口
  */
 public interface InputArchive {
+
     public byte readByte(String tag) throws IOException;
     public boolean readBool(String tag) throws IOException;
     public int readInt(String tag) throws IOException;
@@ -40,4 +40,5 @@ public interface InputArchive {
     public void endVector(String tag) throws IOException;
     public Index startMap(String tag) throws IOException;
     public void endMap(String tag) throws IOException;
+
 }

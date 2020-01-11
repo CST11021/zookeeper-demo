@@ -1,0 +1,19 @@
+module test {
+    class TestBean {
+        int intV;
+        ustring stringV;
+    }
+    class TestBeanAll {
+        byte byteV;
+        boolean booleanV;
+        int intV;
+        long longV;
+        float floatV;
+        double doubleV;
+        ustring stringV;
+        buffer bytes;
+        test.TestBean record;
+        vector<int>listV;
+        map<int,ustring>mapV;
+    }
+}

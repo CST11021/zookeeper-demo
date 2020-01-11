@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,64 +27,75 @@ import java.io.InputStream;
  *
  */
 public class BinaryInputArchive implements InputArchive {
-    static public final String UNREASONBLE_LENGTH= "Unreasonable length = ";
+
+    static public final String UNREASONBLE_LENGTH = "Unreasonable length = ";
+
+    static public final int maxBuffer = Integer.getInteger("jute.maxbuffer", 0xfffff);
+
     private DataInput in;
-    
-    static public BinaryInputArchive getArchive(InputStream strm) {
-        return new BinaryInputArchive(new DataInputStream(strm));
-    }
-    
-    static private class BinaryIndex implements Index {
-        private int nelems;
-        BinaryIndex(int nelems) {
-            this.nelems = nelems;
-        }
-        public boolean done() {
-            return (nelems <= 0);
-        }
-        public void incr() {
-            nelems--;
-        }
-    }
+
+
     /** Creates a new instance of BinaryInputArchive */
     public BinaryInputArchive(DataInput in) {
         this.in = in;
     }
-    
+
+    static public BinaryInputArchive getArchive(InputStream strm) {
+        return new BinaryInputArchive(new DataInputStream(strm));
+    }
+
+    static private class BinaryIndex implements Index {
+
+        private int nelems;
+
+        BinaryIndex(int nelems) {
+            this.nelems = nelems;
+        }
+
+        public boolean done() {
+            return (nelems <= 0);
+        }
+
+        public void incr() {
+            nelems--;
+        }
+    }
+
+
+
+
     public byte readByte(String tag) throws IOException {
         return in.readByte();
     }
-    
+
     public boolean readBool(String tag) throws IOException {
         return in.readBoolean();
     }
-    
+
     public int readInt(String tag) throws IOException {
         return in.readInt();
     }
-    
+
     public long readLong(String tag) throws IOException {
         return in.readLong();
     }
-    
+
     public float readFloat(String tag) throws IOException {
         return in.readFloat();
     }
-    
+
     public double readDouble(String tag) throws IOException {
         return in.readDouble();
     }
-    
+
     public String readString(String tag) throws IOException {
-    	int len = in.readInt();
-    	if (len == -1) return null;
+        int len = in.readInt();
+        if (len == -1) return null;
         checkLength(len);
-    	byte b[] = new byte[len];
-    	in.readFully(b);
-    	return new String(b, "UTF8");
+        byte b[] = new byte[len];
+        in.readFully(b);
+        return new String(b, "UTF8");
     }
-    
-    static public final int maxBuffer = Integer.getInteger("jute.maxbuffer", 0xfffff);
 
     public byte[] readBuffer(String tag) throws IOException {
         int len = readInt(tag);
@@ -94,34 +105,41 @@ public class BinaryInputArchive implements InputArchive {
         in.readFully(arr);
         return arr;
     }
-    
+
     public void readRecord(Record r, String tag) throws IOException {
         r.deserialize(this, tag);
     }
-    
-    public void startRecord(String tag) throws IOException {}
-    
-    public void endRecord(String tag) throws IOException {}
-    
+
+    public void startRecord(String tag) throws IOException {
+    }
+
+    public void endRecord(String tag) throws IOException {
+    }
+
     public Index startVector(String tag) throws IOException {
         int len = readInt(tag);
         if (len == -1) {
-        	return null;
+            return null;
         }
-		return new BinaryIndex(len);
+        return new BinaryIndex(len);
     }
-    
-    public void endVector(String tag) throws IOException {}
-    
+
+    public void endVector(String tag) throws IOException {
+    }
+
     public Index startMap(String tag) throws IOException {
         return new BinaryIndex(readInt(tag));
     }
-    
-    public void endMap(String tag) throws IOException {}
 
-    // Since this is a rough sanity check, add some padding to maxBuffer to
-    // make up for extra fields, etc. (otherwise e.g. clients may be able to
-    // write buffers larger than we can read from disk!)
+    public void endMap(String tag) throws IOException {
+    }
+
+    /**
+     * 这是一个粗略的完整性检查，所以向maxBuffer添加一些填充来弥补额外的字段，等等，否则，比如：客户端写入缓存区的可能大于我们读取的
+     *
+     * @param len
+     * @throws IOException
+     */
     private void checkLength(int len) throws IOException {
         if (len < 0 || len > maxBuffer + 1024) {
             throw new IOException(UNREASONBLE_LENGTH + len);
