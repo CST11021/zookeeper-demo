@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,18 +17,27 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.io.PrintStream;
-import java.util.Map;
 import org.apache.zookeeper.ZooKeeper;
 
+import java.io.PrintStream;
+import java.util.Map;
+
 /**
- * base class for all CLI commands
+ * 所有的zn客户端命令都继承该类
  */
 abstract public class CliCommand {
+
+    /** zk客户端，命令行通过该客户端操作zk服务 */
     protected ZooKeeper zk;
+
+    /** 表示命令行执行的输出信息 */
     protected PrintStream out;
     protected PrintStream err;
+
+    /** 表示执行的命令 */
     private String cmdStr;
+
+    /** 表示命令行的参数 */
     private String optionStr;
 
     /**
@@ -45,48 +54,8 @@ abstract public class CliCommand {
     }
 
     /**
-     * Set out printStream (useable for testing)
-     * @param out 
-     */
-    public void setOut(PrintStream out) {
-        this.out = out;
-    }
-
-    /**
-     * Set err printStream (useable for testing)
-     * @param err 
-     */
-    public void setErr(PrintStream err) {
-        this.err = err;
-    }
-
-    /**
-     * set the zookeper instance
-     * @param zk the ZooKeeper instance.
-     */
-    public void setZk(ZooKeeper zk) {
-        this.zk = zk;
-    }
-
-    /**
-     * get the string used to call this command
-     * @return 
-     */
-    public String getCmdStr() {
-        return cmdStr;
-    }
-
-    /**
-     * get the option string
-     * @return 
-     */
-    public String getOptionStr() {
-        return optionStr;
-    }
-
-    /**
      * get a usage string, contains the command and the options
-     * @return 
+     * @return
      */
     public String getUsageStr() {
         return cmdStr + " " + optionStr;
@@ -94,24 +63,70 @@ abstract public class CliCommand {
 
     /**
      * add this command to a map. Use the command string as key.
-     * @param cmdMap 
+     * @param cmdMap
      */
     public void addToMap(Map<String, CliCommand> cmdMap) {
         cmdMap.put(cmdStr, this);
     }
-    
+
     /**
-     * parse the command arguments
+     * 解析命令行参数
+     *
      * @param cmdArgs
      * @return this CliCommand
      * @throws CliParseException
      */
     abstract public CliCommand parse(String cmdArgs[]) throws CliParseException;
-    
+
     /**
-     * 
+     * 执行命令
+     *
      * @return
      * @throws CliException
      */
     abstract public boolean exec() throws CliException;
+
+
+
+
+
+
+
+    // getter and setter ...
+
+    /**
+     * Set out printStream (useable for testing)
+     * @param out
+     */
+    public void setOut(PrintStream out) {
+        this.out = out;
+    }
+    /**
+     * Set err printStream (useable for testing)
+     * @param err
+     */
+    public void setErr(PrintStream err) {
+        this.err = err;
+    }
+    /**
+     * set the zookeper instance
+     * @param zk the ZooKeeper instance.
+     */
+    public void setZk(ZooKeeper zk) {
+        this.zk = zk;
+    }
+    /**
+     * get the string used to call this command
+     * @return
+     */
+    public String getCmdStr() {
+        return cmdStr;
+    }
+    /**
+     * get the option string
+     * @return
+     */
+    public String getOptionStr() {
+        return optionStr;
+    }
 }

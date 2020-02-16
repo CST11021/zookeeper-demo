@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
  * Shared utilities
  */
 public class ManagedUtil {
+
     private static final Logger LOG = LoggerFactory.getLogger(ManagedUtil.class);
 
     private static final boolean isLog4jJmxEnabled() {
@@ -53,10 +54,9 @@ public class ManagedUtil {
         return enabled;
     }
 
-
     /**
-     * Register the log4j JMX mbeans. Set environment variable
-     * "zookeeper.jmx.log4j.disable" to true to disable registration.
+     * Register the log4j JMX mbeans.
+     * Set environment variable "zookeeper.jmx.log4j.disable" to true to disable registration.
      * @see http://logging.apache.org/log4j/1.2/apidocs/index.html?org/apache/log4j/jmx/package-summary.html
      * @throws JMException if registration fails
      */

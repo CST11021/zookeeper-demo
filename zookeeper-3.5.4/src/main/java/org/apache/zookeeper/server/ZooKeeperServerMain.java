@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,12 +17,6 @@
  */
 
 package org.apache.zookeeper.server;
-
-import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import javax.management.JMException;
 
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.jmx.ManagedUtil;
@@ -35,16 +29,21 @@ import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.management.JMException;
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 /**
- * This class starts and runs a standalone ZooKeeperServer.
+ * 这个类启动并运行一个独立的ZooKeeperServer，启动一个zk服务的入口就是运行{@link #main(String[])}方法
+ * 注意：启动zk服务后并不能直接通过命令行来创建、查看zk上的节点，还需要通过运行{@link org.apache.zookeeper.ZooKeeperMain#main(String[])}来启动命令行工具
  */
 @InterfaceAudience.Public
 public class ZooKeeperServerMain {
-    private static final Logger LOG =
-        LoggerFactory.getLogger(ZooKeeperServerMain.class);
 
-    private static final String USAGE =
-        "Usage: ZooKeeperServerMain configfile | port datadir [ticktime] [maxcnxns]";
+    private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperServerMain.class);
+
+    private static final String USAGE = "Usage: ZooKeeperServerMain configfile | port datadir [ticktime] [maxcnxns]";
 
     // ZooKeeper server supports two kinds of connection: unencrypted and encrypted.
     private ServerCnxnFactory cnxnFactory;
@@ -53,10 +52,17 @@ public class ZooKeeperServerMain {
 
     private AdminServer adminServer;
 
-    /*
-     * Start up the ZooKeeper server.
+    /**
+     * 启动zk服务的入口：
+     * 如果args是一个参数，则表示是配置文件的路径；
      *
-     * @param args the configfile or the port datadir [ticktime]
+     * 如果args是四个参数，其中前两参数必填，后两个参数可选，分别为：
+     * 1、对客户端暴露的端口clientPortAddress；
+     * 2、存放事务记录、内存树快照记录的dataDir；
+     * 3、用于指定seesion检查时间间隔的tickTime；
+     * 4、控制最大客户端连接数的maxClientCnxns。
+     *
+     * @param args
      */
     public static void main(String[] args) {
         ZooKeeperServerMain main = new ZooKeeperServerMain();
@@ -87,9 +93,15 @@ public class ZooKeeperServerMain {
         System.exit(0);
     }
 
-    protected void initializeAndRun(String[] args)
-        throws ConfigException, IOException, AdminServerException
-    {
+    /**
+     * 解析args入参，启动zk服务
+     *
+     * @param args
+     * @throws ConfigException
+     * @throws IOException
+     * @throws AdminServerException
+     */
+    protected void initializeAndRun(String[] args) throws ConfigException, IOException, AdminServerException {
         try {
             ManagedUtil.registerLog4jMBeans();
         } catch (JMException e) {
@@ -97,9 +109,16 @@ public class ZooKeeperServerMain {
         }
 
         ServerConfig config = new ServerConfig();
+        // 如果是一个参数，则表示是配置文件的路径
         if (args.length == 1) {
             config.parse(args[0]);
         } else {
+            // main方法中传入四个参数，其中前两参数必填，后两个参数可选。
+            // 分别为：
+            // 1、对客户端暴露的端口clientPortAddress；
+            // 2、存放事务记录、内存树快照记录的dataDir；
+            // 3、用于指定seesion检查时间间隔的tickTime；
+            // 4、控制最大客户端连接数的maxClientCnxns。
             config.parse(args);
         }
 
@@ -107,13 +126,13 @@ public class ZooKeeperServerMain {
     }
 
     /**
-     * Run from a ServerConfig.
+     * 根据配置文件启动一个zk服务
+     *
      * @param config ServerConfig to use.
      * @throws IOException
      * @throws AdminServerException
      */
-    public void runFromConfig(ServerConfig config)
-            throws IOException, AdminServerException {
+    public void runFromConfig(ServerConfig config) throws IOException, AdminServerException {
         LOG.info("Starting server");
         FileTxnSnapLog txnLog = null;
         try {
@@ -122,14 +141,12 @@ public class ZooKeeperServerMain {
             // run() in this thread.
             // create a file logger url from the command line args
             txnLog = new FileTxnSnapLog(config.dataLogDir, config.dataDir);
-            final ZooKeeperServer zkServer = new ZooKeeperServer(txnLog,
-                    config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, null);
+            final ZooKeeperServer zkServer = new ZooKeeperServer(txnLog, config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, null);
 
             // Registers shutdown handler which will be used to know the
             // server error or shutdown state changes.
             final CountDownLatch shutdownLatch = new CountDownLatch(1);
-            zkServer.registerServerShutdownHandler(
-                    new ZooKeeperServerShutdownHandler(shutdownLatch));
+            zkServer.registerServerShutdownHandler(new ZooKeeperServerShutdownHandler(shutdownLatch));
 
             // Start Admin server
             adminServer = AdminServerFactory.createAdminServer();
@@ -203,7 +220,9 @@ public class ZooKeeperServerMain {
         }
     }
 
-    // VisibleForTesting
+    /**
+     * VisibleForTesting
+     */
     ServerCnxnFactory getCnxnFactory() {
         return cnxnFactory;
     }

@@ -17,7 +17,6 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.List;
 import org.apache.commons.cli.*;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -26,19 +25,29 @@ import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.EphemeralType;
 
+import java.util.List;
+
 /**
  * create command for cli
  */
 public class CreateCommand extends CliCommand {
 
     private static Options options = new Options();
+
+    /** 表示命令行参数 */
     private String[] args;
+
+    /** 表示命令行信息 */
     private CommandLine cl;
 
     static {
+        /** 表示是临时节点 */
         options.addOption(new Option("e", false, "ephemeral"));
+        /** 表示是顺序节点 */
         options.addOption(new Option("s", false, "sequential"));
+        /** 表示是容器节点 */
         options.addOption(new Option("c", false, "container"));
+        /** 表示是ttl节点 */
         options.addOption(new Option("t", true, "ttl"));
     }
 
@@ -51,10 +60,12 @@ public class CreateCommand extends CliCommand {
     public CliCommand parse(String[] cmdArgs) throws CliParseException {
         Parser parser = new PosixParser();
         try {
+            // 将解析的命令行封装为一个CommandLine实例
             cl = parser.parse(options, cmdArgs);
         } catch (ParseException ex) {
             throw new CliParseException(ex);
         }
+
         args = cl.getArgs();
         if(args.length < 2) {
             throw new CliParseException(getUsageStr());
@@ -62,16 +73,24 @@ public class CreateCommand extends CliCommand {
         return this;
     }
 
-
+    /**
+     * 执行创建节点的命令
+     *
+     * @return
+     * @throws CliException
+     */
     @Override
     public boolean exec() throws CliException {
         boolean hasE = cl.hasOption("e");
         boolean hasS = cl.hasOption("s");
         boolean hasC = cl.hasOption("c");
         boolean hasT = cl.hasOption("t");
+
+        // 容器节点不能是临时节点或顺序节点
         if (hasC && (hasE || hasS)) {
             throw new MalformedCommandException("-c cannot be combined with -s or -e. Containers cannot be ephemeral or sequential.");
         }
+
         long ttl;
         try {
             ttl = hasT ? Long.parseLong(cl.getOptionValue("t")) : 0;
@@ -79,9 +98,12 @@ public class CreateCommand extends CliCommand {
             throw new MalformedCommandException("-t argument must be a long value");
         }
 
+        // 如果是ttl节点不能是临时节点
         if ( hasT && hasE ) {
             throw new MalformedCommandException("TTLs cannot be used with Ephemeral znodes");
         }
+
+        // 如果是ttl节点不能是容器节点
         if ( hasT && hasC ) {
             throw new MalformedCommandException("TTLs cannot be used with Container znodes");
         }
@@ -115,7 +137,10 @@ public class CreateCommand extends CliCommand {
         if (args.length > 3) {
             acl = AclParser.parse(args[3]);
         }
+
+
         try {
+            // 将创建节点的实现委托给ZooKeeper
             String newPath = hasT ? zk.create(path, data, acl, flags, new Stat(), ttl) : zk.create(path, data, acl, flags);
             err.println("Created " + newPath);
         } catch(IllegalArgumentException ex) {
