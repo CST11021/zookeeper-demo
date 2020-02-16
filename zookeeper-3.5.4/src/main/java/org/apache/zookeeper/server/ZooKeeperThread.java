@@ -21,20 +21,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * This is the main class for catching all the uncaught exceptions thrown by the
- * threads.
+ * 这是捕获线程抛出的所有未捕获异常的主类。
  */
 public class ZooKeeperThread extends Thread {
 
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ZooKeeperThread.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperThread.class);
 
+    /** 线程类如果内部没有对相应的异常进行处理，则当异常发生时，会调用该处理器，进行处理 */
     private UncaughtExceptionHandler uncaughtExceptionalHandler = new UncaughtExceptionHandler() {
 
         @Override
         public void uncaughtException(Thread t, Throwable e) {
             handleException(t.getName(), e);
         }
+
     };
 
     public ZooKeeperThread(String threadName) {
@@ -43,13 +43,10 @@ public class ZooKeeperThread extends Thread {
     }
 
     /**
-     * This will be used by the uncaught exception handler and just log a
-     * warning message and return.
+     * 处理异常
      * 
-     * @param thName
-     *            - thread name
-     * @param e
-     *            - exception object
+     * @param thName    异常的线程名
+     * @param e         异常堆栈
      */
     protected void handleException(String thName, Throwable e) {
         LOG.warn("Exception occurred from thread {}", thName, e);

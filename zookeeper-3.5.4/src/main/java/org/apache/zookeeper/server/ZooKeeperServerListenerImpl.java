@@ -28,18 +28,28 @@ import org.slf4j.LoggerFactory;
  * to ERROR representing an error status.
  */
 class ZooKeeperServerListenerImpl implements ZooKeeperServerListener {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ZooKeeperServerListenerImpl.class);
 
+    private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperServerListenerImpl.class);
+
+    /**
+     * 表示zk服务实例
+     */
     private final ZooKeeperServer zkServer;
 
     ZooKeeperServerListenerImpl(ZooKeeperServer zkServer) {
         this.zkServer = zkServer;
     }
 
+    /**
+     * 当有致命错误发生时，会调用该方法，该方法将zk服务器状态设置为error
+     *
+     * @param threadName    异常的线程
+     * @param exitCode
+     */
     @Override
     public void notifyStopping(String threadName, int exitCode) {
         LOG.info("Thread {} exits, error code {}", threadName, exitCode);
         zkServer.setState(State.ERROR);
     }
+
 }

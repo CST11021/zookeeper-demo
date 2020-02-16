@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,18 +25,7 @@ import org.apache.zookeeper.common.X509Util;
 import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.channel.Channel;
-import org.jboss.netty.channel.ChannelFactory;
-import org.jboss.netty.channel.ChannelFuture;
-import org.jboss.netty.channel.ChannelFutureListener;
-import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipeline;
-import org.jboss.netty.channel.ChannelPipelineFactory;
-import org.jboss.netty.channel.ChannelStateEvent;
-import org.jboss.netty.channel.Channels;
-import org.jboss.netty.channel.ExceptionEvent;
-import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.*;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
 import org.jboss.netty.handler.ssl.SslHandler;
 import org.slf4j.Logger;
@@ -44,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -61,15 +49,24 @@ import java.util.concurrent.locks.ReentrantLock;
 import static org.apache.zookeeper.common.X509Exception.SSLContextException;
 
 /**
- * ClientCnxnSocketNetty implements ClientCnxnSocket abstract methods.
- * It's responsible for connecting to server, reading/writing network traffic and
- * being a layer between network data and higher level packets.
+ * ClientCnxnSocketNetty实现了ClientCnxnSocket的抽象方法，它负责连接到server，读取/写入网络流量，并作为网络数据层和更高packet层的中间层。其生命周期如下：
+ * loop:
+ *      - try:
+ *      - - !isConnected()
+ *      - - - connect()
+ *      - - doTransport()
+ *      - catch:
+ *      - - cleanup()
+ *      close()
+ *
+ * 从上述描述中，我们可以看到ClientCnxnSocket的工作流程，先判断是否连接，没有连接则调用connect方法进行连接，有连接则直接使用；
+ * 然后调用doTransport方法进行通信，若连接过程中出现异常，则调用cleanup()方法；最后关闭连接。故最主要的流程为doTransport()方法：
  */
 public class ClientCnxnSocketNetty extends ClientCnxnSocket {
+
     private static final Logger LOG = LoggerFactory.getLogger(ClientCnxnSocketNetty.class);
 
-    ChannelFactory channelFactory = new NioClientSocketChannelFactory(
-            Executors.newCachedThreadPool(), Executors.newCachedThreadPool());
+    ChannelFactory channelFactory = new NioClientSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool());
     Channel channel;
     CountDownLatch firstConnect;
     ChannelFuture connectFuture;
@@ -216,10 +213,7 @@ public class ClientCnxnSocketNetty extends ClientCnxnSocket {
     }
 
     @Override
-    void doTransport(int waitTimeOut,
-                     List<Packet> pendingQueue,
-                     ClientCnxn cnxn)
-            throws IOException, InterruptedException {
+    void doTransport(int waitTimeOut, List<Packet> pendingQueue, ClientCnxn cnxn) throws IOException, InterruptedException {
         try {
             if (!firstConnect.await(waitTimeOut, TimeUnit.MILLISECONDS)) {
                 return;
@@ -371,7 +365,7 @@ public class ClientCnxnSocketNetty extends ClientCnxnSocket {
         private synchronized void initSSL(ChannelPipeline pipeline) throws SSLContextException {
             if (sslContext == null || sslEngine == null) {
                 sslContext = X509Util.createSSLContext(clientConfig);
-                sslEngine = sslContext.createSSLEngine(host,port);
+                sslEngine = sslContext.createSSLEngine(host, port);
                 sslEngine.setUseClientMode(true);
             }
             pipeline.addLast("ssl", new SslHandler(sslEngine));

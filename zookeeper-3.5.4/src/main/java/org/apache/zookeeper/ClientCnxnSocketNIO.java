@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,6 +17,13 @@
  */
 
 package org.apache.zookeeper;
+
+import org.apache.zookeeper.ClientCnxn.EndOfStreamException;
+import org.apache.zookeeper.ClientCnxn.Packet;
+import org.apache.zookeeper.ZooDefs.OpCode;
+import org.apache.zookeeper.client.ZKClientConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -31,16 +38,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import org.apache.zookeeper.ClientCnxn.EndOfStreamException;
-import org.apache.zookeeper.ClientCnxn.Packet;
-import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.client.ZKClientConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class ClientCnxnSocketNIO extends ClientCnxnSocket {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ClientCnxnSocketNIO.class);
+
+    private static final Logger LOG = LoggerFactory.getLogger(ClientCnxnSocketNIO.class);
 
     private final Selector selector = Selector.open();
 
@@ -50,23 +50,28 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     private SocketAddress remoteSocketAddress;
 
+
+
+
     ClientCnxnSocketNIO(ZKClientConfig clientConfig) throws IOException {
         this.clientConfig = clientConfig;
         initProperties();
     }
 
+
+
+
     @Override
     boolean isConnected() {
         return sockKey != null;
     }
-    
+
     /**
      * @return true if a packet was received
      * @throws InterruptedException
      * @throws IOException
      */
-    void doIO(List<Packet> pendingQueue, ClientCnxn cnxn)
-      throws InterruptedException, IOException {
+    void doIO(List<Packet> pendingQueue, ClientCnxn cnxn) throws InterruptedException, IOException {
         SocketChannel sock = (SocketChannel) sockKey.channel();
         if (sock == null) {
             throw new IOException("Socket is null!");
@@ -158,8 +163,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
     }
 
-    private Packet findSendablePacket(LinkedBlockingDeque<Packet> outgoingQueue,
-                                      boolean tunneledAuthInProgres) {
+    private Packet findSendablePacket(LinkedBlockingDeque<Packet> outgoingQueue, boolean tunneledAuthInProgres) {
         if (outgoingQueue.isEmpty()) {
             return null;
         }
@@ -233,7 +237,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
         sockKey = null;
     }
- 
+
     @Override
     void close() {
         try {
@@ -248,9 +252,10 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             LOG.warn("Ignoring exception during selector close", e);
         }
     }
-    
+
     /**
-     * create a socket channel.
+     * 创建一个socket通道
+     *
      * @return the created socket channel
      * @throws IOException
      */
@@ -269,21 +274,20 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
      * @param addr the address of remote host
      * @throws IOException
      */
-    void registerAndConnect(SocketChannel sock, InetSocketAddress addr) 
-    throws IOException {
+    void registerAndConnect(SocketChannel sock, InetSocketAddress addr) throws IOException {
         sockKey = sock.register(selector, SelectionKey.OP_CONNECT);
         boolean immediateConnect = sock.connect(addr);
         if (immediateConnect) {
             sendThread.primeConnection();
         }
     }
-    
+
     @Override
     void connect(InetSocketAddress addr) throws IOException {
         SocketChannel sock = createSock();
         try {
-           registerAndConnect(sock, addr);
-      } catch (IOException e) {
+            registerAndConnect(sock, addr);
+        } catch (IOException e) {
             LOG.error("Unable to open socket to " + addr);
             sock.close();
             throw e;
@@ -299,7 +303,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     /**
      * Returns the address to which the socket is connected.
-     * 
+     *
      * @return ip address of the remote side of the connection or null if not
      *         connected
      */
@@ -310,7 +314,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     /**
      * Returns the local address to which the socket is bound.
-     * 
+     *
      * @return ip address of the remote side of the connection or null if not
      *         connected
      */
@@ -318,7 +322,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     SocketAddress getLocalSocketAddress() {
         return localSocketAddress;
     }
-    
+
     private void updateSocketAddresses() {
         Socket socket = ((SocketChannel) sockKey.channel()).socket();
         localSocketAddress = socket.getLocalSocketAddress();
@@ -338,10 +342,9 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     private synchronized void wakeupCnxn() {
         selector.wakeup();
     }
-    
+
     @Override
-    void doTransport(int waitTimeOut, List<Packet> pendingQueue, ClientCnxn cnxn)
-            throws IOException, InterruptedException {
+    void doTransport(int waitTimeOut, List<Packet> pendingQueue, ClientCnxn cnxn) throws IOException, InterruptedException {
         selector.select(waitTimeOut);
         Set<SelectionKey> selected;
         synchronized (this) {
@@ -379,8 +382,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         // sockKey may be concurrently accessed by multiple
         // threads. We use tmp here to avoid a race condition
         SelectionKey tmp = sockKey;
-        if (tmp!=null) {
-           ((SocketChannel) tmp.channel()).socket().close();
+        if (tmp != null) {
+            ((SocketChannel) tmp.channel()).socket().close();
         }
     }
 

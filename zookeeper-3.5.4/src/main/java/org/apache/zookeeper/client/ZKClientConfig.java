@@ -18,15 +18,16 @@
 
 package org.apache.zookeeper.client;
 
-import java.io.File;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.common.ZKConfig;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
 
+import java.io.File;
+
 /**
- * Handles client specific properties
+ * 表示zk客户端配置
+ *
  * @since 3.5.2
  */
 @InterfaceAudience.Public
@@ -50,21 +51,18 @@ public class ZKClientConfig extends ZKConfig {
     public static final String DISABLE_AUTO_WATCH_RESET = "zookeeper.disableAutoWatchReset";
     @SuppressWarnings("deprecation")
     public static final String ZOOKEEPER_CLIENT_CNXN_SOCKET = ZooKeeper.ZOOKEEPER_CLIENT_CNXN_SOCKET;
-    /**
-     * Setting this to "true" will enable encrypted client-server communication.
-     */
+    /** Setting this to "true" will enable encrypted client-server communication. */
     @SuppressWarnings("deprecation")
     public static final String SECURE_CLIENT = ZooKeeper.SECURE_CLIENT;
-    public static final int CLIENT_MAX_PACKET_LENGTH_DEFAULT = 4096 * 1024; /* 4 MB */
+    /** 4 MB */
+    public static final int CLIENT_MAX_PACKET_LENGTH_DEFAULT = 4096 * 1024;
 
     public ZKClientConfig() {
         super();
     }
-
     public ZKClientConfig(File configFile) throws ConfigException {
         super(configFile);
     }
-
     public ZKClientConfig(String configPath) throws ConfigException {
         super(configPath);
     }

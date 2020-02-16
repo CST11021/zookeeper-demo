@@ -18,6 +18,16 @@
 
 package org.apache.zookeeper;
 
+import org.apache.jute.BinaryInputArchive;
+import org.apache.zookeeper.ClientCnxn.Packet;
+import org.apache.zookeeper.client.ZKClientConfig;
+import org.apache.zookeeper.common.Time;
+import org.apache.zookeeper.common.ZKConfig;
+import org.apache.zookeeper.proto.ConnectResponse;
+import org.apache.zookeeper.server.ByteBufferInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -26,23 +36,15 @@ import java.text.MessageFormat;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingDeque;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.zookeeper.ClientCnxn.Packet;
-import org.apache.zookeeper.client.ZKClientConfig;
-import org.apache.zookeeper.common.ZKConfig;
-import org.apache.zookeeper.common.Time;
-import org.apache.zookeeper.proto.ConnectResponse;
-import org.apache.zookeeper.server.ByteBufferInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
- * A ClientCnxnSocket does the lower level communication with a socket
- * implementation.
- * 
- * This code has been moved out of ClientCnxn so that a Netty implementation can
- * be provided as an alternative to the NIO socket code.
- * 
+ * zookeeper客户端和服务器的连接主要是通过ClientCnxnSocket来实现的，有两个具体的实现类ClientCnxnSocketNetty和ClientCnxnSocketNIO，其工作流程如下：
+ *
+ * 1、先判断是否连接，没有连接则调用connect方法进行连接，有连接则进入下一步；
+ * 2、然后调用doTransport方法进行通信，若连接过程中出现异常，则调用cleanup()方法；
+ * 3、最后关闭连接。
+ *
+ *
+ * ClientCnxnSocket使用套接字实现进行低层通信
  */
 abstract class ClientCnxnSocket {
     private static final Logger LOG = LoggerFactory.getLogger(ClientCnxnSocket.class);
@@ -50,7 +52,7 @@ abstract class ClientCnxnSocket {
     protected boolean initialized;
 
     /**
-     * This buffer is only used to read the length of the incoming message.
+     * 此缓冲区仅用于读取传入消息的长度。
      */
     protected final ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
 
@@ -63,20 +65,42 @@ abstract class ClientCnxnSocket {
     protected long recvCount = 0;
     protected long lastHeard;
     protected long lastSend;
+
+    /**
+     * 表示给zk服务发送请求的时间
+     */
     protected long now;
+
+    /**
+     * 表示给zk服务器发送请求的线程对象
+     */
     protected ClientCnxn.SendThread sendThread;
+
+    /**
+     * 对应{@link ClientCnxn#outgoingQueue}，该队列是一个请求发送队列，专门用于存储那些需要发送到服务端的Packet集合
+     */
     protected LinkedBlockingDeque<Packet> outgoingQueue;
+
+    /**
+     * zk客户端配置
+     */
     protected ZKClientConfig clientConfig;
+
     private int packetLen = ZKClientConfig.CLIENT_MAX_PACKET_LENGTH_DEFAULT;
 
     /**
-     * The sessionId is only available here for Log and Exception messages.
-     * Otherwise the socket doesn't need to know it.
+     * 客户端给zk服务发送请求的携带的sessionId
      */
     protected long sessionId;
 
-    void introduce(ClientCnxn.SendThread sendThread, long sessionId,
-                   LinkedBlockingDeque<Packet> outgoingQueue) {
+    /**
+     * 设置发送请求的线程，sessionId和保存发送请求的队列
+     *
+     * @param sendThread
+     * @param sessionId
+     * @param outgoingQueue
+     */
+    void introduce(ClientCnxn.SendThread sendThread, long sessionId, LinkedBlockingDeque<Packet> outgoingQueue) {
         this.sendThread = sendThread;
         this.sessionId = sessionId;
         this.outgoingQueue = outgoingQueue;
@@ -110,6 +134,9 @@ abstract class ClientCnxnSocket {
         this.lastSend = now;
     }
 
+    /**
+     * 更新lastSend和lastHeard为当前时间
+     */
     void updateLastSendAndHeard() {
         this.lastSend = now;
         this.lastHeard = now;
@@ -130,8 +157,7 @@ abstract class ClientCnxnSocket {
                 buf.append(Integer.toHexString(b) + ",");
             }
             buf.append("]");
-            LOG.trace("readConnectResult " + incomingBuffer.remaining() + " "
-                    + buf.toString());
+            LOG.trace("readConnectResult " + incomingBuffer.remaining() + " " + buf.toString());
         }
         ByteBufferInputStream bbis = new ByteBufferInputStream(incomingBuffer);
         BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
@@ -149,12 +175,17 @@ abstract class ClientCnxnSocket {
         }
 
         this.sessionId = conRsp.getSessionId();
-        sendThread.onConnected(conRsp.getTimeOut(), this.sessionId,
-                conRsp.getPasswd(), isRO);
+        sendThread.onConnected(conRsp.getTimeOut(), this.sessionId, conRsp.getPasswd(), isRO);
     }
 
     abstract boolean isConnected();
 
+    /**
+     * 连接到目标机器
+     *
+     * @param addr  目标机器地址
+     * @throws IOException
+     */
     abstract void connect(InetSocketAddress addr) throws IOException;
 
     /**
@@ -207,9 +238,7 @@ abstract class ClientCnxnSocket {
      * @throws IOException
      * @throws InterruptedException
      */
-    abstract void doTransport(int waitTimeOut, List<Packet> pendingQueue,
-            ClientCnxn cnxn)
-            throws IOException, InterruptedException;
+    abstract void doTransport(int waitTimeOut, List<Packet> pendingQueue, ClientCnxn cnxn) throws IOException, InterruptedException;
 
     /**
      * Close the socket.

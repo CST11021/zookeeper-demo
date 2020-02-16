@@ -23,43 +23,46 @@ import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 
 /**
- *  A WatchedEvent represents a change on the ZooKeeper that a Watcher
- *  is able to respond to.  The WatchedEvent includes exactly what happened,
- *  the current state of the ZooKeeper, and the path of the znode that
- *  was involved in the event.
+ * 表示zk事件，该事件可以被监听
  */
 @InterfaceAudience.Public
 public class WatchedEvent {
+
+    /** Zookeeper可能在事件中的状态枚举 */
     final private KeeperState keeperState;
+
+    /** 事件类型 */
     final private EventType eventType;
+
     private String path;
     
     /**
-     * Create a WatchedEvent with specified type, state and path
+     * 创建一个具有指定类型、状态和路径的WatchedEvent
      */
     public WatchedEvent(EventType eventType, KeeperState keeperState, String path) {
         this.keeperState = keeperState;
         this.eventType = eventType;
         this.path = path;
     }
-    
-    /**
-     * Convert a WatcherEvent sent over the wire into a full-fledged WatcherEvent
-     */
     public WatchedEvent(WatcherEvent eventMessage) {
         keeperState = KeeperState.fromInt(eventMessage.getState());
         eventType = EventType.fromInt(eventMessage.getType());
         path = eventMessage.getPath();
     }
+
+    /**
+     *  Convert WatchedEvent to type that can be sent over network
+     */
+    public WatcherEvent getWrapper() {
+        return new WatcherEvent(eventType.getIntValue(), keeperState.getIntValue(), path);
+    }
     
     public KeeperState getState() {
         return keeperState;
     }
-    
     public EventType getType() {
         return eventType;
     }
-    
     public String getPath() {
         return path;
     }
@@ -70,12 +73,4 @@ public class WatchedEvent {
             + " type:" + eventType + " path:" + path;
     }
 
-    /**
-     *  Convert WatchedEvent to type that can be sent over network
-     */
-    public WatcherEvent getWrapper() {
-        return new WatcherEvent(eventType.getIntValue(), 
-                                keeperState.getIntValue(), 
-                                path);
-    }
 }

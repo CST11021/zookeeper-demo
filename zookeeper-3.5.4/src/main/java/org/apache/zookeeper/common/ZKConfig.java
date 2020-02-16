@@ -18,6 +18,12 @@
 
 package org.apache.zookeeper.common;
 
+import org.apache.zookeeper.Environment;
+import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import org.apache.zookeeper.server.util.VerifyingFileFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -26,22 +32,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 
-import org.apache.zookeeper.Environment;
-import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
-import org.apache.zookeeper.server.util.VerifyingFileFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
- * This class is a base class for the configurations of both client and server.
- * It supports reading client configuration from both system properties and
- * configuration file. A user can override any system property by calling
- * {@link #setProperty(String, String)}.
+ * 这个类是客户端和服务器配置的基类，它支持从系统属性和配置文件读取配置
+ * 用户可以通过调用{@link #setProperty(String, String)}覆盖任何系统属性
+ *
  * @since 3.5.2
  */
 public class ZKConfig {
 
     private static final Logger LOG = LoggerFactory.getLogger(ZKConfig.class);
+
     @SuppressWarnings("deprecation")
     public static final String SSL_KEYSTORE_LOCATION = X509Util.SSL_KEYSTORE_LOCATION;
     @SuppressWarnings("deprecation")
@@ -62,36 +62,33 @@ public class ZKConfig {
 
     private final Map<String, String> properties = new HashMap<String, String>();
 
+
+
+
     /**
-     * properties, which are common to both client and server, are initialized
-     * from system properties
+     * 客户端和服务器都通用的属性是从系统属性初始化的
      */
     public ZKConfig() {
         init();
     }
-
     /**
-     * @param configPath
-     *            Configuration file path
-     * @throws ConfigException
-     *             if failed to load configuration properties
+     * @param configPath        配置文件的路径
+     * @throws ConfigException  如果加载配置文件失败，则抛此异常
      */
-
     public ZKConfig(String configPath) throws ConfigException {
         this(new File(configPath));
     }
-
     /**
-     *
-     * @param configFile
-     *            Configuration file
-     * @throws ConfigException
-     *             if failed to load configuration properties
+     * @param configFile        表示配置文件
+     * @throws ConfigException  如果加载配置文件失败，则抛此异常
      */
     public ZKConfig(File configFile) throws ConfigException {
         this();
         addConfiguration(configFile);
     }
+
+
+
 
     private void init() {
         /**

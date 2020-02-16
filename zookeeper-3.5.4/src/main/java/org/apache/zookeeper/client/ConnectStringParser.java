@@ -37,19 +37,30 @@ import static org.apache.zookeeper.common.StringUtils.split;
  * @see org.apache.zookeeper.ZooKeeper
  */
 public final class ConnectStringParser {
+
+    /** 默认端口 */
     private static final int DEFAULT_PORT = 2181;
 
+    /**
+     * zk根目录：例如，192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181/zk-book，这样就指定了该客户端连接上ZooKeeper服务器之后，
+     * 所有对ZooKeeper的操作，都会基于这个根目录。例如，客户端对/foo/bar的操作，都会指向节点的操作，都会基于这个根目录，例如，客户端对/foo/bar的操作，
+     * 都会指向节点/zk-book/foo/bar——这个目录也叫Chroot，即客户端隔离命名空间。
+     */
     private final String chrootPath;
 
+    /** 该集合保存了zk的服务机器，每个InetSocketAddress表示一个zk服务 */
     private final ArrayList<InetSocketAddress> serverAddresses = new ArrayList<InetSocketAddress>();
 
     /**
-     * 
-     * @throws IllegalArgumentException
-     *             for an invalid chroot path.
+     * 解析zk集群
+     *
+     * @param connectString 例如：例如，192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181/zk-book
+     *
+     * @throws IllegalArgumentException for an invalid chroot path.
      */
     public ConnectStringParser(String connectString) {
-        // parse out chroot, if any
+
+        // 1、解析zk的根目录
         int off = connectString.indexOf('/');
         if (off >= 0) {
             String chrootPath = connectString.substring(off);
@@ -65,6 +76,10 @@ public final class ConnectStringParser {
             this.chrootPath = null;
         }
 
+
+
+
+        // 2、多个zk用逗号隔开，遍历每个zk服务，将zk服务主机及端口保存到serverAddresses
         List<String> hostsList = split(connectString,",");
         for (String host : hostsList) {
             int port = DEFAULT_PORT;

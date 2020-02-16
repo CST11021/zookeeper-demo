@@ -21,12 +21,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Represents critical thread. When there is an uncaught exception thrown by the
- * thread this will exit the system.
+ * 代表重要的线程，当线程抛出未捕获异常时，将退出系统。
  */
 public class ZooKeeperCriticalThread extends ZooKeeperThread {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ZooKeeperCriticalThread.class);
+
+    private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperCriticalThread.class);
+
     private final ZooKeeperServerListener listener;
 
     public ZooKeeperCriticalThread(String threadName, ZooKeeperServerListener listener) {
@@ -35,13 +35,10 @@ public class ZooKeeperCriticalThread extends ZooKeeperThread {
     }
 
     /**
-     * This will be used by the uncaught exception handler and make the system
-     * exit.
+     * 处理线程异常：该处理方式，会发布一个线程停止的事件通知
      *
-     * @param threadName
-     *            - thread name
-     * @param e
-     *            - exception object
+     * @param threadName    异常的线程名
+     * @param e             异常堆栈
      */
     @Override
     protected void handleException(String threadName, Throwable e) {

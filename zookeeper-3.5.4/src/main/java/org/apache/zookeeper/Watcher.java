@@ -21,12 +21,7 @@ package org.apache.zookeeper;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
- * This interface specifies the public interface an event handler class must
- * implement. A ZooKeeper client will get various events from the ZooKeeper
- * server it connects to. An application using such a client handles these
- * events by registering a callback object with the client. The callback object
- * is expected to be an instance of a class that implements Watcher interface.
- * 
+ * 客户端可以实现该接口，监听服务端事件
  */
 @InterfaceAudience.Public
 public interface Watcher {
@@ -196,5 +191,10 @@ public interface Watcher {
         }
     }
 
+    /**
+     * 处理监听的事件
+     *
+     * @param event
+     */
     abstract public void process(WatchedEvent event);
 }

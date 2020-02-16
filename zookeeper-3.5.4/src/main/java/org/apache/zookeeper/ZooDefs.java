@@ -117,20 +117,17 @@ public class ZooDefs {
         /**
          * 这是一个完全开放的ACL，没有权限限制
          */
-        public final ArrayList<ACL> OPEN_ACL_UNSAFE = new ArrayList<ACL>(
-                Collections.singletonList(new ACL(Perms.ALL, ANYONE_ID_UNSAFE)));
+        public final ArrayList<ACL> OPEN_ACL_UNSAFE = new ArrayList<ACL>(Collections.singletonList(new ACL(Perms.ALL, ANYONE_ID_UNSAFE)));
 
         /**
          * 为通过身份认证的id提供所有权限
          */
-        public final ArrayList<ACL> CREATOR_ALL_ACL = new ArrayList<ACL>(
-                Collections.singletonList(new ACL(Perms.ALL, AUTH_IDS)));
+        public final ArrayList<ACL> CREATOR_ALL_ACL = new ArrayList<ACL>(Collections.singletonList(new ACL(Perms.ALL, AUTH_IDS)));
 
         /**
          * 所有的用户都有只读权限
          */
-        public final ArrayList<ACL> READ_ACL_UNSAFE = new ArrayList<ACL>(
-                Collections.singletonList(new ACL(Perms.READ, ANYONE_ID_UNSAFE)));
+        public final ArrayList<ACL> READ_ACL_UNSAFE = new ArrayList<ACL>(Collections.singletonList(new ACL(Perms.READ, ANYONE_ID_UNSAFE)));
     }
 
     final public static String[] opNames = { "notification", "create",
