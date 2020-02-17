@@ -136,15 +136,14 @@ public class ZooKeeperServerMain {
         LOG.info("Starting server");
         FileTxnSnapLog txnLog = null;
         try {
-            // Note that this thread isn't going to be doing anything else,
-            // so rather than spawning another thread, we will just call
-            // run() in this thread.
+            // Note that this thread isn't going to be doing anything else, so rather than spawning another thread, we will just call run() in this thread.
             // create a file logger url from the command line args
             txnLog = new FileTxnSnapLog(config.dataLogDir, config.dataDir);
             final ZooKeeperServer zkServer = new ZooKeeperServer(txnLog, config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, null);
 
-            // Registers shutdown handler which will be used to know the
-            // server error or shutdown state changes.
+            // 初始化一个CountDownLatch对象shutDownLatch，用于线程之间协作，其主要有两个方法：countDown()和await()，
+            // countDown方法使计数减一；
+            // await方法会一直阻塞，直到计数变为0，在这里shutDownLatch负责在发生错误时关闭zookeeper服务。
             final CountDownLatch shutdownLatch = new CountDownLatch(1);
             zkServer.registerServerShutdownHandler(new ZooKeeperServerShutdownHandler(shutdownLatch));
 
@@ -161,6 +160,7 @@ public class ZooKeeperServerMain {
                 // zkServer has been started. So we don't need to start it again in secureCnxnFactory.
                 needStartZKServer = false;
             }
+
             if (config.getSecureClientPortAddress() != null) {
                 secureCnxnFactory = ServerCnxnFactory.createFactory();
                 secureCnxnFactory.configure(config.getSecureClientPortAddress(), config.getMaxClientCnxns(), true);
@@ -173,8 +173,7 @@ public class ZooKeeperServerMain {
             );
             containerManager.start();
 
-            // Watch status of ZooKeeper server. It will do a graceful shutdown
-            // if the server is not running or hits an internal error.
+            // Watch status of ZooKeeper server. It will do a graceful shutdown if the server is not running or hits an internal error.
             shutdownLatch.await();
 
             shutdown();
