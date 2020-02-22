@@ -20,24 +20,31 @@ package org.apache.zookeeper.common;
 
 
 /**
- * Path related utilities
+ * 用于检查节点路径是否合法的工具类
  */    
 public class PathUtils {
 	
-	/** validate the provided znode path string
-	 * @param path znode path string
-	 * @param isSequential if the path is being created
-	 * with a sequential flag
+	/**
+     * 检查节点的路径是否合法，比如：
+     * 必须以"/"开始；
+     * 必须以"/"结束；
+     * 不允许路径中包含特殊字符等
+     *
+	 * @param path          节点路径
+	 * @param isSequential  是否为顺序节点
 	 * @throws IllegalArgumentException if the path is invalid
 	 */
-	public static void validatePath(String path, boolean isSequential) 
-		throws IllegalArgumentException {
+	public static void validatePath(String path, boolean isSequential) throws IllegalArgumentException {
 		validatePath(isSequential? path + "1": path);
 	}
 	
     /**
-     * Validate the provided znode path string
-     * @param path znode path string
+     * 检查节点的路径是否合法，比如：
+     * 必须以"/"开始；
+     * 必须以"/"结束；
+     * 不允许路径中包含特殊字符等
+     *
+     * @param path 节点路径
      * @throws IllegalArgumentException if the path is invalid
      */
     public static void validatePath(String path) throws IllegalArgumentException {
@@ -47,16 +54,19 @@ public class PathUtils {
         if (path.length() == 0) {
             throw new IllegalArgumentException("Path length must be > 0");
         }
+        // 路径必须以"/"开始
         if (path.charAt(0) != '/') {
-            throw new IllegalArgumentException(
-                         "Path must start with / character");
+            throw new IllegalArgumentException("Path must start with / character");
         }
-        if (path.length() == 1) { // done checking - it's the root
+
+        // done checking - it's the root
+        if (path.length() == 1) {
             return;
         }
+
+        // 路径必须以"/"结束
         if (path.charAt(path.length() - 1) == '/') {
-            throw new IllegalArgumentException(
-                         "Path must not end with / character");
+            throw new IllegalArgumentException("Path must not end with / character");
         }
 
         String reason = null;
@@ -96,8 +106,7 @@ public class PathUtils {
         }
 
         if (reason != null) {
-            throw new IllegalArgumentException(
-                    "Invalid path string \"" + path + "\" caused by " + reason);
+            throw new IllegalArgumentException("Invalid path string \"" + path + "\" caused by " + reason);
         }
     }
 

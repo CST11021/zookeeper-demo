@@ -28,8 +28,7 @@ public class StatsTrack {
     private String byteStr = "bytes";
 
     /**
-     * a default constructor for
-     * stats
+     * a default constructor for stats
      */
     public StatsTrack() {
         this(null);
@@ -44,10 +43,12 @@ public class StatsTrack {
         if (stats == null) {
             stats = "count=-1,bytes=-1";
         }
+
         String[] split = stats.split(",");
         if (split.length != 2) {
             throw new IllegalArgumentException("invalid string " + stats);
         }
+
         count = Integer.parseInt(split[0].split("=")[1]);
         bytes = Long.parseLong(split[1].split("=")[1]);
     }
@@ -92,9 +93,6 @@ public class StatsTrack {
     }
 
     @Override
-    /*
-     * returns the string that maps to this stat tracking.
-     */
     public String toString() {
         return countStr + "=" + count + "," + byteStr + "=" + bytes;
     }

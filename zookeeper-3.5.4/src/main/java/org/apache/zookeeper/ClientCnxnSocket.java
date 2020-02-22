@@ -205,7 +205,7 @@ abstract class ClientCnxnSocket {
     abstract void cleanup();
 
     /**
-     * new packets are added to outgoingQueue.
+     * 当有新的包被添加到outgoingQueue时，调用该方法
      */
     abstract void packetAdded();
 

@@ -525,7 +525,15 @@ public class Stat implements Record {
 
 ​		首先什么是ACL呢？ACL全称为Access Control List 即访问控制列表，用于控制资源的访问权限。zookeeper利用ACL策略控制节点的访问权限，如节点数据读写、节点创建、节点删除、读取子节点列表、设置节点权限等。
 
-在传统的文件系统中，ACL分为两个维度，一个是属组，一个是权限，一个属组包含多个权限，一个文件或目录拥有某个组的权限即拥有了组里的所有权限，文件或子目录默认会继承自父目录的ACL。而在Zookeeper中，znode的ACL是没有继承关系的，每个znode的权限都是独立控制的，只有客户端满足znode设置的权限要求时，才能完成相应的操作。Zookeeper的ACL，分为三个维度：scheme、id、permission，通常表示为：scheme:id:permission，schema代表授权策略，id代表用户，permission代表权限。下面从这三个维度分别来介绍。
+在传统的文件系统中，ACL分为两个维度，一个是属组，一个是权限，一个属组包含多个权限，一个文件或目录拥有某个组的权限即拥有了组里的所有权限，文件或子目录默认会继承自父目录的ACL。而在Zookeeper中，znode的ACL是没有继承关系的，每个znode的权限都是独立控制的，只有客户端满足znode设置的权限要求时，才能完成相应的操作。Zookeeper的ACL，分为三个维度：scheme、id、permission，通常使用：
+
+```
+scheme:id:permission
+```
+
+来标识一个有效的ACL信息。
+
+其中，scheme代表授权策略，id代表用户，permission代表权限。下面从这三个维度分别来介绍。
 
 * **scheme**：scheme对应于采用哪种方案来进行权限管理，zookeeper的scheme的分类如下：
   * world：它下面只有一个id, 叫anyone, world:anyone代表任何人，zookeeper中对所有人有权限的结点就是属于world:anyone的
@@ -1642,7 +1650,7 @@ EventThread是客户端ClientCnxn内部的另一个核心线程，负责客户�
 
 
 
- <img src="assets/image-20200208120141017.png" alt="image-20200208120141017" style="zoom:50%;" />![image-20200208120301979](/Users/wanghongzhan/1_Document/8_Zookeeper/Zookeeper分布式一致性原理笔记-MD/assets/image-20200208120301979.png)
+ <img src="assets/image-20200208120141017.png" alt="image-20200208120141017" style="zoom:50%;" />![image-20200208120301979](assets/image-20200208120301979.png)
 
 <img src="assets/image-20200208120141017.png" style="zoom:50%;" />
 

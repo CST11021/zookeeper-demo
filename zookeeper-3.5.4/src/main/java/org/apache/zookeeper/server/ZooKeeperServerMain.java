@@ -94,7 +94,7 @@ public class ZooKeeperServerMain {
     }
 
     /**
-     * 解析args入参，启动zk服务
+     * 解析args入参，并创建一个ServerConfig对象，通过{@link #runFromConfig(ServerConfig)}方法来启动zk服务
      *
      * @param args
      * @throws ConfigException
@@ -126,7 +126,8 @@ public class ZooKeeperServerMain {
     }
 
     /**
-     * 根据配置文件启动一个zk服务
+     * 根据配置文件启动一个zk服务：
+     *
      *
      * @param config ServerConfig to use.
      * @throws IOException
@@ -142,15 +143,19 @@ public class ZooKeeperServerMain {
             final ZooKeeperServer zkServer = new ZooKeeperServer(txnLog, config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, null);
 
             // 初始化一个CountDownLatch对象shutDownLatch，用于线程之间协作，其主要有两个方法：countDown()和await()，
-            // countDown方法使计数减一；
-            // await方法会一直阻塞，直到计数变为0，在这里shutDownLatch负责在发生错误时关闭zookeeper服务。
+            // countDown方法：调用该方法，使计数减一；
+            // await方法：调用该方法会一直阻塞，直到计数变为0，在这里shutDownLatch负责在发生错误时关闭zookeeper服务。
             final CountDownLatch shutdownLatch = new CountDownLatch(1);
             zkServer.registerServerShutdownHandler(new ZooKeeperServerShutdownHandler(shutdownLatch));
 
-            // Start Admin server
+
+
+            // 启动AdminServer
             adminServer = AdminServerFactory.createAdminServer();
             adminServer.setZooKeeperServer(zkServer);
             adminServer.start();
+
+
 
             boolean needStartZKServer = true;
             if (config.getClientPortAddress() != null) {
@@ -173,17 +178,18 @@ public class ZooKeeperServerMain {
             );
             containerManager.start();
 
-            // Watch status of ZooKeeper server. It will do a graceful shutdown if the server is not running or hits an internal error.
+            // 监听ZooKeeper服务器的状态，如果服务器没有运行或遇到内部错误，它将进行适当的关闭。
             shutdownLatch.await();
-
             shutdown();
 
             if (cnxnFactory != null) {
                 cnxnFactory.join();
             }
+
             if (secureCnxnFactory != null) {
                 secureCnxnFactory.join();
             }
+
             if (zkServer.canShutdown()) {
                 zkServer.shutdown(true);
             }
@@ -198,7 +204,7 @@ public class ZooKeeperServerMain {
     }
 
     /**
-     * Shutdown the serving instance
+     * Shutdown服务实例
      */
     protected void shutdown() {
         if (containerManager != null) {

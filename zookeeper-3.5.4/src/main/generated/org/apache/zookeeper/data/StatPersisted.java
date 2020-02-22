@@ -24,14 +24,24 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Public
 public class StatPersisted implements Record {
+
+    /** 表示创建节点的事务ID */
     private long czxid;
+    /** 最后修改znode的事务ID */
     private long mzxid;
+    /** znode创建时间 */
     private long ctime;
+    /** znode最后修改时间 */
     private long mtime;
+    /** 这表示对znode节点进行的更改次数 */
     private int version;
+    /** 这表示对此znode的子节点进行的更改次数 */
     private int cversion;
+    /** 表示对此znode的ACL进行更改的次数 */
     private int aversion;
+    /** 如果znode是ephemeral类型节点，则这是znode所有者的 session ID。 如果znode不是ephemeral节点，则该字段设置为零 */
     private long ephemeralOwner;
+    /** 表示给znode添加或删除子节点的事务ID */
     private long pzxid;
 
     public StatPersisted() {

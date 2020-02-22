@@ -25,6 +25,7 @@ import org.apache.yetus.audience.InterfaceAudience;
 @InterfaceAudience.Public
 public class ACL implements Record {
 
+    /** Perms */
     private int perms;
 
     private org.apache.zookeeper.data.Id id;

@@ -63,24 +63,25 @@ import java.util.Map;
  */
 public enum EphemeralType {
     /**
-     * Not ephemeral
+     * 表示不是临时节点
      */
     VOID,
     /**
-     * Standard, pre-3.5.x EPHEMERAL
+     * 表示是正常的临时节点
      */
     NORMAL,
     /**
-     * Container node
+     * 表示该临时节点是容器节点
      */
     CONTAINER,
     /**
-     * TTL node
+     * 表示该节点是ttl节点
      */
     TTL() {
         @Override
         public long maxValue() {
-            return EXTENDED_FEATURE_VALUE_MASK;  // 12725 days, about 34 years
+            // 12725 days, about 34 years
+            return EXTENDED_FEATURE_VALUE_MASK;
         }
 
         @Override
@@ -89,7 +90,8 @@ public enum EphemeralType {
                 throw new IllegalArgumentException("ttl must be positive and cannot be larger than: " + TTL.maxValue());
             }
             //noinspection PointlessBitwiseExpression
-            return EXTENDED_MASK | EXTENDED_BIT_TTL | ttl;  // TTL_RESERVED_BIT is actually zero - but it serves to document that the proper extended bit needs to be set
+            // TTL_RESERVED_BIT is actually zero - but it serves to document that the proper extended bit needs to be set
+            return EXTENDED_MASK | EXTENDED_BIT_TTL | ttl;
         }
 
         @Override
@@ -204,11 +206,11 @@ public enum EphemeralType {
     }
 
     /**
-     * Utility to validate a create mode and a ttl
+     * 校验节点类型和ttl
      *
      * @param mode create mode
      * @param ttl  ttl
-     * @throws IllegalArgumentException if the ttl is not valid for the mode
+     * @throws IllegalArgumentException 如果ttl对该模式无效则抛出此异常
      */
     public static void validateTTL(CreateMode mode, long ttl) {
         if (mode.isTTL()) {

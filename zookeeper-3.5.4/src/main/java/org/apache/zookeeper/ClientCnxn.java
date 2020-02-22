@@ -109,6 +109,7 @@ public class ClientCnxn {
 
     private final ZooKeeper zooKeeper;
 
+    /** 客户端的Watcher管理器 */
     private final ClientWatchManager watcher;
 
     /** ssesionId */
@@ -269,25 +270,27 @@ public class ClientCnxn {
         return name + suffix;
     }
 
+    /**
+     *
+     * @param p
+     */
     private void finishPacket(Packet p) {
+        // 如果zk的影响头带有错误，则根据错误吗注册一个监听
         int err = p.replyHeader.getErr();
         if (p.watchRegistration != null) {
             p.watchRegistration.register(err);
         }
-        // Add all the removed watch events to the event queue, so that the
-        // clients will be notified with 'Data/Child WatchRemoved' event type.
+
+        // Add all the removed watch events to the event queue, so that the clients will be notified with 'Data/Child WatchRemoved' event type.
         if (p.watchDeregistration != null) {
             Map<EventType, Set<Watcher>> materializedWatchers = null;
             try {
                 materializedWatchers = p.watchDeregistration.unregister(err);
-                for (Entry<EventType, Set<Watcher>> entry : materializedWatchers
-                        .entrySet()) {
+                for (Entry<EventType, Set<Watcher>> entry : materializedWatchers.entrySet()) {
                     Set<Watcher> watchers = entry.getValue();
                     if (watchers.size() > 0) {
-                        queueEvent(p.watchDeregistration.getClientPath(), err,
-                                watchers, entry.getKey());
-                        // ignore connectionloss when removing from local
-                        // session
+                        queueEvent(p.watchDeregistration.getClientPath(), err, watchers, entry.getKey());
+                        // ignore connectionloss when removing from local session
                         p.replyHeader.setErr(Code.OK.intValue());
                     }
                 }
@@ -298,6 +301,7 @@ public class ClientCnxn {
             }
         }
 
+        // 如果请求有设置回调，则触发通知
         if (p.cb == null) {
             synchronized (p) {
                 p.finished = true;
@@ -324,10 +328,16 @@ public class ClientCnxn {
         eventThread.queueCallback(cb, rc, path, ctx);
     }
 
+    /**
+     * 当请求时，zk服务断开或者是关闭等不正常的状态，则给响应头设置对应的错误编码
+     *
+     * @param p 请求信息
+     */
     private void conLossPacket(Packet p) {
         if (p.replyHeader == null) {
             return;
         }
+
         switch (state) {
             case AUTH_FAILED:
                 p.replyHeader.setErr(KeeperException.Code.AUTHFAILED.intValue());
@@ -402,16 +412,40 @@ public class ClientCnxn {
         return xid++;
     }
 
+
+    // 提交请求
+
+
+    /**
+     *
+     *
+     * @param h             请求头
+     * @param request       请求对象
+     * @param response      相应对象
+     * @param watchRegistration
+     * @return
+     * @throws InterruptedException
+     */
     public ReplyHeader submitRequest(RequestHeader h, Record request, Record response, WatchRegistration watchRegistration) throws InterruptedException {
         return submitRequest(h, request, response, watchRegistration, null);
     }
 
+    /**
+     *
+     * @param h
+     * @param request
+     * @param response
+     * @param watchRegistration
+     * @param watchDeregistration
+     * @return
+     * @throws InterruptedException
+     */
     public ReplyHeader submitRequest(RequestHeader h, Record request, Record response, WatchRegistration watchRegistration, WatchDeregistration watchDeregistration) throws InterruptedException {
         ReplyHeader r = new ReplyHeader();
-        Packet packet = queuePacket(h, r, request, response, null, null, null,
-                null, watchRegistration, watchDeregistration);
+        Packet packet = queuePacket(h, r, request, response, null, null, null, null, watchRegistration, watchDeregistration);
         synchronized (packet) {
             while (!packet.finished) {
+                // 一直等待，直到packet被处理完成
                 packet.wait();
             }
         }
@@ -446,25 +480,24 @@ public class ClientCnxn {
     public Packet queuePacket(RequestHeader h, ReplyHeader r, Record request, Record response, AsyncCallback cb, String clientPath, String serverPath, Object ctx, WatchRegistration watchRegistration, WatchDeregistration watchDeregistration) {
         Packet packet = null;
 
-        // Note that we do not generate the Xid for the packet yet. It is
-        // generated later at send-time, by an implementation of ClientCnxnSocket::doIO(),
-        // where the packet is actually sent.
+        // Note that we do not generate the Xid for the packet yet.
+        // It is generated later at send-time, by an implementation of ClientCnxnSocket::doIO(), where the packet is actually sent.
         packet = new Packet(h, r, request, response, watchRegistration);
         packet.cb = cb;
         packet.ctx = ctx;
         packet.clientPath = clientPath;
         packet.serverPath = serverPath;
         packet.watchDeregistration = watchDeregistration;
+
         // The synchronized block here is for two purpose:
         // 1. synchronize with the final cleanup() in SendThread.run() to avoid race
-        // 2. synchronized against each packet. So if a closeSession packet is added,
-        // later packet will be notified.
+        // 2. synchronized against each packet. So if a closeSession packet is added, later packet will be notified.
         synchronized (state) {
+            // 如果客户端与服务端连接状态不正常，或者客户端被关闭，则给packet的响应头设置对应的错误编码
             if (!state.isAlive() || closing) {
                 conLossPacket(packet);
             } else {
-                // If the client is asking to close the session then
-                // mark as closing
+                // 如果客户端要求关闭会话，则将其标记为关闭，并将包添加到outgoingQueue队列中
                 if (h.getType() == OpCode.closeSession) {
                     closing = true;
                 }
@@ -564,12 +597,19 @@ public class ClientCnxn {
         /** Servers's view of the path (may differ due to chroot) **/
         String serverPath;
 
+        /**
+         * 表示该请求Packet是否被处理完成，Packet由客户端创建，并发送给zk服务器，服务端处理完后会将返回对应的replyHeader和response，
+         * 然后客户端的{@link EventThread}线程会将对应的事件和监听放入{@link EventThread#waitingEvents}队列中，然后等待被处理，
+         * 当处理完后，会将该值设置为true，表示该请求被处理完成
+         */
         boolean finished;
 
+        /** 表示客户端的回调 */
         AsyncCallback cb;
 
         Object ctx;
 
+        /** 表示客户端发起请求时，注册的监听监听器 */
         WatchRegistration watchRegistration;
 
         public boolean readOnly;
@@ -649,8 +689,14 @@ public class ClientCnxn {
             return "EndOfStreamException: " + getMessage();
         }
     }
+
+    /**
+     * 封装事件和监听该事件的所有监听器
+     */
     private static class WatcherSetEventPair {
+        /** 监听{@link #event} 事件的watcher*/
         private final Set<Watcher> watchers;
+        /** 被监听的事件 */
         private final WatchedEvent event;
 
         public WatcherSetEventPair(Set<Watcher> watchers, WatchedEvent event) {
@@ -658,6 +704,7 @@ public class ClientCnxn {
             this.event = event;
         }
     }
+
     private static class LocalCallback {
         private final AsyncCallback cb;
         private final int rc;
@@ -1358,56 +1405,87 @@ public class ClientCnxn {
         }
     }
     /**
-     * EventThread是客户端ClientCnxn内部的另一个核心线程，负责客户端的事件处理，并触发客户端注册的Watcher监听。
-     * EventThread中有一个waitingEvents队列，用于临时存放那些需要被触发的Object，包括那些客户端注册的Watcher和异步接口中注册的回调器AsyncCallback。
-     * 同时，EventThread会不断地从waitingEvents这个队列中取出Object，识别其具体类型（Watcher或者AsyncCallback），
-     * 并分别调用process和processResult接口方法来实现对事件的触发和回调。
+     * EventThread是客户端ClientCnxn内部的一个核心线程，负责客户端的事件处理，并触发客户端注册的Watcher监听。
+     *
+     * EventThread中有一个waitingEvents队列，用于临时存放那些需要被触发的监听和回调（包括那些客户端注册的Watcher和异步接口中注册的回调器AsyncCallback）。
+     *
+     * 同时，EventThread会不断地从waitingEvents这个队列中取出Object，识别其具体类型（Watcher或者AsyncCallback），并分别调用process和processResult接口方法来实现对事件的触发和回调。
      */
     class EventThread extends ZooKeeperThread {
+
+        /**
+         * 保存客户端注册的Watcher和异步接口中注册的回调器AsyncCallback，当相应的事件发生时，会将对应的事件保存到该队列中，然后EventThread
+         * 线程会不断从该队列获取事件并进行响应的处理
+         */
         private final LinkedBlockingQueue<Object> waitingEvents = new LinkedBlockingQueue<Object>();
 
-        /** This is really the queued session state until the event
-         * thread actually processes the event and hands it to the watcher.
-         * But for all intents and purposes this is the state.
-         */
+        /** 表示客户端开始处理发生的事件时，客户端与服务端的连接状态 */
         private volatile KeeperState sessionState = KeeperState.Disconnected;
 
+        /** 标识该线程是否被killed */
         private volatile boolean wasKilled = false;
+        /** 标识该线程是否是running状态 */
         private volatile boolean isRunning = false;
 
         EventThread() {
+            // 设置线程名，并设置为守护线程
             super(makeThreadName("-EventThread"));
             setDaemon(true);
         }
 
+        /**
+         * 添加一个监听事件到队列中
+         *
+         * @param event
+         */
         public void queueEvent(WatchedEvent event) {
             queueEvent(event, null);
         }
 
+        /**
+         * 添加一个监听事件到队列中
+         *
+         * @param event
+         * @param materializedWatchers
+         */
         private void queueEvent(WatchedEvent event, Set<Watcher> materializedWatchers) {
-            if (event.getType() == EventType.None
-                    && sessionState == event.getState()) {
+            // 处理客户端连接上zk服务后，没有任何节点信息
+            if (event.getType() == EventType.None && sessionState == event.getState()) {
                 return;
             }
+
             sessionState = event.getState();
             final Set<Watcher> watchers;
             if (materializedWatchers == null) {
-                // materialize the watchers based on the event
-                watchers = watcher.materialize(event.getState(),
-                        event.getType(), event.getPath());
+                // materialize the watchers based on the event 根据事件具体化观察者
+                watchers = watcher.materialize(event.getState(), event.getType(), event.getPath());
             } else {
                 watchers = new HashSet<Watcher>();
                 watchers.addAll(materializedWatchers);
             }
+
+            // 将时间及对应的监听器封装一下，然后放到队列中
             WatcherSetEventPair pair = new WatcherSetEventPair(watchers, event);
-            // queue the pair (watch set & event) for later processing
             waitingEvents.add(pair);
         }
 
+        /**
+         * 添加一个回调到队列中
+         *
+         * @param cb
+         * @param rc
+         * @param path
+         * @param ctx
+         */
         public void queueCallback(AsyncCallback cb, int rc, String path, Object ctx) {
             waitingEvents.add(new LocalCallback(cb, rc, path, ctx));
         }
 
+        /**
+         * 添加一个响应包到队列中
+         *
+         * @param packet
+         */
         public void queuePacket(Packet packet) {
             if (wasKilled) {
                 synchronized (waitingEvents) {
@@ -1419,6 +1497,9 @@ public class ClientCnxn {
             }
         }
 
+        /**
+         * 添加一个死亡事件到队列中，客户端发送致命错误导致客户端被close时，会调用该方法，添加一个死亡事件
+         */
         public void queueEventOfDeath() {
             waitingEvents.add(eventOfDeath);
         }
@@ -1429,11 +1510,15 @@ public class ClientCnxn {
                 isRunning = true;
                 while (true) {
                     Object event = waitingEvents.take();
+
+                    // 如果zk服务端发生致命错误，则会往 waitingEvents 队列中插入一个eventOfDeath对象，表示zk服务已经停止
                     if (event == eventOfDeath) {
                         wasKilled = true;
                     } else {
                         processEvent(event);
                     }
+
+                    // 如果该线程已经被killed，等到waitingEvents中所有的时间都处理完成后将线程状态设置为停止运行的状态
                     if (wasKilled)
                         synchronized (waitingEvents) {
                             if (waitingEvents.isEmpty()) {
@@ -1446,12 +1531,17 @@ public class ClientCnxn {
                 LOG.error("Event thread exiting due to interruption", e);
             }
 
-            LOG.info("EventThread shut down for session: 0x{}",
-                    Long.toHexString(getSessionId()));
+            LOG.info("EventThread shut down for session: 0x{}", Long.toHexString(getSessionId()));
         }
 
+        /**
+         * 处理{@link #waitingEvents}中的事件
+         *
+         * @param event
+         */
         private void processEvent(Object event) {
             try {
+                // 事件发生后通知所有监听器
                 if (event instanceof WatcherSetEventPair) {
                     // each watcher will process the event
                     WatcherSetEventPair pair = (WatcherSetEventPair) event;
@@ -1462,37 +1552,38 @@ public class ClientCnxn {
                             LOG.error("Error while calling watcher ", t);
                         }
                     }
-                } else if (event instanceof LocalCallback) {
+                }
+
+                // 事件发生后，执行对应的回调逻辑
+                else if (event instanceof LocalCallback) {
                     LocalCallback lcb = (LocalCallback) event;
                     if (lcb.cb instanceof StatCallback) {
-                        ((StatCallback) lcb.cb).processResult(lcb.rc, lcb.path,
-                                lcb.ctx, null);
+                        ((StatCallback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx, null);
                     } else if (lcb.cb instanceof DataCallback) {
-                        ((DataCallback) lcb.cb).processResult(lcb.rc, lcb.path,
-                                lcb.ctx, null, null);
+                        ((DataCallback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx, null, null);
                     } else if (lcb.cb instanceof ACLCallback) {
-                        ((ACLCallback) lcb.cb).processResult(lcb.rc, lcb.path,
-                                lcb.ctx, null, null);
+                        ((ACLCallback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx, null, null);
                     } else if (lcb.cb instanceof ChildrenCallback) {
-                        ((ChildrenCallback) lcb.cb).processResult(lcb.rc,
-                                lcb.path, lcb.ctx, null);
+                        ((ChildrenCallback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx, null);
                     } else if (lcb.cb instanceof Children2Callback) {
-                        ((Children2Callback) lcb.cb).processResult(lcb.rc,
-                                lcb.path, lcb.ctx, null, null);
+                        ((Children2Callback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx, null, null);
                     } else if (lcb.cb instanceof StringCallback) {
-                        ((StringCallback) lcb.cb).processResult(lcb.rc,
-                                lcb.path, lcb.ctx, null);
+                        ((StringCallback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx, null);
                     } else {
-                        ((VoidCallback) lcb.cb).processResult(lcb.rc, lcb.path,
-                                lcb.ctx);
+                        ((VoidCallback) lcb.cb).processResult(lcb.rc, lcb.path, lcb.ctx);
                     }
-                } else {
+                }
+
+                else {
                     Packet p = (Packet) event;
+
+                    // 表示相应头的错误编码
                     int rc = 0;
                     String clientPath = p.clientPath;
                     if (p.replyHeader.getErr() != 0) {
                         rc = p.replyHeader.getErr();
                     }
+
                     if (p.cb == null) {
                         LOG.warn("Somehow a null cb got to EventThread!");
                     } else if (p.response instanceof ExistsResponse
@@ -1501,17 +1592,11 @@ public class ClientCnxn {
                         StatCallback cb = (StatCallback) p.cb;
                         if (rc == 0) {
                             if (p.response instanceof ExistsResponse) {
-                                cb.processResult(rc, clientPath, p.ctx,
-                                        ((ExistsResponse) p.response)
-                                                .getStat());
+                                cb.processResult(rc, clientPath, p.ctx, ((ExistsResponse) p.response).getStat());
                             } else if (p.response instanceof SetDataResponse) {
-                                cb.processResult(rc, clientPath, p.ctx,
-                                        ((SetDataResponse) p.response)
-                                                .getStat());
+                                cb.processResult(rc, clientPath, p.ctx, ((SetDataResponse) p.response).getStat());
                             } else if (p.response instanceof SetACLResponse) {
-                                cb.processResult(rc, clientPath, p.ctx,
-                                        ((SetACLResponse) p.response)
-                                                .getStat());
+                                cb.processResult(rc, clientPath, p.ctx, ((SetACLResponse) p.response).getStat());
                             }
                         } else {
                             cb.processResult(rc, clientPath, p.ctx, null);
@@ -1520,28 +1605,23 @@ public class ClientCnxn {
                         DataCallback cb = (DataCallback) p.cb;
                         GetDataResponse rsp = (GetDataResponse) p.response;
                         if (rc == 0) {
-                            cb.processResult(rc, clientPath, p.ctx, rsp
-                                    .getData(), rsp.getStat());
+                            cb.processResult(rc, clientPath, p.ctx, rsp.getData(), rsp.getStat());
                         } else {
-                            cb.processResult(rc, clientPath, p.ctx, null,
-                                    null);
+                            cb.processResult(rc, clientPath, p.ctx, null, null);
                         }
                     } else if (p.response instanceof GetACLResponse) {
                         ACLCallback cb = (ACLCallback) p.cb;
                         GetACLResponse rsp = (GetACLResponse) p.response;
                         if (rc == 0) {
-                            cb.processResult(rc, clientPath, p.ctx, rsp
-                                    .getAcl(), rsp.getStat());
+                            cb.processResult(rc, clientPath, p.ctx, rsp.getAcl(), rsp.getStat());
                         } else {
-                            cb.processResult(rc, clientPath, p.ctx, null,
-                                    null);
+                            cb.processResult(rc, clientPath, p.ctx, null, null);
                         }
                     } else if (p.response instanceof GetChildrenResponse) {
                         ChildrenCallback cb = (ChildrenCallback) p.cb;
                         GetChildrenResponse rsp = (GetChildrenResponse) p.response;
                         if (rc == 0) {
-                            cb.processResult(rc, clientPath, p.ctx, rsp
-                                    .getChildren());
+                            cb.processResult(rc, clientPath, p.ctx, rsp.getChildren());
                         } else {
                             cb.processResult(rc, clientPath, p.ctx, null);
                         }
@@ -1549,8 +1629,7 @@ public class ClientCnxn {
                         Children2Callback cb = (Children2Callback) p.cb;
                         GetChildren2Response rsp = (GetChildren2Response) p.response;
                         if (rc == 0) {
-                            cb.processResult(rc, clientPath, p.ctx, rsp
-                                    .getChildren(), rsp.getStat());
+                            cb.processResult(rc, clientPath, p.ctx, rsp.getChildren(), rsp.getStat());
                         } else {
                             cb.processResult(rc, clientPath, p.ctx, null, null);
                         }

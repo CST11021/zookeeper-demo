@@ -21,16 +21,16 @@ package org.apache.zookeeper;
 import java.util.Set;
 
 /**
- * 客户端Watcher管理器
+ * 客户端Watcher管理器：用于管理注册在节点上的监听器
  */
 public interface ClientWatchManager {
 
     /**
-     * 根据参数返回一组监听器
+     * 根据事件的状态、类型和节点路径，来管理客户端对应的监听器，比如：当节点被移除的事件发生后，客户端需要移除对应的监听器
      * 
      * @param state     事件状态
      * @param type      事件类型
-     * @param path      事件路径
+     * @param path      节点路径
      * @return 可以返回empty，但不能返回null
      */
     public Set<Watcher> materialize(Watcher.Event.KeeperState state, Watcher.Event.EventType type, String path);

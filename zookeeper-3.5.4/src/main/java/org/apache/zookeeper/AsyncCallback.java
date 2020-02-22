@@ -24,17 +24,18 @@ import org.apache.zookeeper.data.Stat;
 import java.util.List;
 
 /**
- * Interface definitions of asynchronous callbacks.
- * An asynchronous callback is deferred to invoke after a function returns.
- * Asynchronous calls usually improve system efficiency on IO-related APIs.
- * <p/>
- * ZooKeeper provides asynchronous version as equivalent to synchronous APIs.
+ * 异步回调的接口定义。
+ * 异步回调被延迟到函数返回后调用。
+ * 异步调用通常可以提高io相关api的系统效率。
+ * ZooKeeper提供异步版本，相当于同步api。
+ *
+ * 所有客户端异步操作操作的回调接口都继承该接口
  */
 @InterfaceAudience.Public
 public interface AsyncCallback {
 
     /**
-     * This callback is used to retrieve the stat of the node.
+     * 客户端异步设置状态的回调接口
      */
     @InterfaceAudience.Public
     interface StatCallback extends AsyncCallback {
@@ -69,7 +70,7 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback is used to retrieve the data and stat of the node.
+     * 客户端段异步操作数据节点的回调接口
      */
     @InterfaceAudience.Public
     interface DataCallback extends AsyncCallback {
@@ -98,7 +99,7 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback is used to retrieve the ACL and stat of the node.
+     * 客户端异步设置ACL的回调接口
      */
     @InterfaceAudience.Public
     interface ACLCallback extends AsyncCallback {
@@ -131,7 +132,8 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback is used to retrieve the children of the node.
+     * 客户端异步操作子节点的回调接口：此回调用于检索节点的子节点。
+     *
      */
     @InterfaceAudience.Public
     interface ChildrenCallback extends AsyncCallback {
@@ -162,7 +164,7 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback is used to retrieve the children and stat of the node.
+     * 客户端异步操作子节点的回调接口：此回调用于检索节点的子节点和状态
      */
     @InterfaceAudience.Public
     interface Children2Callback extends AsyncCallback {
@@ -248,10 +250,8 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback doesn't retrieve anything from the node. It is useful
-     * for some APIs that doesn't want anything sent back, e.g. {@link
-     * org.apache.zookeeper.ZooKeeper#sync(String,
-     * org.apache.zookeeper.AsyncCallback.VoidCallback, Object)}.
+     * This callback doesn't retrieve anything from the node. It is useful for some APIs that doesn't want anything sent back, e.g. {@link
+     * org.apache.zookeeper.ZooKeeper#sync(String, org.apache.zookeeper.AsyncCallback.VoidCallback, Object)}.
      */
     @InterfaceAudience.Public
     interface VoidCallback extends AsyncCallback {
@@ -291,8 +291,7 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback is used to process the multiple results from
-     * a single multi call.
+     * This callback is used to process the multiple results from a single multi call.
      * See {@link org.apache.zookeeper.ZooKeeper#multi} for more information.
      */
     @InterfaceAudience.Public

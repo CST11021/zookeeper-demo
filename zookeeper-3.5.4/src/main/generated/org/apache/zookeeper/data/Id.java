@@ -25,6 +25,7 @@ import org.apache.yetus.audience.InterfaceAudience;
 @InterfaceAudience.Public
 public class Id implements Record {
 
+    /** scheme表示zk的权限控制模式，分别有：world、auth、digest、ip和super */
     private String scheme;
 
     private String id;

@@ -40,7 +40,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * This is a helper class above the implementations of txnlog and snapshot classes
+ * FileTxnSnapLog是Zookeeper上层服务器和底层数据存储之间的对接层，提供了一系列操作数据文件的接口，如事务日志文件和快照数据文件。
+ * Zookeeper根据zoo.cfg文件中解析出的快照数据目录dataDir和事务日志目录dataLogDir来创建FileTxnSnapLog。
  */
 public class FileTxnSnapLog {
 
@@ -59,8 +60,9 @@ public class FileTxnSnapLog {
     /** 包含快照目录的目录 */
     private final File snapDir;
 
+    /** 对应{@link #dataDir}目录 */
     private TxnLog txnLog;
-
+    /** 对应{@link #snapDir}目录 */
     private SnapShot snapLog;
 
     /**
@@ -75,8 +77,7 @@ public class FileTxnSnapLog {
         this.dataDir = new File(dataDir, version + VERSION);
         this.snapDir = new File(snapDir, version + VERSION);
 
-        // by default create snap/log dirs, but otherwise complain instead
-        // See ZOOKEEPER-1161 for more details
+        // by default create snap/log dirs, but otherwise complain instead See ZOOKEEPER-1161 for more details
         boolean enableAutocreate = Boolean.valueOf(System.getProperty(ZOOKEEPER_DATADIR_AUTOCREATE, ZOOKEEPER_DATADIR_AUTOCREATE_DEFAULT));
 
         if (!this.dataDir.exists()) {
@@ -121,18 +122,33 @@ public class FileTxnSnapLog {
         snapLog = new FileSnap(this.snapDir);
     }
 
+    /**
+     * 检查事务日志目录，看看服务启动前是否清理历史快照和log文件，如果没清理则报错
+     *
+     * @throws LogDirContentCheckException
+     */
     private void checkLogDir() throws LogDirContentCheckException {
+
+        // 过滤出所有"snapshot."开头的文件
         File[] files = this.dataDir.listFiles(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
                 return Util.isSnapshotFileName(name);
             }
         });
+
+
         if (files != null && files.length > 0) {
+            // 日志目录有快照文件。检查dataLogDir和dataDir配置是否正确。
             throw new LogDirContentCheckException("Log directory has snapshot files. Check if dataLogDir and dataDir configuration is correct.");
         }
     }
 
+    /**
+     * 检查快照目录，看看服务启动前是否清理历史快照文件，如果没清理则报错
+     *
+     * @throws SnapDirContentCheckException
+     */
     private void checkSnapDir() throws SnapDirContentCheckException {
         File[] files = this.snapDir.listFiles(new FilenameFilter() {
             @Override
@@ -145,27 +161,11 @@ public class FileTxnSnapLog {
         }
     }
 
-    /**
-     * get the datadir used by this filetxn
-     * snap log
-     * @return the data dir
-     */
-    public File getDataDir() {
-        return this.dataDir;
-    }
+
+
 
     /**
-     * get the snap dir used by this
-     * filetxn snap log
-     * @return the snap dir
-     */
-    public File getSnapDir() {
-        return this.snapDir;
-    }
-
-    /**
-     * this function restores the server
-     * database after reading from the
+     * this function restores the server database after reading from the
      * snapshots and transaction logs
      * @param dt the datatree to be restored
      * @param sessions the sessions to be restored
@@ -448,6 +448,15 @@ public class FileTxnSnapLog {
         snapLog.close();
     }
 
+
+    // getter ...
+
+    public File getDataDir() {
+        return this.dataDir;
+    }
+    public File getSnapDir() {
+        return this.snapDir;
+    }
 
 
 

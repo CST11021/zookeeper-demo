@@ -30,6 +30,9 @@ public class ZooDefs {
    
    final public static String CONFIG_NODE = "/zookeeper/config";
 
+    /**
+     * 表示客户端命令的操作类型，例如：创建、删除、获取等命令的类型
+     */
    @InterfaceAudience.Public
     public interface OpCode {
         public final int notification = 0;

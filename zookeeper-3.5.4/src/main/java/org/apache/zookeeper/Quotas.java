@@ -19,7 +19,12 @@
 package org.apache.zookeeper;
 
 /**
- * this class manages quotas and has many other utils for quota
+ * Quotas其实就是为ZNode设置的节点个数和数据量大小的限制（只是在日志中会提醒，并不是真正限制）。
+ *
+ * limitnode和statnode的区别：一个是在设置quota时的限制，一个是真实的情况。
+ *
+ * 这里说明一点，所有成功设立了quota的节点都会在/zookeeper/quota下建立一个树形的数据结构，并且每个节点都会有两个孩子接点，即"zookeeper_limits"和"zookeeper_stats"。
+ * 特别的是，前面这句话中成功设立是有条件的，如果发现有父节点或者兄弟孩子节点有quota，那么设置quota会失败。
  */
 public class Quotas {
 
@@ -40,7 +45,7 @@ public class Quotas {
     public static final String statNode = "zookeeper_stats";
 
     /**
-     * return the quota path associated with this prefix
+     * 创建limitNode节点的路径，返回：/zookeeper/quota + ${path} + zookeeper_limits
      *
      * @param path the actual path in zookeeper.
      * @return the limit quota path
@@ -50,13 +55,12 @@ public class Quotas {
     }
 
     /**
-     * return the stat quota path associated with this
-     * prefix.
+     * 创建statNode节点的路径，返回：/zookeeper/quota + ${path} + zookeeper_stats
+     *
      * @param path the actual path in zookeeper
      * @return the stat quota path
      */
     public static String statPath(String path) {
-        return quotaZookeeper + path + "/" +
-        statNode;
+        return quotaZookeeper + path + "/" + statNode;
     }
 }

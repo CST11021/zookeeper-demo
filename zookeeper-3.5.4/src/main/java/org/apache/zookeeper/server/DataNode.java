@@ -18,66 +18,54 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.Collections;
-
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.data.StatPersisted;
 
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
- * This class contains the data for a node in the data tree.
- * <p>
- * A data node contains a reference to its parent, a byte array as its data, an
- * array of ACLs, a stat object, and a set of its children's paths.
- * 
+ * DataNode类是zookeeper中数据存储的最小单元。
+ * 在{@link DataTree}中，所有的datanode存在一个concurrentHashMap中，对zk中所有的znode进行操作，其实底层就是对这个map进行操作。其中path是key，datanode是value。
+ *
+ * DataNode中存储的信息共有三类：
+ * 数据内容data[]
+ * acl列表
+ * 节点状态stat
+ *
+ * 其中数据内容和节点状态就是在客户端上getData获取到的那些数据。同时，DataNode中还记录了节点的父节点和子节点列表，并提供了对子节点列表的操作。
  */
 public class DataNode implements Record {
+
     /** the data for this datanode */
     byte data[];
 
     /**
-     * the acl map long for this datanode. the datatree has the map
+     * 表示节点的权限值，通过{@link ReferenceCountedACLCache#convertLong(Long)}方法返回一个节点的权利列表
      */
     Long acl;
 
     /**
-     * the stat for this node that is persisted to disk.
+     * 表示节点保存到磁盘的状态
      */
     public StatPersisted stat;
 
     /**
-     * the list of children for this node. note that the list of children string
-     * does not contain the parent path -- just the last part of the path. This
-     * should be synchronized on except deserializing (for speed up issues).
+     * 此节点的子节点列表，注意，子字符串列表不包含父路径——只包含路径的最后一部分。
+     * 除反序列化(用于加速问题)外，此操作应同步。
      */
     private Set<String> children = null;
 
     private static final Set<String> EMPTY_SET = Collections.emptySet();
 
-    /**
-     * default constructor for the datanode
-     */
     DataNode() {
         // default constructor
     }
-
-    /**
-     * create a DataNode with parent, data, acls and stat
-     * 
-     * @param parent
-     *            the parent of this DataNode
-     * @param data
-     *            the data to be set
-     * @param acl
-     *            the acls for this node
-     * @param stat
-     *            the stat for this node.
-     */
     public DataNode(byte data[], Long acl, StatPersisted stat) {
         this.data = data;
         this.acl = acl;
@@ -85,11 +73,10 @@ public class DataNode implements Record {
     }
 
     /**
-     * Method that inserts a child into the children set
+     * 添加一个子节点
      * 
-     * @param child
-     *            to be inserted
-     * @return true if this set did not already contain the specified element
+     * @param child to be inserted
+     * @return 如果该集合尚未包含指定的元素，则返回true
      */
     public synchronized boolean addChild(String child) {
         if (children == null) {
@@ -100,7 +87,7 @@ public class DataNode implements Record {
     }
 
     /**
-     * Method that removes a child from the children set
+     * 移除子节点
      * 
      * @param child
      * @return true if this set contained the specified element
@@ -113,7 +100,7 @@ public class DataNode implements Record {
     }
 
     /**
-     * convenience method for setting the children for this datanode
+     * 设置子节点集合
      * 
      * @param children
      */
@@ -122,10 +109,9 @@ public class DataNode implements Record {
     }
 
     /**
-     * convenience methods to get the children
+     * 获取子节点集合
      * 
-     * @return the children of this datanode. If the datanode has no children, empty
-     *         set is returned
+     * @return the children of this datanode. If the datanode has no children, empty set is returned
      */
     public synchronized Set<String> getChildren() {
         if (children == null) {
@@ -135,11 +121,21 @@ public class DataNode implements Record {
         return Collections.unmodifiableSet(children);
     }
 
+    /**
+     * 返回节点数据的字节大小
+     *
+     * @return
+     */
     public synchronized long getApproximateDataSize() {
         if(null==data) return 0;
         return data.length;
     }
 
+    /**
+     * 拷贝当前节点的状态到入参to
+     *
+     * @param to
+     */
     synchronized public void copyStat(Stat to) {
         to.setAversion(stat.getAversion());
         to.setCtime(stat.getCtime());
@@ -161,16 +157,22 @@ public class DataNode implements Record {
         to.setNumChildren(numChildren);
     }
 
+    /**
+     * 如果znode是ephemeral类型节点，则这是znode所有者的 session ID。 如果znode不是ephemeral节点，则该字段设置为零
+     *
+     * @param stat
+     * @return
+     */
     private static long getClientEphemeralOwner(StatPersisted stat) {
         EphemeralType ephemeralType = EphemeralType.get(stat.getEphemeralOwner());
         if (ephemeralType != EphemeralType.NORMAL) {
             return 0;
         }
+
         return stat.getEphemeralOwner();
     }
 
-    synchronized public void deserialize(InputArchive archive, String tag)
-            throws IOException {
+    synchronized public void deserialize(InputArchive archive, String tag) throws IOException {
         archive.startRecord("node");
         data = archive.readBuffer("data");
         acl = archive.readLong("acl");
@@ -179,8 +181,7 @@ public class DataNode implements Record {
         archive.endRecord("node");
     }
 
-    synchronized public void serialize(OutputArchive archive, String tag)
-            throws IOException {
+    synchronized public void serialize(OutputArchive archive, String tag) throws IOException {
         archive.startRecord(this, "node");
         archive.writeBuffer(data, "data");
         archive.writeLong(acl, "acl");

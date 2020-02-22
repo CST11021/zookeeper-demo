@@ -34,6 +34,7 @@ public class WatchedEvent {
     /** 事件类型 */
     final private EventType eventType;
 
+    /** 被监听的节点 */
     private String path;
     
     /**

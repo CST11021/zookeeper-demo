@@ -33,41 +33,26 @@ public interface Watcher {
     public interface Event {
 
         /**
-         * Zookeeper可能在事件中的状态枚举
+         * 表示zk服务端与客户端在事件发生时的状态枚举
          */
         @InterfaceAudience.Public
         public enum KeeperState {
             /** 没有用，服务器将永远不会生成此状态 */
             @Deprecated
             Unknown (-1),
-
             /** 客户端处于断开连接状态——它没有连接到集成中的任何服务器。 */
             Disconnected (0),
-
             /** 没有用，服务器将永远不会生成此状态 */
             @Deprecated
             NoSyncConnected (1),
-
-            /**
-             * 客户端处于连接状态：它连接到集群中的一台服务器(在创建ZooKeeper客户端期间在主机连接参数中指定的服务器之一)。
-             */
+            /** 客户端处于连接状态：它连接到集群中的一台服务器(在创建ZooKeeper客户端期间在主机连接参数中指定的服务器之一)。*/
             SyncConnected (3),
-
-            /**
-             * 身份认证失败的状态
-             */
+            /** 身份认证失败的状态 */
             AuthFailed (4),
-
-            /**
-             * 客户端连接到只读服务器，接收到此状态后允许的唯一操作是读操作。此状态仅为只读客户端生成，因为读/写客户端不允许连接到r/o服务器。
-             */
+            /** 客户端连接到只读服务器，接收到此状态后允许的唯一操作是读操作。此状态仅为只读客户端生成，因为读/写客户端不允许连接到r/o服务器。*/
             ConnectedReadOnly (5),
-
-            /**
-              * SaslAuthenticated:用于通知客户端他们是SASL-authenticated，这样它们就可以使用sasl授权的权限执行Zookeeper操作。
-              */
+            /** SaslAuthenticated:用于通知客户端他们是SASL-authenticated，这样它们就可以使用sasl授权的权限执行Zookeeper操作。*/
             SaslAuthenticated(6),
-
             /**
              * 服务集群已在此会话中过期。
              * ZooKeeper客户端连接(会话)不再有效。
@@ -160,7 +145,7 @@ public interface Watcher {
     public enum WatcherType {
         /** 表示监听的是子节点 */
         Children(1),
-        /** 表示监听的数据 */
+        /** 表示监听的是数据 */
         Data(2),
         /** 表示监听所有事件类型 */
         Any(3);

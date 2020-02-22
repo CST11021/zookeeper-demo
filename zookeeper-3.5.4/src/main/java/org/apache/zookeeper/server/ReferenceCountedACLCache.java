@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,29 +27,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * 用于缓存节点的权限
+ *
+ * 当给datatree中的节点设置权限时，会将每个节点的权限（List<ACL>表示一个节点的权限）缓存到ReferenceCountedACLCache中
+ */
 public class ReferenceCountedACLCache {
     private static final Logger LOG = LoggerFactory.getLogger(ReferenceCountedACLCache.class);
 
-    final Map<Long, List<ACL>> longKeyMap =
-            new HashMap<Long, List<ACL>>();
+    final Map<Long, List<ACL>> longKeyMap = new HashMap<Long, List<ACL>>();
 
-    final Map<List<ACL>, Long> aclKeyMap =
-            new HashMap<List<ACL>, Long>();
+    /** 一个List<ACL>表示一个zk节点权限，value表示这组权限集合的id */
+    final Map<List<ACL>, Long> aclKeyMap = new HashMap<List<ACL>, Long>();
 
-    final Map<Long, AtomicLongWithEquals> referenceCounter =
-            new HashMap<Long, AtomicLongWithEquals>();
+    final Map<Long, AtomicLongWithEquals> referenceCounter = new HashMap<Long, AtomicLongWithEquals>();
+
     private static final long OPEN_UNSAFE_ACL_ID = -1L;
 
     /**
-     * these are the number of acls that we have in the datatree
+     * 表示当前datatree中节点的权限数量，当给datatree中设置节点设置权限时，该值+1
      */
     long aclIndex = 0;
 

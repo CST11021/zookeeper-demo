@@ -18,28 +18,18 @@
 
 package org.apache.zookeeper.server.persistence;
 
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.io.Serializable;
-import java.net.URI;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Properties;
-
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
+import org.apache.zookeeper.txn.TxnHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.txn.TxnHeader;
+
+import java.io.*;
+import java.net.URI;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 /**
  * A collection of utility methods for dealing with file name parsing, 
@@ -296,7 +286,7 @@ public class Util {
     }
 
     /**
-     * Returns true if fileName is a log file name.
+     * 如果文件是以"log."开头的，则返回true
      *
      * @param fileName
      * @return
@@ -306,7 +296,7 @@ public class Util {
     }
 
     /**
-     * Returns true if fileName is a snapshot file name.
+     * 如果文件是以"snapshot."开头的，则返回true
      *
      * @param fileName
      * @return

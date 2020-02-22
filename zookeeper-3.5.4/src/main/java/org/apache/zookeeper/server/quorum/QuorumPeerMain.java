@@ -17,23 +17,22 @@
  */
 package org.apache.zookeeper.server.quorum;
 
-import java.io.IOException;
-
-import javax.management.JMException;
-import javax.security.sasl.SaslException;
-
 import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.jmx.ManagedUtil;
+import org.apache.zookeeper.server.DatadirCleanupManager;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.DatadirCleanupManager;
 import org.apache.zookeeper.server.ZooKeeperServerMain;
 import org.apache.zookeeper.server.admin.AdminServer.AdminServerException;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog.DatadirException;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.management.JMException;
+import javax.security.sasl.SaslException;
+import java.io.IOException;
 
 /**
  *
@@ -119,12 +118,13 @@ public class QuorumPeerMain {
                 .getSnapRetainCount(), config.getPurgeInterval());
         purgeMgr.start();
 
+        // 通过解析zoo.cfg server数量来判断是否是集群
         if (args.length == 1 && config.isDistributed()) {
+            // 如果是集群，直接用QuorumPeerMain中集群启动方法
             runFromConfig(config);
         } else {
-            LOG.warn("Either no config or no quorum defined in config, running "
-                    + " in standalone mode");
-            // there is only server in the quorum -- run as standalone
+            LOG.warn("Either no config or no quorum defined in config, running " + " in standalone mode");
+            // 如果是单机就用单机启动方法
             ZooKeeperServerMain.main(args);
         }
     }
