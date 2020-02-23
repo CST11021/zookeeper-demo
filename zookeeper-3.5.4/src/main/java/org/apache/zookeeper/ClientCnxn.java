@@ -265,8 +265,7 @@ public class ClientCnxn {
      * See ZOOKEEPER-795 for details.
      */
     private static String makeThreadName(String suffix) {
-        String name = Thread.currentThread().getName().
-                replaceAll("-EventThread", "");
+        String name = Thread.currentThread().getName().replaceAll("-EventThread", "");
         return name + suffix;
     }
 
@@ -315,12 +314,10 @@ public class ClientCnxn {
 
     void queueEvent(String clientPath, int err, Set<Watcher> materializedWatchers, EventType eventType) {
         KeeperState sessionState = KeeperState.SyncConnected;
-        if (KeeperException.Code.SESSIONEXPIRED.intValue() == err
-                || KeeperException.Code.CONNECTIONLOSS.intValue() == err) {
+        if (KeeperException.Code.SESSIONEXPIRED.intValue() == err || KeeperException.Code.CONNECTIONLOSS.intValue() == err) {
             sessionState = Event.KeeperState.Disconnected;
         }
-        WatchedEvent event = new WatchedEvent(eventType, sessionState,
-                clientPath);
+        WatchedEvent event = new WatchedEvent(eventType, sessionState, clientPath);
         eventThread.queueEvent(event, materializedWatchers);
     }
 
@@ -417,7 +414,7 @@ public class ClientCnxn {
 
 
     /**
-     *
+     * 提交一个客户端请求，并返回相应头
      *
      * @param h             请求头
      * @param request       请求对象
@@ -431,6 +428,7 @@ public class ClientCnxn {
     }
 
     /**
+     * 提交一个客户端请求，并返回相应头
      *
      * @param h
      * @param request
@@ -472,11 +470,40 @@ public class ClientCnxn {
         sendThread.sendPacket(p);
     }
 
+    /**
+     * 根据请求后、请求体等参数构建一个Packet，并将Packet添加到outgoingQueue队列中，返回该请求包的引用，当该请求包被服务端正常处理完成后，客户端会将{@link Packet#finished}设置为true
+     *
+     * @param h
+     * @param r
+     * @param request
+     * @param response
+     * @param cb
+     * @param clientPath
+     * @param serverPath
+     * @param ctx
+     * @param watchRegistration
+     * @return
+     */
     public Packet queuePacket(RequestHeader h, ReplyHeader r, Record request, Record response, AsyncCallback cb, String clientPath, String serverPath, Object ctx, WatchRegistration watchRegistration) {
         return queuePacket(h, r, request, response, cb, clientPath, serverPath,
                 ctx, watchRegistration, null);
     }
 
+    /**
+     * 根据请求后、请求体等参数构建一个Packet，并将Packet添加到outgoingQueue队列中，返回该请求包的引用，当该请求包被服务端正常处理完成后，客户端会将{@link Packet#finished}设置为true
+     *
+     * @param h
+     * @param r
+     * @param request
+     * @param response
+     * @param cb
+     * @param clientPath
+     * @param serverPath
+     * @param ctx
+     * @param watchRegistration
+     * @param watchDeregistration
+     * @return
+     */
     public Packet queuePacket(RequestHeader h, ReplyHeader r, Record request, Record response, AsyncCallback cb, String clientPath, String serverPath, Object ctx, WatchRegistration watchRegistration, WatchDeregistration watchDeregistration) {
         Packet packet = null;
 

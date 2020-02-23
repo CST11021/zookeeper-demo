@@ -115,11 +115,13 @@ public class ZooKeeper implements AutoCloseable {
     @Deprecated
     public static final String SECURE_CLIENT = "zookeeper.client.secure";
 
-    /**  */
+    /** 用于向zk服务端发起请求以及触发客户端注册的Watcher或回调等 */
     protected final ClientCnxn cnxn;
 
+    /** 表示该客户端实例所连接的zk服务，可能是多个服务 */
     protected final HostProvider hostProvider;
 
+    /** zk客户端的Watcher管理器，该管理器用于管理客户端注册或移除的Watcher */
     protected final ZKWatchManager watchManager;
 
     /** 表示zk客户端配置 */
