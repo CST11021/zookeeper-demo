@@ -61,7 +61,8 @@ import java.util.concurrent.LinkedBlockingQueue;
  * of available servers to connect to and "transparently" switches servers it is
  * connected to as needed.
  *
- * 客户端核心线程，其内部又包含两个线程，即SendThread和EventThread。
+ * ClientCnxn类中有SendThread和EventThread两个线程，SendThread负责io（发送和接收），EventThread负责事件处理：
+ *
  * 前者是一个I/O线程，主要负责ZooKeeper客户端和服务器之间的网络I/O通信；
  * 后者是一个事件线程，主要负责服务端事件进行处理。
  *
@@ -402,8 +403,7 @@ public class ClientCnxn {
 
 
     /**
-     * getXid() is called externally by ClientCnxnNIO::doIO() when packets are sent from the outgoingQueue to
-     * the server. Thus, getXid() must be public.
+     * 当数据包从outgoingQueue发送到服务器时，ClientCnxnNIO::doIO()在外部调用getXid()。因此，getXid()必须是公共的。
      */
     synchronized public int getXid() {
         return xid++;
@@ -455,8 +455,7 @@ public class ClientCnxn {
     }
 
     public void sendPacket(Record request, Record response, AsyncCallback cb, int opCode) throws IOException {
-        // Generate Xid now because it will be sent immediately,
-        // by call to sendThread.sendPacket() below.
+        // 现在就生成Xid，因为它将被立即发送，方法是调用下面的sendThread.sendPacket()。
         int xid = getXid();
         RequestHeader h = new RequestHeader();
         h.setXid(xid);
@@ -485,8 +484,7 @@ public class ClientCnxn {
      * @return
      */
     public Packet queuePacket(RequestHeader h, ReplyHeader r, Record request, Record response, AsyncCallback cb, String clientPath, String serverPath, Object ctx, WatchRegistration watchRegistration) {
-        return queuePacket(h, r, request, response, cb, clientPath, serverPath,
-                ctx, watchRegistration, null);
+        return queuePacket(h, r, request, response, cb, clientPath, serverPath, ctx, watchRegistration, null);
     }
 
     /**

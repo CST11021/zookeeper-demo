@@ -174,9 +174,7 @@ public class ZooKeeper implements AutoCloseable {
      *            "/app/a/foo/bar" (from the server perspective).
      * @param sessionTimeout
      *            session timeout in milliseconds
-     * @param watcher
-     *            a watcher object which will be notified of state changes, may
-     *            also be notified for node events
+     * @param watcher zk默认的监听器，用于监听
      * @param canBeReadOnly
      *            (added in 3.4) whether the created client is allowed to go to
      *            read-only mode in case of partitioning. Read-only mode
@@ -196,8 +194,7 @@ public class ZooKeeper implements AutoCloseable {
      *             if an invalid chroot path is specified
      */
     public ZooKeeper(String connectString, int sessionTimeout, Watcher watcher, boolean canBeReadOnly, HostProvider aHostProvider, ZKClientConfig clientConfig) throws IOException {
-        LOG.info("Initiating client connection, connectString=" + connectString
-                + " sessionTimeout=" + sessionTimeout + " watcher=" + watcher);
+        LOG.info("Initiating client connection, connectString=" + connectString + " sessionTimeout=" + sessionTimeout + " watcher=" + watcher);
 
         if (clientConfig == null) {
             clientConfig = new ZKClientConfig();
@@ -209,9 +206,10 @@ public class ZooKeeper implements AutoCloseable {
         ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
         hostProvider = aHostProvider;
 
-        cnxn = new ClientCnxn(connectStringParser.getChrootPath(),
-                hostProvider, sessionTimeout, this, watchManager,
-                getClientCnxnSocket(), canBeReadOnly);
+
+        // ClientCnxn类中有SendThread和EventThread两个线程，SendThread负责io（发送和接收），EventThread负责事件处理
+        cnxn = new ClientCnxn(connectStringParser.getChrootPath(), hostProvider, sessionTimeout, this, watchManager, getClientCnxnSocket(), canBeReadOnly);
+        // 启动SendThread线程和EventThread线程
         cnxn.start();
     }
     /**
@@ -392,8 +390,7 @@ public class ZooKeeper implements AutoCloseable {
         PathUtils.validatePath(clientPath, createMode.isSequential());
         // 校验节点类型和ttl是否合法
         EphemeralType.validateTTL(createMode, -1);
-
-        // 如何设置了chroot（隔离命名空间），则在路径添追加chroot
+        // 如果设置了chroot（隔离命名空间），则在路径添追加chroot
         final String serverPath = prependChroot(clientPath);
 
         // 设置：RequestHeader
@@ -494,26 +491,34 @@ public class ZooKeeper implements AutoCloseable {
      */
     public String create(final String path, byte data[], List<ACL> acl, CreateMode createMode, Stat stat, long ttl) throws KeeperException, InterruptedException {
         final String clientPath = path;
+        // 检查节点路径是否合法
         PathUtils.validatePath(clientPath, createMode.isSequential());
+        // 校验节点类型和ttl是否合法
         EphemeralType.validateTTL(createMode, ttl);
-
+        // 如果设置了chroot（隔离命名空间），则在路径添追加chroot
         final String serverPath = prependChroot(clientPath);
 
+        // 创建请求头
         RequestHeader h = new RequestHeader();
         setCreateHeader(createMode, h);
+        // 创建响应体
         Create2Response response = new Create2Response();
         if (acl != null && acl.size() == 0) {
             throw new KeeperException.InvalidACLException();
         }
+        // 创建请求体
         Record record = makeCreateRecord(createMode, serverPath, data, acl, ttl);
+
+        // 提交请求
         ReplyHeader r = cnxn.submitRequest(h, record, response, null);
         if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
         if (stat != null) {
             DataTree.copyStat(response.getStat(), stat);
         }
+
+        // 如果设置chroot，则返回的节点路径需要移除chroot
         if (cnxn.chrootPath == null) {
             return response.getPath();
         } else {
@@ -529,13 +534,17 @@ public class ZooKeeper implements AutoCloseable {
      */
     public void create(final String path, byte data[], List<ACL> acl, CreateMode createMode, StringCallback cb, Object ctx) {
         final String clientPath = path;
+        // 检查节点路径是否合法
         PathUtils.validatePath(clientPath, createMode.isSequential());
+        // 校验节点类型和ttl是否合法
         EphemeralType.validateTTL(createMode, -1);
-
+        // 如果设置了chroot（隔离命名空间），则在路径添追加chroot
         final String serverPath = prependChroot(clientPath);
 
+        // 创建请求头
         RequestHeader h = new RequestHeader();
         h.setType(createMode.isContainer() ? ZooDefs.OpCode.createContainer : ZooDefs.OpCode.create);
+
         CreateRequest request = new CreateRequest();
         CreateResponse response = new CreateResponse();
         ReplyHeader r = new ReplyHeader();
@@ -543,8 +552,7 @@ public class ZooKeeper implements AutoCloseable {
         request.setFlags(createMode.toFlag());
         request.setPath(serverPath);
         request.setAcl(acl);
-        cnxn.queuePacket(h, r, request, response, cb, clientPath,
-                serverPath, ctx, null);
+        cnxn.queuePacket(h, r, request, response, cb, clientPath, serverPath, ctx, null);
     }
     /**
      * The asynchronous version of create.
@@ -561,9 +569,11 @@ public class ZooKeeper implements AutoCloseable {
      */
     public void create(final String path, byte data[], List<ACL> acl, CreateMode createMode, Create2Callback cb, Object ctx, long ttl) {
         final String clientPath = path;
+        // 检查节点路径是否合法
         PathUtils.validatePath(clientPath, createMode.isSequential());
+        // 校验节点类型和ttl是否合法
         EphemeralType.validateTTL(createMode, ttl);
-
+        // 如果设置了chroot（隔离命名空间），则在路径添追加chroot
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
@@ -571,8 +581,7 @@ public class ZooKeeper implements AutoCloseable {
         ReplyHeader r = new ReplyHeader();
         Create2Response response = new Create2Response();
         Record record = makeCreateRecord(createMode, serverPath, data, acl, ttl);
-        cnxn.queuePacket(h, r, record, response, cb, clientPath,
-                serverPath, ctx, null);
+        cnxn.queuePacket(h, r, record, response, cb, clientPath, serverPath, ctx, null);
     }
 
 
@@ -609,12 +618,10 @@ public class ZooKeeper implements AutoCloseable {
 
         final String serverPath;
 
-        // maintain semantics even in chroot case
-        // specifically - root cannot be deleted
+        // maintain semantics even in chroot case specifically - root cannot be deleted
         // I think this makes sense even in chroot case.
         if (clientPath.equals("/")) {
-            // a bit of a hack, but delete(/) will never succeed and ensures
-            // that the same semantics are maintained
+            // a bit of a hack, but delete(/) will never succeed and ensures that the same semantics are maintained
             serverPath = clientPath;
         } else {
             serverPath = prependChroot(clientPath);
@@ -627,8 +634,7 @@ public class ZooKeeper implements AutoCloseable {
         request.setVersion(version);
         ReplyHeader r = cnxn.submitRequest(h, request, null, null);
         if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
     }
     /**
@@ -1095,7 +1101,7 @@ public class ZooKeeper implements AutoCloseable {
     }
 
 
-
+    // 同步设置节点数据
     /**
      * Set the data for the node of the given path if such a node exists and the
      * given version matches the version of the node (if the given version is
@@ -1127,7 +1133,6 @@ public class ZooKeeper implements AutoCloseable {
     public Stat setData(final String path, byte data[], int version) throws KeeperException, InterruptedException {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
-
         final String serverPath = prependChroot(clientPath);
 
         RequestHeader h = new RequestHeader();
@@ -1139,11 +1144,11 @@ public class ZooKeeper implements AutoCloseable {
         SetDataResponse response = new SetDataResponse();
         ReplyHeader r = cnxn.submitRequest(h, request, response, null);
         if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
         return response.getStat();
     }
+    // 异步设置节点数据
     /**
      * The asynchronous version of setData.
      *
@@ -1162,23 +1167,16 @@ public class ZooKeeper implements AutoCloseable {
         request.setData(data);
         request.setVersion(version);
         SetDataResponse response = new SetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, null);
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb, clientPath, serverPath, ctx, null);
     }
 
 
-
+    // 获取zk的"/zookeeper/config"节点的配置
 
     /**
-     * Return the last committed configuration (as known to the server to which the client is connected)
-     * and the stat of the configuration.
-     * <p>
-     * If the watch is non-null and the call is successful (no exception is
-     * thrown), a watch will be left on the configuration node (ZooDefs.CONFIG_NODE). The watch
-     * will be triggered by a successful reconfig operation
-     * <p>
-     * A KeeperException with error code KeeperException.NoNode will be thrown
-     * if the configuration node doesn't exists.
+     * 给 /zookeeper/config 节点注册一个监听，并返回节点的数据
+     *
+     * 如果配置节点不存在，则抛出{@link KeeperException.NoNodeException}异常
      *
      * @param watcher explicit watcher
      * @param stat the stat of the configuration node ZooDefs.CONFIG_NODE
@@ -1187,6 +1185,7 @@ public class ZooKeeper implements AutoCloseable {
      * @throws InterruptedException If the server transaction is interrupted.
      */
     public byte[] getConfig(Watcher watcher, Stat stat) throws KeeperException, InterruptedException {
+        // "/zookeeper/config"节点
         final String configZnode = ZooDefs.CONFIG_NODE;
 
         // the watch contains the un-chroot path
@@ -1203,8 +1202,7 @@ public class ZooKeeper implements AutoCloseable {
         GetDataResponse response = new GetDataResponse();
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    configZnode);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), configZnode);
         }
         if (stat != null) {
             DataTree.copyStat(response.getStat(), stat);
@@ -1212,7 +1210,7 @@ public class ZooKeeper implements AutoCloseable {
         return response.getData();
     }
     /**
-     * The asynchronous version of getConfig.
+     * getConfig的异步版本
      *
      * @see #getConfig(Watcher, Stat)
      */
@@ -1231,8 +1229,7 @@ public class ZooKeeper implements AutoCloseable {
         request.setPath(configZnode);
         request.setWatch(watcher != null);
         GetDataResponse response = new GetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                configZnode, configZnode, ctx, wcb);
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb, configZnode, configZnode, ctx, wcb);
     }
     /**
      * Return the last committed configuration (as known to the server to which the client is connected)
@@ -1255,7 +1252,7 @@ public class ZooKeeper implements AutoCloseable {
         return getConfig(watch ? watchManager.defaultWatcher : null, stat);
     }
     /**
-     * The Asynchronous version of getConfig.
+     * getConfig的异步版本。
      *
      * @see #getData(String, boolean, Stat)
      */
@@ -1486,7 +1483,11 @@ public class ZooKeeper implements AutoCloseable {
         return new ZooKeeperTestable(this, cnxn);
     }
 
-    /* Useful for testing watch handling behavior */
+    /**
+     * 创建一个ZKWatchManager
+     *
+     * @return
+     */
     protected ZKWatchManager defaultWatchManager() {
         return new ZKWatchManager(getClientConfig().getBoolean(ZKClientConfig.DISABLE_AUTO_WATCH_RESET));
     }
@@ -1629,11 +1630,12 @@ public class ZooKeeper implements AutoCloseable {
     }
 
 
-
-
-
-
-
+    /**
+     * 客户端创建节点时，会调用该方法，根据节点的类型设置请求头
+     *
+     * @param createMode
+     * @param h
+     */
     private void setCreateHeader(CreateMode createMode, RequestHeader h) {
         if (createMode.isTTL()) {
             h.setType(ZooDefs.OpCode.createTTL);
@@ -1642,6 +1644,16 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
+    /**
+     * 根据参数创建请求体
+     *
+     * @param createMode
+     * @param serverPath
+     * @param data
+     * @param acl
+     * @param ttl
+     * @return
+     */
     private Record makeCreateRecord(CreateMode createMode, String serverPath, byte[] data, List<ACL> acl, long ttl) {
         Record record;
         if (createMode.isTTL()) {

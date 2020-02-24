@@ -24,6 +24,8 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Public
 public class RequestHeader implements Record {
+
+    /** 代表请求的顺序号，用于保证请求的顺序发送和接收 */
     private int xid;
 
     /** 表示本次请求的操作类型，类型参考：ZooDefs#OpCode类 */

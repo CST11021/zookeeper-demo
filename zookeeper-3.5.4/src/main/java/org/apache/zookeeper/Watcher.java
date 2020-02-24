@@ -21,7 +21,7 @@ package org.apache.zookeeper;
 import org.apache.yetus.audience.InterfaceAudience;
 
 /**
- * 客户端可以实现该接口，监听服务端事件
+ * 客户端可以实现该接口，监听服务端的节点变更事件及服务端状态等
  */
 @InterfaceAudience.Public
 public interface Watcher {

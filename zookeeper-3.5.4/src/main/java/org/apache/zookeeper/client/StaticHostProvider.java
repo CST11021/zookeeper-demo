@@ -29,7 +29,7 @@ import java.util.*;
 
 /**
  * Most simple HostProvider, resolves only on instantiation.
- * 举个例子来说，假如客户端传入这样一个地址列表：”host1,host2,host3,host4,host5“。经过一轮随机打散后，可能的一种顺序变为了”host2,host4,host5,host3“，
+ * 举个例子来说，假如客户端传入这样一个地址列表：”host1,host2,host3,host4,host5“。经过一轮随机打散后，可能的一种顺序变为了”host2,host4,host1,host5,host3“，
  * 并且形成了下上图所示的循环队里。此外，HostProvider还会为该循环队列创建两个游标：currentIndex和lastIndex。currentIndex表示循环队列
  * 中当前遍历到的那个元素位置，lastIndex表示当前正在使用的服务器地址位置。初始化的时候，currentIndex和lastIndex的值都为-1。
  *
@@ -219,7 +219,7 @@ public final class StaticHostProvider implements HostProvider {
      * @param spinDelay 该时间表示所有主机都尝试一次的等待时间，单位毫秒
      *
      *                  假如客户端传入这样一个地址列表：”host1,host2,host3,host4,host5“。经过一轮随机打散后，可能的一种顺序变为了
-     *                  ”host2,host4,host5,host3“，并且形成了下上图所示的循环队里。此外，HostProvider还会为该循环队列创建两个游标：
+     *                  ”host2,host4,host1,host5,host3“，并且形成了上图所示的循环队里。此外，HostProvider还会为该循环队列创建两个游标：
      *                  currentIndex和lastIndex。currentIndex表示循环队列中当前遍历到的那个元素位置，lastIndex表示当前正在使用的
      *                  服务器地址位置。初始化的时候，currentIndex和lastIndex的值都为-1。
      *

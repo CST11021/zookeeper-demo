@@ -24,8 +24,11 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Public
 public class ReplyHeader implements Record {
+    /** 同{@link RequestHeader#xid}作用一样，代表请求的顺序号，用于保证请求的顺序发送和接收 */
     private int xid;
+    /** 表示全局唯一的事务id（分布事务 id ） */
     private long zxid;
+    /** 服务操作时，如果发送错误，会返回错误代码 */
     private int err;
 
     public ReplyHeader() {

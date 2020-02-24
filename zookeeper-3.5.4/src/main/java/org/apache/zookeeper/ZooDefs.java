@@ -37,18 +37,24 @@ public class ZooDefs {
     public interface OpCode {
         public final int notification = 0;
 
+        /** 创建节点 */
         public final int create = 1;
 
+        /** 删除节点 */
         public final int delete = 2;
 
         public final int exists = 3;
 
+        /** 获取节点数据 */
         public final int getData = 4;
 
+        /** 设置节点数据 */
         public final int setData = 5;
 
+        /** 获取节点权限 */
         public final int getACL = 6;
 
+        /** 设置节点权限 */
         public final int setACL = 7;
 
         public final int getChildren = 8;
