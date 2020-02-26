@@ -90,13 +90,6 @@ import java.util.*;
  * EventType None and KeeperState Disconnected.
  *
  */
-/*
- * We suppress the "try" warning here because the close() method's signature
- * allows it to throw InterruptedException which is strongly advised against
- * by AutoCloseable (see: http://docs.oracle.com/javase/7/docs/api/java/lang/AutoCloseable.html#close()).
- * close() will never throw an InterruptedException but the exception remains in the
- * signature for backwards compatibility purposes.
- */
 @SuppressWarnings("try")
 @InterfaceAudience.Public
 public class ZooKeeper implements AutoCloseable {
@@ -670,9 +663,8 @@ public class ZooKeeper implements AutoCloseable {
 
 
     /**
-     * Return the stat of the node of the given path. Return null if no such a
-     * node exists.
-     * <p>
+     * 返回给定路径的节点的状态。如果不存在这样的节点，则返回null。
+     *
      * If the watch is non-null and the call is successful (no exception is thrown),
      * a watch will be left on the node with the given path. The watch will be
      * triggered by a successful operation that creates/delete the node or sets
@@ -709,8 +701,7 @@ public class ZooKeeper implements AutoCloseable {
             if (r.getErr() == KeeperException.Code.NONODE.intValue()) {
                 return null;
             }
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
 
         return response.getStat().getCzxid() == -1 ? null : response.getStat();
@@ -759,8 +750,7 @@ public class ZooKeeper implements AutoCloseable {
         request.setPath(serverPath);
         request.setWatch(watcher != null);
         SetDataResponse response = new SetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb, clientPath, serverPath, ctx, wcb);
     }
     /**
      * The asynchronous version of exists.
@@ -814,8 +804,7 @@ public class ZooKeeper implements AutoCloseable {
         GetChildrenResponse response = new GetChildrenResponse();
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
         return response.getChildren();
     }
@@ -865,8 +854,7 @@ public class ZooKeeper implements AutoCloseable {
         request.setPath(serverPath);
         request.setWatch(watcher != null);
         GetChildrenResponse response = new GetChildrenResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb, clientPath, serverPath, ctx, wcb);
     }
     /**
      * The asynchronous version of getChildren.
@@ -920,8 +908,7 @@ public class ZooKeeper implements AutoCloseable {
         GetChildren2Response response = new GetChildren2Response();
         ReplyHeader r = cnxn.submitRequest(h, request, response, wcb);
         if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()),
-                    clientPath);
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), clientPath);
         }
         if (stat != null) {
             DataTree.copyStat(response.getStat(), stat);
@@ -953,8 +940,7 @@ public class ZooKeeper implements AutoCloseable {
      *  error code.
      */
     public List<String> getChildren(String path, boolean watch, Stat stat) throws KeeperException, InterruptedException {
-        return getChildren(path, watch ? watchManager.defaultWatcher : null,
-                stat);
+        return getChildren(path, watch ? watchManager.defaultWatcher : null, stat);
     }
     /**
      * The asynchronous version of getChildren.
@@ -981,8 +967,7 @@ public class ZooKeeper implements AutoCloseable {
         request.setPath(serverPath);
         request.setWatch(watcher != null);
         GetChildren2Response response = new GetChildren2Response();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, wcb);
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb, clientPath, serverPath, ctx, wcb);
     }
     /**
      * The asynchronous version of getChildren.
@@ -1417,35 +1402,26 @@ public class ZooKeeper implements AutoCloseable {
 
 
 
-    /**
-     * 这个函数允许客户端通过提供一个新的逗号分隔的host:port对列表来更新连接字符串，每个列表对应一个ZooKeeper服务器。
-     *
-     * @param connectString
-     *
-     * @throws IOException in cases of network failure
-     */
-    public void updateServerList(String connectString) throws IOException {
-        ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
-        Collection<InetSocketAddress> serverAddresses = connectStringParser.getServerAddresses();
 
-        ClientCnxnSocket clientCnxnSocket = cnxn.sendThread.getClientCnxnSocket();
-        InetSocketAddress currentHost = (InetSocketAddress) clientCnxnSocket.getRemoteSocketAddress();
-
-        //
-        boolean reconfigMode = hostProvider.updateServerList(serverAddresses, currentHost);
-
-        // cause disconnection - this will cause next to be called which will in turn call nextReconfigMode
-        if (reconfigMode) clientCnxnSocket.testableCloseSocket();
-    }
 
     public ZooKeeperSaslClient getSaslClient() {
         return cnxn.zooKeeperSaslClient;
     }
 
+    /**
+     * 获取zk客户端配置
+     *
+     * @return
+     */
     public ZKClientConfig getClientConfig() {
         return clientConfig;
     }
 
+    /**
+     * 返回所有监听数据节点的监听器对应的节点
+     *
+     * @return
+     */
     protected List<String> getDataWatches() {
         synchronized (watchManager.dataWatches) {
             List<String> rc = new ArrayList<String>(watchManager.dataWatches.keySet());
@@ -1453,6 +1429,11 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
+    /**
+     * 返回所有监听节点是否存在的监听器
+     *
+     * @return
+     */
     protected List<String> getExistWatches() {
         synchronized (watchManager.existWatches) {
             List<String> rc = new ArrayList<String>(watchManager.existWatches.keySet());
@@ -1460,6 +1441,11 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
+    /**
+     * 返回所有子节点监听器监听的节点路径
+     *
+     * @return
+     */
     protected List<String> getChildWatches() {
         synchronized (watchManager.childWatches) {
             List<String> rc = new ArrayList<String>(watchManager.childWatches.keySet());
@@ -1478,7 +1464,32 @@ public class ZooKeeper implements AutoCloseable {
         return new StaticHostProvider(new ConnectStringParser(connectString).getServerAddresses());
     }
 
-    // VisibleForTesting
+    /**
+     * 这个函数允许客户端通过提供一个新的逗号分隔的host:port对列表来更新连接字符串，每个列表对应一个ZooKeeper服务器。
+     *
+     * @param connectString
+     *
+     * @throws IOException in cases of network failure
+     */
+    public void updateServerList(String connectString) throws IOException {
+        ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
+        Collection<InetSocketAddress> serverAddresses = connectStringParser.getServerAddresses();
+
+        ClientCnxnSocket clientCnxnSocket = cnxn.sendThread.getClientCnxnSocket();
+        InetSocketAddress currentHost = (InetSocketAddress) clientCnxnSocket.getRemoteSocketAddress();
+
+        //
+        boolean reconfigMode = hostProvider.updateServerList(serverAddresses, currentHost);
+
+        // 断开连接原因：这将导致调用next，而next将调用nextReconfigMode
+        if (reconfigMode) clientCnxnSocket.testableCloseSocket();
+    }
+
+    /**
+     * 获取当前客户端实例的Testable，Testable通常用于测试
+     *
+     * @return
+     */
     public Testable getTestable() {
         return new ZooKeeperTestable(this, cnxn);
     }
@@ -1496,11 +1507,7 @@ public class ZooKeeper implements AutoCloseable {
 
 
     /**
-     * The session id for this ZooKeeper client instance. The value returned is
-     * not valid until the client connects to a server and may change after a
-     * re-connect.
-     *
-     * This method is NOT thread safe
+     * 返回ZooKeeper客户端实例的会话id，这个方法不是线程安全的，在客户端连接到服务器之前返回的值是无效的，并且在重新连接后可能会更改。
      *
      * @return current session id
      */
@@ -1508,11 +1515,7 @@ public class ZooKeeper implements AutoCloseable {
         return cnxn.getSessionId();
     }
     /**
-     * The session password for this ZooKeeper client instance. The value
-     * returned is not valid until the client connects to a server and may
-     * change after a re-connect.
-     *
-     * This method is NOT thread safe
+     * 返回这个ZooKeeper客户端实例的会话密码，这个方法不是线程安全的，在客户端连接到服务器之前返回的值是无效的，并且在重新连接后可能会更改。
      *
      * @return current session password
      */
@@ -1520,11 +1523,7 @@ public class ZooKeeper implements AutoCloseable {
         return cnxn.getSessionPasswd();
     }
     /**
-     * The negotiated session timeout for this ZooKeeper client instance. The
-     * value returned is not valid until the client connects to a server and
-     * may change after a re-connect.
-     *
-     * This method is NOT thread safe
+     * 返回该ZooKeeper客户端实例的会话超时时间，这个方法不是线程安全的，在客户端连接到服务器之前返回的值是无效的，并且在重新连接后可能会更改。
      *
      * @return current session timeout
      */
@@ -1536,9 +1535,9 @@ public class ZooKeeper implements AutoCloseable {
 
 
     /**
-     * Add the specified scheme:auth information to this connection.
+     * 将指定的scheme:auth信息添加到此连接。
      *
-     * This method is NOT thread safe
+     * 这个方法不是线程安全的
      *
      * @param scheme
      * @param auth
@@ -1548,8 +1547,7 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
-     * Specify the default watcher for the connection (overrides the one
-     * specified during construction).
+     * 为该ZooKeeper客户端实例指定默认的Watcher(覆盖构造期间指定的Watcher)。
      *
      * @param watcher
      */
@@ -1558,10 +1556,14 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
-     * Close this client object. Once the client is closed, its session becomes
-     * invalid. All the ephemeral nodes in the ZooKeeper server associated with
-     * the session will be removed. The watches left on those nodes (and on
-     * their parents) will be triggered.
+     * 关闭此客户端对象。一旦客户端关闭，其会话将无效。
+     * 与会话相关的ZooKeeper服务器中的所有临时节点将被删除。
+     * 这些节点(以及它们的父节点)上的Watcher将被触发。
+     *
+     * 我们在这里禁止“尝试”警告，因为close()方法的签名允许抛出InterruptedException, AutoCloseable强烈建议不要抛出这个异常
+     * (see: http://docs.oracle.com/javase/7/docs/api/java/lang/AutoCloseable.html#close()).
+     * close()永远不会抛出InterruptedException，但是出于向后兼容的目的，这个异常保留在签名中。
+     *
      * <p>
      * Added in 3.5.3: <a href="https://docs.oracle.com/javase/tutorial/essential/exceptions/tryResourceClose.html">try-with-resources</a>
      * may be used instead of calling close directly.
@@ -1596,11 +1598,9 @@ public class ZooKeeper implements AutoCloseable {
         LOG.info("Session: 0x" + Long.toHexString(getSessionId()) + " closed");
     }
     /**
-     * Close this client object as the {@link #close() } method.
-     * This method will wait for internal resources to be released.
+     * 以{@link # Close()}方法关闭此客户端对象，此方法将等待内部资源被释放。
      *
-     * @param waitForShutdownTimeoutMs timeout (in milliseconds) to wait for resources to be released.
-     * Use zero or a negative value to skip the wait
+     * @param waitForShutdownTimeoutMs 表示等待资源释放的时间，使用0或负数来跳过等待
      * @throws InterruptedException
      * @return true if waitForShutdownTimeout is greater than zero and all of the resources have been released
      *
@@ -1628,7 +1628,6 @@ public class ZooKeeper implements AutoCloseable {
             return clientPath;
         }
     }
-
 
     /**
      * 客户端创建节点时，会调用该方法，根据节点的类型设置请求头
@@ -1766,6 +1765,12 @@ public class ZooKeeper implements AutoCloseable {
         return new MultiTransactionRecord(transaction);
     }
 
+    /**
+     * 给该Op操作的节点添加chroot前缀
+     *
+     * @param op
+     * @return
+     */
     private Op withRootPrefix(Op op) {
         if (null != op.getPath()) {
             final String serverPath = prependChroot(op.getPath());
@@ -1811,9 +1816,7 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
-     * A Transaction is a thin wrapper on the {@link #multi} method
-     * which provides a builder object that can be used to construct
-     * and commit an atomic set of operations.
+     * 事务是{@link #multi}方法上的一个简单包装，它提供了一个构建器对象，可用于构造和提交一组原子操作。
      *
      * @since 3.4.0
      *
@@ -1859,8 +1862,7 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
-     * For the given znode path, removes the specified watcher of given
-     * watcherType.
+     * 移除指定类型的一个watcher监听
      *
      * <p>
      * Watcher shouldn't be null. A successful call guarantees that, the
@@ -1897,7 +1899,7 @@ public class ZooKeeper implements AutoCloseable {
                 watcherType, local);
     }
     /**
-     * The asynchronous version of removeWatches.
+     * {@link #removeWatches(String path, Watcher watcher, WatcherType watcherType, boolean local)}的异步版本。
      *
      * @see #removeWatches
      */
@@ -1908,21 +1910,16 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
-     * For the given znode path, removes all the registered watchers of given
-     * watcherType.
+     * 对于给定的znode路径，删除给定watcherType的所有Watcher
      *
      * <p>
      * A successful call guarantees that, the removed watchers won't be
      * triggered.
      * </p>
      *
-     * @param path
-     *            - the path of the node
-     * @param watcherType
-     *            - the type of watcher to be removed
-     * @param local
-     *            - whether watches can be removed locally when there is no
-     *            server connection
+     * @param path - the path of the node
+     * @param watcherType - the type of watcher to be removed
+     * @param local - whether watches can be removed locally when there is no server connection
      * @throws InterruptedException
      *             if the server transaction is interrupted.
      * @throws KeeperException.NoWatcherException
@@ -1940,23 +1937,37 @@ public class ZooKeeper implements AutoCloseable {
                 local);
     }
     /**
-     * The asynchronous version of removeAllWatches.
+     * {@link #removeAllWatches(String, WatcherType, boolean, VoidCallback, Object)}的异步版本。
      *
      * @see #removeAllWatches
      */
     public void removeAllWatches(String path, WatcherType watcherType, boolean local, VoidCallback cb, Object ctx) {
 
-        removeWatches(ZooDefs.OpCode.removeWatches, path, null,
-                watcherType, local, cb, ctx);
+        removeWatches(ZooDefs.OpCode.removeWatches, path, null, watcherType, local, cb, ctx);
     }
 
+    /**
+     * 检查watcher监听是否不为空
+     *
+     * @param watcher
+     */
     private void validateWatcher(Watcher watcher) {
         if (watcher == null) {
-            throw new IllegalArgumentException(
-                    "Invalid Watcher, shouldn't be null!");
+            throw new IllegalArgumentException("Invalid Watcher, shouldn't be null!");
         }
     }
 
+    /**
+     * 移除Watcher监听
+     *
+     * @param opCode
+     * @param path
+     * @param watcher
+     * @param watcherType
+     * @param local
+     * @throws InterruptedException
+     * @throws KeeperException
+     */
     private void removeWatches(int opCode, String path, Watcher watcher, WatcherType watcherType, boolean local) throws InterruptedException, KeeperException {
         PathUtils.validatePath(path);
         final String clientPath = path;
@@ -1975,6 +1986,18 @@ public class ZooKeeper implements AutoCloseable {
                     clientPath);
         }
     }
+
+    /**
+     * 移除Watcher监听
+     *
+     * @param opCode
+     * @param path
+     * @param watcher
+     * @param watcherType
+     * @param local
+     * @param cb
+     * @param ctx
+     */
     private void removeWatches(int opCode, String path, Watcher watcher, WatcherType watcherType, boolean local, VoidCallback cb, Object ctx) {
         PathUtils.validatePath(path);
         final String clientPath = path;
@@ -1991,6 +2014,14 @@ public class ZooKeeper implements AutoCloseable {
                 serverPath, ctx, null, wcb);
     }
 
+    /**
+     * 根据参数创建一个发往服务端的请求对象，仅支持移除和检查监听两种请求
+     *
+     * @param opCode        对应{@link ZooDefs.OpCode}
+     * @param watcherType   Watcher监听的类型
+     * @param serverPath    节点
+     * @return
+     */
     private Record getRemoveWatchesRequest(int opCode, WatcherType watcherType, final String serverPath) {
         Record request = null;
         switch (opCode) {
@@ -2013,6 +2044,11 @@ public class ZooKeeper implements AutoCloseable {
         return request;
     }
 
+    /**
+     * 获取当前客户端与zk服务连接状态
+     *
+     * @return
+     */
     public States getState() {
         return cnxn.getState();
     }
@@ -2050,11 +2086,11 @@ public class ZooKeeper implements AutoCloseable {
      */
     static class ZKWatchManager implements ClientWatchManager {
 
-        /** 保存客户端监听操作数据的数据监听器 */
+        /** 保存客户端监听操作数据的数据监听器, 一个节点可能有多个监听器，Map<节点路径，监听器> */
         private final Map<String, Set<Watcher>> dataWatches = new HashMap<String, Set<Watcher>>();
-        /** 保存客户端判断节点是否存在时的监听器 */
+        /** 保存客户端判断节点是否存在时的监听器, 一个节点可能有多个监听器，Map<节点路径，监听器> */
         private final Map<String, Set<Watcher>> existWatches = new HashMap<String, Set<Watcher>>();
-        /** 保存客户端操作子节点的监听器 */
+        /** 保存客户端操作子节点的监听器, 一个节点可能有多个监听器，Map<节点路径，监听器> */
         private final Map<String, Set<Watcher>> childWatches = new HashMap<String, Set<Watcher>>();
 
         /** 表示当客户端与服务器端创建连接成功时，是否允许自动clear监听器 */
@@ -2437,14 +2473,18 @@ public class ZooKeeper implements AutoCloseable {
      */
     @InterfaceAudience.Public
     public enum States {
-        /**  */
+        /** 表示zk客户端正在连接的状态 */
         CONNECTING,
         ASSOCIATING,
+        /** 表示zk客户端已经连接是zk服务端 */
         CONNECTED,
+        /** 表示zk客户端以只读方式连接上了zk服务端的状态 */
         CONNECTEDREADONLY,
+        /** 表示zk客户端已经关闭的状态 */
         CLOSED,
         /** 认证失败 */
         AUTH_FAILED,
+        /** 表示zk客户端还未连接的状态 */
         NOT_CONNECTED;
 
         /**

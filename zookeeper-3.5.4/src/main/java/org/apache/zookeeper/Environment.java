@@ -18,18 +18,19 @@
 
 package org.apache.zookeeper;
 
+import org.slf4j.Logger;
+
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.slf4j.Logger;
-
 /**
- * Provide insight into the runtime environment.
+ * 运行时环境配置
  *
  */
 public class Environment {
+
     public static final String JAAS_CONF_KEY = "java.security.auth.login.config";
 
     public static class Entry {
@@ -48,6 +49,12 @@ public class Environment {
         }
     }
 
+    /**
+     * 将key-value添加到列表中
+     * @param l
+     * @param k
+     * @param v
+     */
     private static void put(ArrayList<Entry> l, String k, String v) {
         l.add(new Entry(k,v));
     }
@@ -57,48 +64,31 @@ public class Environment {
         put(l, "zookeeper.version", Version.getFullVersion());
 
         try {
-            put(l, "host.name",
-                InetAddress.getLocalHost().getCanonicalHostName());
+            put(l, "host.name", InetAddress.getLocalHost().getCanonicalHostName());
         } catch (UnknownHostException e) {
             put(l, "host.name", "<NA>");
         }
 
-        put(l, "java.version",
-                System.getProperty("java.version", "<NA>"));
-        put(l, "java.vendor",
-                System.getProperty("java.vendor", "<NA>"));
-        put(l, "java.home",
-                System.getProperty("java.home", "<NA>"));
-        put(l, "java.class.path",
-                System.getProperty("java.class.path", "<NA>"));
-        put(l, "java.library.path",
-                System.getProperty("java.library.path", "<NA>"));
-        put(l, "java.io.tmpdir",
-                System.getProperty("java.io.tmpdir", "<NA>"));
-        put(l, "java.compiler",
-                System.getProperty("java.compiler", "<NA>"));
-        put(l, "os.name",
-                System.getProperty("os.name", "<NA>"));
-        put(l, "os.arch",
-                System.getProperty("os.arch", "<NA>"));
-        put(l, "os.version",
-                System.getProperty("os.version", "<NA>"));
-        put(l, "user.name",
-                System.getProperty("user.name", "<NA>"));
-        put(l, "user.home",
-                System.getProperty("user.home", "<NA>"));
-        put(l, "user.dir",
-                System.getProperty("user.dir", "<NA>"));
+        put(l, "java.version", System.getProperty("java.version", "<NA>"));
+        put(l, "java.vendor", System.getProperty("java.vendor", "<NA>"));
+        put(l, "java.home", System.getProperty("java.home", "<NA>"));
+        put(l, "java.class.path", System.getProperty("java.class.path", "<NA>"));
+        put(l, "java.library.path", System.getProperty("java.library.path", "<NA>"));
+        put(l, "java.io.tmpdir", System.getProperty("java.io.tmpdir", "<NA>"));
+        put(l, "java.compiler", System.getProperty("java.compiler", "<NA>"));
+        put(l, "os.name", System.getProperty("os.name", "<NA>"));
+        put(l, "os.arch", System.getProperty("os.arch", "<NA>"));
+        put(l, "os.version", System.getProperty("os.version", "<NA>"));
+        put(l, "user.name", System.getProperty("user.name", "<NA>"));
+        put(l, "user.home", System.getProperty("user.home", "<NA>"));
+        put(l, "user.dir", System.getProperty("user.dir", "<NA>"));
 
         // Get memory information.
         Runtime runtime = Runtime.getRuntime();
         int mb = 1024 * 1024;
-        put(l, "os.memory.free",
-               Long.toString(runtime.freeMemory() / mb) + "MB");
-        put(l, "os.memory.max",
-               Long.toString(runtime.maxMemory() / mb) + "MB");
-        put(l, "os.memory.total",
-               Long.toString(runtime.totalMemory() / mb) + "MB");
+        put(l, "os.memory.free", Long.toString(runtime.freeMemory() / mb) + "MB");
+        put(l, "os.memory.max", Long.toString(runtime.maxMemory() / mb) + "MB");
+        put(l, "os.memory.total", Long.toString(runtime.totalMemory() / mb) + "MB");
 
         return l;
     }

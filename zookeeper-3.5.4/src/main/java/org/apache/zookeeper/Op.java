@@ -32,11 +32,10 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Represents a single operation in a multi-operation transaction.  Each operation can be a create, update
- * or delete or can just be a version check.
- *
- * Sub-classes of Op each represent each detailed type but should not normally be referenced except via
- * the provided factory methods.
+ * 表示多操作事务中的单个操作。
+ * *每个操作可以是创建、更新或删除，也可以只是版本检查。
+ * *
+ * *每个Op的子类代表每个详细的类型，但是通常不应该被引用，除非通过提供的工厂方法。
  *
  * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode)
  * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode, org.apache.zookeeper.AsyncCallback.StringCallback, Object)
@@ -44,7 +43,11 @@ import java.util.List;
  * @see ZooKeeper#setData(String, byte[], int)
  */
 public abstract class Op {
+
+    /** 对应{@link ZooDefs.OpCode} */
     private int type;
+
+    /** 表示本次操作的节点 */
     private String path;
 
     // prevent untyped construction
@@ -71,7 +74,6 @@ public abstract class Op {
     public static Op create(String path, byte[] data, List<ACL> acl, int flags) {
         return new Create(path, data, acl, flags);
     }
-
     /**
      * Constructs a create operation.  Arguments are as for the ZooKeeper method of the same name
      * but adding an optional ttl
@@ -97,7 +99,6 @@ public abstract class Op {
         }
         return new Create(path, data, acl, flags);
     }
-
     /**
      * Constructs a create operation.  Arguments are as for the ZooKeeper method of the same name.
      * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode)
@@ -115,7 +116,6 @@ public abstract class Op {
     public static Op create(String path, byte[] data, List<ACL> acl, CreateMode createMode) {
         return new Create(path, data, acl, createMode);
     }
-
     /**
      * Constructs a create operation.  Arguments are as for the ZooKeeper method of the same name
      * but adding an optional ttl
@@ -167,7 +167,6 @@ public abstract class Op {
     public static Op setData(String path, byte[] data, int version) {
         return new SetData(path, data, version);
     }
-
 
     /**
      * Constructs an version check operation.  Arguments are as for the ZooKeeper.setData method except that
@@ -226,12 +225,15 @@ public abstract class Op {
         PathUtils.validatePath(path);
     }
 
-    //////////////////
-    // these internal classes are public, but should not generally be referenced.
-    //
+
+    // 以下这些内部类是公共的，但是通常不应该被引用。
+
     public static class Create extends Op {
+        /** 表示节点数据 */
         protected byte[] data;
+        /** 表示节点的权限 */
         protected List<ACL> acl;
+        /** 对应{@link ZooDefs.OpCode} */
         protected int flags;
 
         private Create(String path, byte[] data, List<ACL> acl, int flags) {
@@ -289,6 +291,12 @@ public abstract class Op {
             return new CreateRequest(getPath(), data, acl, flags);
         }
 
+        /**
+         * 使用带有隔离命名空间的节点路径创建节点
+         *
+         * @param path
+         * @return
+         */
         @Override
         Op withChroot(String path) {
             return new Create(path, data, acl, flags);

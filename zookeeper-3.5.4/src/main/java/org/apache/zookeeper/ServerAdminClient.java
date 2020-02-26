@@ -18,16 +18,16 @@
 
 package org.apache.zookeeper;
 
+import org.apache.yetus.audience.InterfaceAudience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-
-import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @InterfaceAudience.Public
 public class ServerAdminClient {
@@ -247,8 +247,7 @@ public class ServerAdminClient {
     }
 
     private static void usage() {
-        System.out
-                .println("usage: java [-cp CLASSPATH] org.apache.zookeeper.ServerAdminClient "
+        System.out.println("usage: java [-cp CLASSPATH] org.apache.zookeeper.ServerAdminClient "
                         + "host port op (ruok|stat|dump|kill|gettracemask|settracemask) [arguments]");
 
     }

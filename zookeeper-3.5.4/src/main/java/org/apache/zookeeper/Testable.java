@@ -19,11 +19,13 @@
 package org.apache.zookeeper;
 
 /**
- * Abstraction that exposes various methods useful for testing ZooKeeper
+ * 抽象各种对测试ZooKeeper有用的方法
  */
 public interface Testable {
+
     /**
-     * Cause the ZooKeeper instance to behave as if the session expired
+     * 通过调用该方法，使zk客户端（ZooKeeper实例）的行为就像会话过期一样，但是实际会话可能没有过期，该接口仅仅实现会话过期时，zk客户端需要执行的一些行为
      */
     void injectSessionExpiration();
+
 }

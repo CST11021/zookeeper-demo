@@ -22,10 +22,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class ZooKeeperTestable implements Testable {
-    private static final Logger LOG = LoggerFactory
-            .getLogger(ZooKeeperTestable.class);
+
+    private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperTestable.class);
 
     private final ZooKeeper zooKeeper;
+
     private final ClientCnxn clientCnxn;
 
     ZooKeeperTestable(ZooKeeper zooKeeper, ClientCnxn clientCnxn) {
@@ -33,13 +34,18 @@ class ZooKeeperTestable implements Testable {
         this.clientCnxn = clientCnxn;
     }
 
+    /**
+     * session过期处理：
+     * 1、发布一个session过期的Watcher事件
+     * 2、添加一个客户端端口zk连接的死亡事件
+     * 3、将客户端状态设置为closed
+     * 4、关闭sendThread线程
+     */
     @Override
     public void injectSessionExpiration() {
         LOG.info("injectSessionExpiration() called");
 
-        clientCnxn.eventThread.queueEvent(new WatchedEvent(
-                Watcher.Event.EventType.None,
-                Watcher.Event.KeeperState.Expired, null));
+        clientCnxn.eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, Watcher.Event.KeeperState.Expired, null));
         clientCnxn.eventThread.queueEventOfDeath();
         clientCnxn.state = ZooKeeper.States.CLOSED;
         clientCnxn.sendThread.getClientCnxnSocket().onClosing();
