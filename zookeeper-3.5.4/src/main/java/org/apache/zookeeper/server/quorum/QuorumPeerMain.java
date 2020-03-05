@@ -61,6 +61,9 @@ import java.io.IOException;
  * In addition to the config file. There is a file in the data directory called
  * "myid" that contains the server id as an ASCII decimal value.
  *
+ *
+ * 通过zkServer.sh启动zookeeper时，正常指定的QuorumPeerMain作为启动主类
+ *
  */
 @InterfaceAudience.Public
 public class QuorumPeerMain {
@@ -71,9 +74,8 @@ public class QuorumPeerMain {
     protected QuorumPeer quorumPeer;
 
     /**
-     * To start the replicated server specify the configuration file name on
-     * the command line.
-     * @param args path to the configfile
+     * 要启动复制的服务器，请在命令行上指定配置文件名。
+     * @param args 文件名路径
      */
     public static void main(String[] args) {
         QuorumPeerMain main = new QuorumPeerMain();

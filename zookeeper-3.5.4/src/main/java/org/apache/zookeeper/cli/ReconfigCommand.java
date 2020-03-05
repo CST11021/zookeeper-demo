@@ -17,14 +17,14 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.io.FileInputStream;
-import java.util.Properties;
-
 import org.apache.commons.cli.*;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.admin.ZooKeeperAdmin;
 import org.apache.zookeeper.data.Stat;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig;
+
+import java.io.FileInputStream;
+import java.util.Properties;
 
 /**
  * reconfig command for cli
@@ -33,25 +33,25 @@ public class ReconfigCommand extends CliCommand {
 
     private static Options options = new Options();
 
-    /* joining - comma separated list of server config strings for servers to be added to the ensemble.
+    /** joining - comma separated list of server config strings for servers to be added to the ensemble.
      * Each entry is identical in syntax as it would appear in a configuration file. Only used for 
      * incremental reconfigurations.
      */
     private String joining;
 
-    /* leaving - comma separated list of server IDs to be removed from the ensemble. Only used for
+    /** leaving - comma separated list of server IDs to be removed from the ensemble. Only used for
      * incremental reconfigurations.
      */
     private String leaving;
 
-    /* members - comma separated list of new membership information (e.g., contents of a membership
+    /** members - comma separated list of new membership information (e.g., contents of a membership
      * configuration file) - for use only with a non-incremental reconfiguration. This may be specified
      * manually via the -members flag or it will automatically be filled in by reading the contents
      * of an actual configuration file using the -file flag.
      */
     private String members;
 
-    /* version - version of config from which we want to reconfigure - if current config is different
+    /** version - version of config from which we want to reconfigure - if current config is different
      * reconfiguration will fail. Should be ommitted from the CLI to disable this option.
      */
     long version = -1;
@@ -154,8 +154,7 @@ public class ReconfigCommand extends CliCommand {
                 return false;
             }
 
-            byte[] curConfig = ((ZooKeeperAdmin)zk).reconfigure(joining,
-                    leaving, members, version, stat);
+            byte[] curConfig = ((ZooKeeperAdmin)zk).reconfigure(joining, leaving, members, version, stat);
             out.println("Committed new configuration:\n" + new String(curConfig));
             
             if (cl.hasOption("s")) {

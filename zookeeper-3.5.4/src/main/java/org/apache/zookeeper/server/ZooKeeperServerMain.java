@@ -36,7 +36,10 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 这个类启动并运行一个独立的ZooKeeperServer，启动一个zk服务的入口就是运行{@link #main(String[])}方法
- * 注意：启动zk服务后并不能直接通过命令行来创建、查看zk上的节点，还需要通过运行{@link org.apache.zookeeper.ZooKeeperMain#main(String[])}来启动命令行工具
+ * 注意：
+ * 1、启动zk服务后并不能直接通过命令行来创建、查看zk上的节点，还需要通过运行{@link org.apache.zookeeper.ZooKeeperMain#main(String[])}来启动命令行工具
+ * 2、通过zkServer.sh启动zookeeper时，正常指定{@link org.apache.zookeeper.server.quorum.QuorumPeerMain}作为启动主类
+ *
  */
 @InterfaceAudience.Public
 public class ZooKeeperServerMain {

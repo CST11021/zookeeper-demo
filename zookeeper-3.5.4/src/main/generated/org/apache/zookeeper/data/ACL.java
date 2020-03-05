@@ -22,12 +22,28 @@ package org.apache.zookeeper.data;
 import org.apache.jute.*;
 import org.apache.yetus.audience.InterfaceAudience;
 
+/**
+ * 一、scheme和id：
+ *  world: 它下面只有一个id, 叫anyone, world:anyone代表任何人，zookeeper中对所有人有权限的结点就是属于world:anyone的
+ *  auth: 它不需要id, 只要是通过authentication的user都有权限（zookeeper支持通过kerberos来进行authencation, 也支持username/password形式的authentication)
+ *  digest: 它对应的id为username:BASE64(SHA1(password))，它需要先通过username:password形式的authentication
+ *  ip: 它对应的id为客户机的IP地址，设置的时候可以设置一个ip段，比如ip:192.168.1.0/16, 表示匹配前16个bit的IP段
+ *  super: 在这种scheme情况下，对应的id拥有超级权限，可以做任何事情(cdrwa)
+ *
+ * 二、permissions：
+ *  CREATE(c): 创建权限，可以在在当前node下创建child node
+ *  DELETE(d): 删除权限，可以删除当前的node
+ *  READ(r): 读权限，可以获取当前node的数据，可以list当前node所有的child nodes
+ *  WRITE(w): 写权限，可以向当前node写数据
+ *  ADMIN(a): 管理权限，可以设置当前node的permission
+ */
 @InterfaceAudience.Public
 public class ACL implements Record {
 
-    /** Perms */
+    /** 对应{@link org.apache.zookeeper.ZooDefs.Perms}增删改查等权限值 */
     private int perms;
 
+    /** 封装权限模式及对应的权限 */
     private org.apache.zookeeper.data.Id id;
 
     public ACL() {

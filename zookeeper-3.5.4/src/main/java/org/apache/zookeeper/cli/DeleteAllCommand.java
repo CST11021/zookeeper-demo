@@ -75,8 +75,7 @@ public class DeleteAllCommand extends CliCommand {
     
     private void printDeprecatedWarning() {
         if("rmr".equals(args[0])) {
-            err.println("The command 'rmr' has been deprecated. " +
-                  "Please use 'deleteall' instead.");
+            err.println("The command 'rmr' has been deprecated. " + "Please use 'deleteall' instead.");
         }
     }
 }

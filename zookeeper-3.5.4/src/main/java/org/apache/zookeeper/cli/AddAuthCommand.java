@@ -17,20 +17,23 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.io.IOException;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.Parser;
-import org.apache.commons.cli.PosixParser;
-import org.apache.zookeeper.KeeperException;
+import org.apache.commons.cli.*;
 
 /**
- * addAuth command for cli
+ * addauth命令用于节点认证，使用方式：addauth digest ${username}:${password}，例如：
+ * setAcl /t1 digest:whz:6DY5WhzOfGsWQ1XFuIyzxkpwdPo=:r             ##表示：whz这个用户对/t1这个节点拥有读权限，访问时需要输入账号密码认证，这里的"6DY5WhzOfGsWQ1XFuIyzxkpwdPo"是"123456"进行hash后的base64编码
+ * addauth digest whz:123456                                        ##执行成功后，表示当前连接已经对whz该用户进行了认证，之后可以对/t1节点进行访问了
  */
 public class AddAuthCommand extends CliCommand {
 
     private static Options options = new Options();
+
+    /**
+     * 例如，addauth digest whz:123456 命令解析为：
+     * String[0] = addauth
+     * String[1] = digest
+     * String[2] = whz:123456
+     */
     private String[] args;
 
     public AddAuthCommand() {

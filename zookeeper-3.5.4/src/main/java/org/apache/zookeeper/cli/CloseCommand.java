@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,15 +18,16 @@
 package org.apache.zookeeper.cli;
 
 /**
- * close command for cli
+ * 关闭客户端，例如：
+ * [zk: localhost:2181(CONNECTED) 4] close
  */
 public class CloseCommand extends CliCommand {
 
     public CloseCommand() {
         super("close", "");
     }
-    
-    
+
+
     @Override
     public CliCommand parse(String[] cmdArgs) throws CliParseException {
         return this;
@@ -39,8 +40,8 @@ public class CloseCommand extends CliCommand {
         } catch (Exception ex) {
             throw new CliWrapperException(ex);
         }
-        
+
         return false;
     }
-    
+
 }

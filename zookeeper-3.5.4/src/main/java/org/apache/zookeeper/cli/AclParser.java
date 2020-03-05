@@ -17,19 +17,21 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Id;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * a parser for ACL strings
+ * 将${scheme}:${id}:${permission}字符串表示的权限解析为{@link ACL}对象
  */
 public class AclParser {
 
     /**
-     * parse string into list of ACL
+     * 将字符串解析为ACL列表，单组aclString表示为：${scheme}:${id}:${permission}，多组权限用,隔开
+     *
      * @param aclString
      * @return 
      */
@@ -45,14 +47,19 @@ public class AclParser {
                 continue;
             }
             ACL newAcl = new ACL();
-            newAcl.setId(new Id(a.substring(0, firstColon), a.substring(
-                    firstColon + 1, lastColon)));
+            newAcl.setId(new Id(a.substring(0, firstColon), a.substring(firstColon + 1, lastColon)));
             newAcl.setPerms(getPermFromString(a.substring(lastColon + 1)));
             acl.add(newAcl);
         }
         return acl;
     }
 
+    /**
+     * 根据r、w、c、d、a返回对应的权限值
+     *
+     * @param permString
+     * @return
+     */
     static private int getPermFromString(String permString) {
         int perm = 0;
         for (int i = 0; i < permString.length(); i++) {

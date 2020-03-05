@@ -28,6 +28,23 @@ public class Id implements Record {
     /** scheme表示zk的权限控制模式，分别有：world、auth、digest、ip和super */
     private String scheme;
 
+    /**
+     * 表示操作节点的一个或一类用户，它根据授权策略scheme的不同而不同：
+     *
+     * 1、当scheme是world时，则id只有一个值：anyone，创建节点后，节点默认的权限为：world:anyone:cdrwa，表示任何对都会对该节点有创建子节点和读写删除权限；
+     *
+     * 2、当scheme是auth时，可以通过：setAcl ${nodePath} auth:${username}:${perms} 命令来设置某个用户对该节点的权限，例如：
+     *    setAcl /t1 auth:whz:r
+     *    表示用户名为"whz"对"/t1"这个节点有只有读的权限，whz可以通过
+     *
+     * 3、当scheme是digest时，可以通过：addauth digest ${usernmae}:${password} 命令来添加用户，例如：
+     *    addauth digest whz:123456
+     *    执行成功后，表示当前连接已经对whz该用户进行了认证，之后可以对/t1节点进行访问了
+     *
+     * 4、当sheme是ip时，可以通过：setAcl ${nodePatch} ip:${IP}:${perms} 命令来设置指定客户端对该节点的权限，例如：
+     *    setAcl /t3 ip:192.168.0.164:r
+     *    表示192.168.0.164这个客户端对/t3这个节点只有读权限
+     */
     private String id;
 
     public Id() {

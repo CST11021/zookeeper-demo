@@ -16,16 +16,19 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.Collections;
-import java.util.List;
 import org.apache.commons.cli.*;
 import org.apache.zookeeper.AsyncCallback.StringCallback;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZKUtil;
 import org.apache.zookeeper.data.Stat;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
- * ls command for cli
+ * ls命令用于获取路径下的节点信息，注意路径为绝对路径，如:
+ * >ls /storm
+ *  [assignments, storms, errors, supervisors, workerbeats]
  */
 public class LsCommand extends CliCommand {
 

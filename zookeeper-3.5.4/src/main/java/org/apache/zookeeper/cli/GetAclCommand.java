@@ -5,9 +5,9 @@
  * licenses this file to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -16,19 +16,20 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.List;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.Parser;
-import org.apache.commons.cli.PosixParser;
+import org.apache.commons.cli.*;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.data.ACL;
 import org.apache.zookeeper.data.Stat;
 
+import java.util.List;
+
 /**
- * getAcl command for cli
+ * 获取节点的权限，例如：
+ * > getAcl /node1
+ * 'world,'anyone
+ * : cdrwa
+ *
  */
 public class GetAclCommand extends CliCommand {
 
@@ -66,16 +67,15 @@ public class GetAclCommand extends CliCommand {
         Stat stat = new Stat();
         List<ACL> acl;
         try {
-           acl = zk.getACL(path, stat);
+            acl = zk.getACL(path, stat);
         } catch (IllegalArgumentException ex) {
             throw new MalformedPathException(ex.getMessage());
-        } catch (KeeperException|InterruptedException ex) {
+        } catch (KeeperException | InterruptedException ex) {
             throw new CliWrapperException(ex);
         }
 
         for (ACL a : acl) {
-            out.println(a.getId() + ": "
-                        + getPermString(a.getPerms()));
+            out.println(a.getId() + ": " + getPermString(a.getPerms()));
         }
 
         if (cl.hasOption("s")) {
@@ -84,6 +84,12 @@ public class GetAclCommand extends CliCommand {
         return false;
     }
 
+    /**
+     * 根据权限值获取对应的permString
+     *
+     * @param perms
+     * @return
+     */
     private static String getPermString(int perms) {
         StringBuilder p = new StringBuilder();
         if ((perms & ZooDefs.Perms.CREATE) != 0) {

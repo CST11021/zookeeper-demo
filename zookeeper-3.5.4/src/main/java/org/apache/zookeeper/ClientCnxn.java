@@ -533,6 +533,12 @@ public class ClientCnxn {
         return packet;
     }
 
+    /**
+     * 将指定的认证用户信息添加到此连接，
+     *
+     * @param scheme
+     * @param auth
+     */
     public void addAuthInfo(String scheme, byte auth[]) {
         if (!state.isAlive()) {
             return;
@@ -588,6 +594,9 @@ public class ClientCnxn {
 
     // 内部类
 
+    /**
+     * 表示一个认证的用户，例如：addauth digest whz:123456 命令对应的scheme = digest，data = whz:123456
+     */
     static class AuthData {
         AuthData(String scheme, byte data[]) {
             this.scheme = scheme;

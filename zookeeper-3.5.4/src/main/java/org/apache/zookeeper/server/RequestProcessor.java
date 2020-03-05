@@ -44,7 +44,7 @@ public interface RequestProcessor {
     }
 
     /**
-     * 处理请求
+     * 处理来自客户端的请求
      *
      * @param request
      * @throws RequestProcessorException

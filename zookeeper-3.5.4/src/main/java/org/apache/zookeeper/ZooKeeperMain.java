@@ -262,11 +262,19 @@ public class ZooKeeperMain {
         boolean watch = false;
         LOG.debug("Processing " + cmd);
 
-        // 处理退出命令
+        /**
+         * 处理退出命令
+         */
         if (cmd.equals("quit")) {
             zk.close();
             System.exit(exitCode);
-        } else if (cmd.equals("redo") && args.length >= 2) {
+        }
+        /**
+         * redo命令用于再次执行某个命令，使用方式为：redo ${cmdId}
+         * 如：redo 20
+         * 常与history配合使用
+         */
+        else if (cmd.equals("redo") && args.length >= 2) {
             Integer i = Integer.decode(args[1]);
             // don't allow redoing this redo
             if (commandCount <= i || i < 0) {
@@ -278,18 +286,30 @@ public class ZooKeeperMain {
             }
             history.put(commandCount, history.get(i));
             processCmd(cl);
-        } else if (cmd.equals("history")) {
+        }
+        /**
+         * history用于列出最近的命令历史，可以和redo配合使用，如：history　　
+         */
+        else if (cmd.equals("history")) {
             for (int i = commandCount - 10; i <= commandCount; ++i) {
                 if (i < 0) continue;
                 System.out.println(i + " - " + history.get(i));
             }
-        } else if (cmd.equals("printwatches")) {
+        }
+        /**
+         * printWatchers命令用于设置和显示监视状态，值为on或则off
+         */
+        else if (cmd.equals("printwatches")) {
             if (args.length == 1) {
                 System.out.println("printwatches is " + (printWatches ? "on" : "off"));
             } else {
                 printWatches = args[1].equals("on");
             }
-        } else if (cmd.equals("connect")) {
+        }
+        /**
+         * 连接zk服务端，与close命令配合使用可以连接或者断开zk服务端，如：connect 127.0.0.1:2181
+         */
+        else if (cmd.equals("connect")) {
             if (args.length >= 2) {
                 connectToZK(args[1]);
             } else {
@@ -365,7 +385,7 @@ public class ZooKeeperMain {
     /**
      * zk客户端断开与zk服务器的连接，并重连
      *
-     * @param newHost
+     * @param newHost   例如：127.0.0.1:2181
      * @throws InterruptedException
      * @throws IOException
      */
@@ -691,10 +711,10 @@ public class ZooKeeperMain {
         }
 
         /**
-         * Breaks a string into command + arguments.
+         * 解析命令及参数
          *
          * @param cmdstring string of form "cmd arg1 arg2..etc"
-         * @return true if parsing succeeded.
+         * @return 返回true表示解析成功
          */
         public boolean parseCommand(String cmdstring) {
             Matcher matcher = ARGS_PATTERN.matcher(cmdstring);

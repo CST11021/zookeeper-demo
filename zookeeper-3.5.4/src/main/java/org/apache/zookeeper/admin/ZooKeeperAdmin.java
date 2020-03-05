@@ -32,11 +32,10 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * This is the main class for ZooKeeperAdmin client library.
- * This library is used to perform cluster administration tasks,
- * such as reconfigure cluster membership. The ZooKeeperAdmin class
- * inherits ZooKeeper and has similar usage pattern as ZooKeeper class.
- * Please check {@link ZooKeeper} class document for more details.
+ * 这是ZooKeeperAdmin客户端库的主类。
+ * 这个库用于执行集群管理任务，例如重新配置集群成员。
+ * ZooKeeperAdmin类继承了ZooKeeper类，其使用模式与ZooKeeper类类似。
+ * 详情请查看{@link ZooKeeper}类文档。
  *
  * @since 3.5.3
  */

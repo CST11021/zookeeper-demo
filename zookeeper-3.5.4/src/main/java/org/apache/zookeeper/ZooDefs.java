@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,13 +27,13 @@ import java.util.Collections;
 
 @InterfaceAudience.Public
 public class ZooDefs {
-   
-   final public static String CONFIG_NODE = "/zookeeper/config";
+
+    final public static String CONFIG_NODE = "/zookeeper/config";
 
     /**
      * 表示客户端命令的操作类型，例如：创建、删除、获取等命令的类型
      */
-   @InterfaceAudience.Public
+    @InterfaceAudience.Public
     public interface OpCode {
         public final int notification = 0;
 
@@ -68,7 +68,7 @@ public class ZooDefs {
         public final int check = 13;
 
         public final int multi = 14;
-        
+
         public final int create2 = 15;
 
         public final int reconfig = 16;
@@ -83,6 +83,9 @@ public class ZooDefs {
 
         public final int createTTL = 21;
 
+        /**
+         * 表示给用户做认证（或者说授权）的操作
+         */
         public final int auth = 100;
 
         public final int setWatches = 101;
@@ -98,16 +101,17 @@ public class ZooDefs {
 
     @InterfaceAudience.Public
     public interface Perms {
+        /** 获取节点的数据和它的子节点 */
         int READ = 1 << 0;
-
+        /** 设置节点的数据 */
         int WRITE = 1 << 1;
-
+        /** 创建子节点 */
         int CREATE = 1 << 2;
-
+        /** 删除子节点 （仅下一级节点） */
         int DELETE = 1 << 3;
-
+        /** 设置 ACL 权限 */
         int ADMIN = 1 << 4;
-
+        /** 拥有所有权限 */
         int ALL = READ | WRITE | CREATE | DELETE | ADMIN;
     }
 
@@ -139,7 +143,7 @@ public class ZooDefs {
         public final ArrayList<ACL> READ_ACL_UNSAFE = new ArrayList<ACL>(Collections.singletonList(new ACL(Perms.READ, ANYONE_ID_UNSAFE)));
     }
 
-    final public static String[] opNames = { "notification", "create",
+    final public static String[] opNames = {"notification", "create",
             "delete", "exists", "getData", "setData", "getACL", "setACL",
-            "getChildren", "getChildren2", "getMaxChildren", "setMaxChildren", "ping", "reconfig", "getConfig" };
+            "getChildren", "getChildren2", "getMaxChildren", "setMaxChildren", "ping", "reconfig", "getConfig"};
 }

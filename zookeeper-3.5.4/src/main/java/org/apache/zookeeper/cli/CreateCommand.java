@@ -28,7 +28,7 @@ import org.apache.zookeeper.server.EphemeralType;
 import java.util.List;
 
 /**
- * create command for cli
+ * 创建节点命令
  */
 public class CreateCommand extends CliCommand {
 

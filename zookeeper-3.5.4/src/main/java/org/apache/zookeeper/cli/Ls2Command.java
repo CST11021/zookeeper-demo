@@ -16,13 +16,27 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.util.List;
 import org.apache.commons.cli.*;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.Stat;
 
+import java.util.List;
+
 /**
- * ls2 command for cli
+ * ls2命令是ls命令的增强版，比ls命令多输出本节点信息，如：
+ * >ls2 /storm
+ *  [assignments, storms, errors, supervisors, workerbeats]
+ *  cZxid = 0x1469
+ *  ctime = Tue Nov 14 11:32:09 CST 2017
+ *  mZxid = 0x1469
+ *  mtime = Tue Nov 14 11:32:09 CST 2017
+ *  pZxid = 0x1470
+ *  cversion = 5
+ *  dataVersion = 0
+ *  aclVersion = 0
+ *  ephemeralOwner = 0x0
+ *  dataLength = 1
+ *  numChildren = 5
  */
 public class Ls2Command extends CliCommand {
 
