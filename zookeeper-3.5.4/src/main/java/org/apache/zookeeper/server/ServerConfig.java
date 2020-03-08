@@ -50,6 +50,8 @@ public class ServerConfig {
     protected InetSocketAddress secureClientPortAddress;
 
     /**
+     * 表示内存数据库快照存放地址
+     *
      * 该参数无默认值，必须配置，不支持系统属性方式配置。
      * 该参数用于配置zk服务器的存储快照文件的目录。默认情况下，如果没有配置参数dataLogDir，那么事务日志也会存储在这个目录中。
      * 考虑到事务日志的写性能直接影响zk整体的服务能力，因此建议同时通过dataLogDir参数来配置zk事务日志的存储目录。
@@ -58,6 +60,8 @@ public class ServerConfig {
     protected File dataDir;
 
     /**
+     * 表示事务日志文件的目录
+     *
      * 该参数有默认值：dataDir，可以不配置，不支持系统属性方式配置。
      * 参数dataLogDir用于配置zk服务器存储事务日志文件的目录。默认情况下，zk会将事务日志文件和快照数据存储在同一个目录中，读者应尽量将这两者的目录区分开来。
      * 另外，如果条件允许，可以将事务日志的存储配置在一个单独的磁盘上。事务日志记录对于磁盘的性能要求非常高，为了保证数据的一致性，zk在返回客户端事务请求响应之前，
@@ -79,9 +83,9 @@ public class ServerConfig {
      */
     protected int maxClientCnxns;
 
-    /** defaults to -1 if not set explicitly */
+    /** 最小的客户端session超时时间，默认值为2个tickTime，单位是毫秒，如果没有显式设置，则默认为-1，表示使用默认值 */
     protected int minSessionTimeout = -1;
-    /** defaults to -1 if not set explicitly */
+    /** 最大的客户端session超时时间，默认值为20个tickTime，单位是毫秒，如果没有显式设置，则默认为-1，表示使用默认值 */
     protected int maxSessionTimeout = -1;
 
     /**

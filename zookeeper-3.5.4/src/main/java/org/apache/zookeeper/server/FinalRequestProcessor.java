@@ -69,13 +69,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * This Request processor actually applies any transaction associated with a
- * request and services any queries. It is always at the end of a
- * RequestProcessor chain (hence the name), so it does not have a nextProcessor
- * member.
+ * 用于修改ZK内存中的数据结构并触发watcher。
  *
- * This RequestProcessor counts on ZooKeeperServer to populate the
- * outstandingRequests member of ZooKeeperServer.
+ * 这个请求处理程序实际应用于与请求相关的任何事务，并为任何查询提供服务，它总是位于RequestProcessor链的末尾(因此得名)，所以它没有nextProcessor成员，
+ * 这个RequestProcessor依赖于ZooKeeperServer来填充ZooKeeperServer的outstandingRequests成员。
  */
 public class FinalRequestProcessor implements RequestProcessor {
     private static final Logger LOG = LoggerFactory.getLogger(FinalRequestProcessor.class);

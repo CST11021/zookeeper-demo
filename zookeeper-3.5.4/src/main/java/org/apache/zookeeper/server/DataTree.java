@@ -55,9 +55,9 @@ public class DataTree {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataTree.class);
 
-
+    /** 节点Watcher监听管理器 */
     private final WatchManager dataWatches = new WatchManager();
-
+    /** 管理哪些监听子节点的Watcher */
     private final WatchManager childWatches = new WatchManager();
 
     /** 用于缓存datatree中的节点权限 */
@@ -117,13 +117,11 @@ public class DataTree {
      */
     private final PathTrie pTrie = new PathTrie();
 
-    /**
-     * 表示根节点
-     */
+    /** 表示根节点 */
     private DataNode root = new DataNode(new byte[0], -1L, new StatPersisted());
 
     /**
-     * create a /zookeeper filesystem that is the proc filesystem of zookeeper
+     * 创建一个/zookeeper文件系统，它是zookeeper的proc文件系统
      */
     private final DataNode procDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
 
@@ -133,6 +131,9 @@ public class DataTree {
      */
     private final DataNode quotaDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
 
+    /**
+     * 表示操作dataTree的最后一个事务ID
+     */
     public volatile long lastProcessedZxid = 0;
 
     public DataTree() {
@@ -292,6 +293,12 @@ public class DataTree {
         return false;
     }
 
+    /**
+     * stat复制
+     *
+     * @param from
+     * @param to
+     */
     static public void copyStatPersisted(StatPersisted from, StatPersisted to) {
         to.setAversion(from.getAversion());
         to.setCtime(from.getCtime());

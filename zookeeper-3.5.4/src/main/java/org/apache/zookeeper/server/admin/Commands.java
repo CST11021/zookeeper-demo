@@ -18,27 +18,18 @@
 
 package org.apache.zookeeper.server.admin;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.Environment.Entry;
 import org.apache.zookeeper.Version;
-import org.apache.zookeeper.server.DataTree;
-import org.apache.zookeeper.server.ServerStats;
-import org.apache.zookeeper.server.ZKDatabase;
-import org.apache.zookeeper.server.ZooKeeperServer;
-import org.apache.zookeeper.server.ZooTrace;
+import org.apache.zookeeper.server.*;
 import org.apache.zookeeper.server.quorum.Leader;
 import org.apache.zookeeper.server.quorum.LeaderZooKeeperServer;
 import org.apache.zookeeper.server.quorum.ReadOnlyZooKeeperServer;
 import org.apache.zookeeper.server.util.OSMXBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
 
 /**
  * Class containing static methods for registering and running Commands, as well
@@ -48,11 +39,14 @@ import org.slf4j.LoggerFactory;
  * @see JettyAdminServer
  */
 public class Commands {
+
     static final Logger LOG = LoggerFactory.getLogger(Commands.class);
 
     /** Maps command names to Command instances */
     private static Map<String, Command> commands = new HashMap<String, Command>();
     private static Set<String> primaryNames = new HashSet<String>();
+
+    private Commands() {}
 
     /**
      * Registers the given command. Registered commands can be run by passing
@@ -508,5 +502,5 @@ public class Commands {
         }
     }
 
-    private Commands() {}
+
 }

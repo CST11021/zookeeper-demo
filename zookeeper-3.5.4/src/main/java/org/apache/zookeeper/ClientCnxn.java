@@ -544,9 +544,8 @@ public class ClientCnxn {
             return;
         }
         authInfo.add(new AuthData(scheme, auth));
-        queuePacket(new RequestHeader(-4, OpCode.auth), null,
-                new AuthPacket(0, scheme, auth), null, null, null, null,
-                null, null);
+        queuePacket(new RequestHeader(-4, OpCode.auth), null, new AuthPacket(0, scheme, auth),
+                null, null, null, null, null, null);
     }
 
 

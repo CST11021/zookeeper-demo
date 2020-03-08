@@ -28,6 +28,7 @@ import org.apache.zookeeper.server.ZooKeeperServer;
  * AdminServer, which is handled by AdminServerFactory.)
  */
 public class DummyAdminServer implements AdminServer {
+
     @Override
     public void start() throws AdminServerException {}
 

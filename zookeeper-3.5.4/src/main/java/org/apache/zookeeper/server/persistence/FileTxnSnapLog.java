@@ -42,6 +42,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * FileTxnSnapLog是Zookeeper上层服务器和底层数据存储之间的对接层，提供了一系列操作数据文件的接口，如事务日志文件和快照数据文件。
  * Zookeeper根据zoo.cfg文件中解析出的快照数据目录dataDir和事务日志目录dataLogDir来创建FileTxnSnapLog。
+ *
+ * 实际对节点进行操作后会通过该类将数据保存到文件中
  */
 public class FileTxnSnapLog {
 
@@ -60,16 +62,16 @@ public class FileTxnSnapLog {
     /** 包含快照目录的目录 */
     private final File snapDir;
 
-    /** 对应{@link #dataDir}目录 */
+    /** 表示zk事务日志文件的目录，对应{@link #dataDir}目录 */
     private TxnLog txnLog;
-    /** 对应{@link #snapDir}目录 */
+    /** 表示zk服务器的内存储快照文件的目录，对应{@link #snapDir}目录 */
     private SnapShot snapLog;
 
     /**
-     * the constructor which takes the datadir and snapdir.
+     * 构造器需要指定datadir 和 snapdir
      *
-     * @param dataDir the transaction directory
-     * @param snapDir the snapshot directory
+     * @param dataDir 事务日志文件的目录
+     * @param snapDir zk服务器的内存储快照文件的目录
      */
     public FileTxnSnapLog(File dataDir, File snapDir) throws IOException {
         LOG.debug("Opening datadir:{} snapDir:{}", dataDir, snapDir);
@@ -165,28 +167,27 @@ public class FileTxnSnapLog {
 
 
     /**
-     * this function restores the server database after reading from the
-     * snapshots and transaction logs
-     * @param dt the datatree to be restored
-     * @param sessions the sessions to be restored
-     * @param listener the playback listener to run on the
+     * 该函数从快照和事务日志中读取数据后恢复服务器数据库
+     *
+     * @param dt        要恢复的数据树
+     * @param sessions  要恢复的会话，Map<会话ID，会话过期时间>
+     * @param listener  the playback listener to run on the
      * database restoration
      * @return the highest zxid restored
      * @throws IOException
      */
     public long restore(DataTree dt, Map<Long, Integer> sessions, PlayBackListener listener) throws IOException {
+        // 从最近的快照中对数据树进行反序列化
         long deserializeResult = snapLog.deserialize(dt, sessions);
+        // lastProcessedZxid+1从事务日志文件txnLog读取事务操作
         FileTxnLog txnLog = new FileTxnLog(dataDir);
         if (-1L == deserializeResult) {
             /* this means that we couldn't find any snapshot, so we need to
              * initialize an empty database (reported in ZOOKEEPER-2325) */
             if (txnLog.getLastLoggedZxid() != -1) {
-                throw new IOException(
-                        "No snapshot found, but there are log entries. " +
-                                "Something is broken!");
+                throw new IOException("No snapshot found, but there are log entries. Something is broken!");
             }
-            /* TODO: (br33d) we should either put a ConcurrentHashMap on restore()
-             *       or use Map on save() */
+            /* TODO: (br33d) we should either put a ConcurrentHashMap on restore() or use Map on save() */
             save(dt, (ConcurrentHashMap<Long, Integer>) sessions);
             /* return a zxid of zero, since we the database is empty */
             return 0;
@@ -327,17 +328,16 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * save the datatree and the sessions into a snapshot
-     * @param dataTree the datatree to be serialized onto disk
-     * @param sessionsWithTimeouts the session timeouts to be
-     * serialized onto disk
+     * 将数据树和会话保存到快照文件中
+     *
+     * @param dataTree              要序列化到磁盘上的数据树
+     * @param sessionsWithTimeouts  要序列化到磁盘上的会话超时
      * @throws IOException
      */
     public void save(DataTree dataTree, ConcurrentHashMap<Long, Integer> sessionsWithTimeouts) throws IOException {
         long lastZxid = dataTree.lastProcessedZxid;
         File snapshotFile = new File(snapDir, Util.makeSnapshotName(lastZxid));
-        LOG.info("Snapshotting: 0x{} to {}", Long.toHexString(lastZxid),
-                snapshotFile);
+        LOG.info("Snapshotting: 0x{} to {}", Long.toHexString(lastZxid), snapshotFile);
         snapLog.serialize(dataTree, sessionsWithTimeouts, snapshotFile);
 
     }

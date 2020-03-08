@@ -341,7 +341,7 @@ public abstract class KeeperException extends Exception {
         CONNECTIONLOSS (ConnectionLoss),
         /** Error while marshalling or unmarshalling data */
         MARSHALLINGERROR (MarshallingError),
-        /** Operation is unimplemented */
+        /** 表示为实现的操作 */
         UNIMPLEMENTED (Unimplemented),
         /** Operation timeout */
         OPERATIONTIMEOUT (OperationTimeout),
@@ -382,7 +382,7 @@ public abstract class KeeperException extends Exception {
         INVALIDCALLBACK (InvalidCallback),
         /** Invalid ACL specified */
         INVALIDACL (InvalidACL),
-        /** Client authentication failed */
+        /** 表示授权失败，比如密码不正确等 */
         AUTHFAILED (AuthFailed),
         /** Session moved to another server, so operation is ignored */
         SESSIONMOVED (-118),

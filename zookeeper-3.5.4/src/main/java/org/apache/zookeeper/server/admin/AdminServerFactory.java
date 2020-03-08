@@ -18,15 +18,16 @@
 
 package org.apache.zookeeper.server.admin;
 
-import java.lang.reflect.InvocationTargetException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
+
 /**
- * Factory class for creating an AdminServer.
+ * 用于创建AdminServer的工厂
  */
 public class AdminServerFactory {
+
     private static final Logger LOG = LoggerFactory.getLogger(AdminServerFactory.class);
 
     /**
@@ -38,6 +39,7 @@ public class AdminServerFactory {
      * to pull in Jetty with ZooKeeper.
      */
     public static AdminServer createAdminServer() {
+        // 如果 zookeeper.admin.enableServer 配置不是false，则默认启动JettyAdminServer
         if (!"false".equals(System.getProperty("zookeeper.admin.enableServer"))) {
             try {
                 Class<?> jettyAdminServerC = Class.forName("org.apache.zookeeper.server.admin.JettyAdminServer");

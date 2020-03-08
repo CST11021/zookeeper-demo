@@ -19,23 +19,29 @@
 package org.apache.zookeeper.server;
 
 /**
- * RequestProcessors are chained together to process transactions.
- * （requestprocessor被链接在一起来处理事务。）
- * Requests are always processed in order. The standalone server, follower, and leader all have slightly different RequestProcessors chained together.
- * （请求总是按顺序处理。独立的服务器、Follower和leader都有略微不同的请求处理器链接在一起。）
+ * 服务端的请求处理器都继承该接口，用于处理来自客户端的请求
  *
- * Requests always move forward through the chain of RequestProcessors.
- * Requests are passed to a RequestProcessor through processRequest().
- * Generally method will always be invoked by a single thread.
- * （请求总是通过请求处理器链向前移动。）
- * （请求通过processRequest()传递给RequestProcessor。）
- * （通常方法总是由单个线程调用。）
+ * PrepRequestProcessor处理器：用于构造请求对象，校验session合法性等。
+ * SyncRequestProcessor处理器：用于向磁盘中写入事务日志跟快照信息。
+ * FinalRequestProcessor处理器：用于修改ZK内存中的数据结构并触发watcher。
  *
- * When shutdown is called, the request RequestProcessor should also shutdown any RequestProcessors that it is connected to.
- * （当调用shutdown时，请求处理器也关闭它所连接的任何请求处理器。）
+ *
+ * 这里要补充下，ZK中所有的数据都放在内存中，封装在类ZKDatabase里面，包括所有的节点信息，会话信息以及集群模式下要使用的committed log。也就是说处理链路上只有最后一步FinalRequestProcessor才会让数据真正生效。
+ *
+ *
+ * Leader和Follower有各自的RequestProcessor处理链；
+ *
+ * LeaderZooKeeperServer：	LeaderRequestProcessor -> PrepRequestProcessor -> ProposalRequestProcessor（SyncRequestProcessor->AckRequestProcessor）-> CommitProcessor -> Leader.ToBeAppliedRequestProcessor -> FinalRequestProcessor
+ * FollowerZooKeeperServer：	FollowerRequestProcessor-> CommitProcessor->FinalRequestProcessor；SyncRequestProcessor->SendAckRequestProcessor
+ * ObserverZooKeeperServer：	ObserverRequestProcessor->CommitProcessor->FinalRequestProcessor；SyncRequestProcessor
+ * ReadOnlyZooKeeperServer：	ReadOnlyRequestProcessor->PrepRequestProcessor->FinalRequestProcessor
+ *
  */
 public interface RequestProcessor {
 
+    /**
+     * 请求处理异常时，会抛出该异常
+     */
     @SuppressWarnings("serial")
     public static class RequestProcessorException extends Exception {
         public RequestProcessorException(String msg, Throwable t) {

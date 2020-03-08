@@ -42,26 +42,21 @@ import java.util.Set;
  */
 public class DataNode implements Record {
 
-    /** the data for this datanode */
+    /** 表示一个空集合 */
+    private static final Set<String> EMPTY_SET = Collections.emptySet();
+    /** 节点数据 */
     byte data[];
-
-    /**
-     * 表示节点的权限值，通过{@link ReferenceCountedACLCache#convertLong(Long)}方法返回一个节点的权利列表
-     */
+    /** 表示节点的权限值，通过{@link ReferenceCountedACLCache#convertLong(Long)}方法返回一个节点的权利列表 */
     Long acl;
-
-    /**
-     * 表示节点保存到磁盘的状态
-     */
+    /** 表示节点保存到磁盘的状态 */
     public StatPersisted stat;
-
     /**
-     * 此节点的子节点列表，注意，子字符串列表不包含父路径——只包含路径的最后一部分。
+     * 此节点的子节点列表，注意，该字符串列表不包含父路径——只包含路径的最后一部分。
      * 除反序列化(用于加速问题)外，此操作应同步。
      */
     private Set<String> children = null;
 
-    private static final Set<String> EMPTY_SET = Collections.emptySet();
+
 
     DataNode() {
         // default constructor

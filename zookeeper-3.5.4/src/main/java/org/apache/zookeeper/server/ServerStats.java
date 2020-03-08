@@ -23,24 +23,57 @@ package org.apache.zookeeper.server;
 import org.apache.zookeeper.common.Time;
 
 /**
- * Basic Server Statistics
+ * zk服务器运行时的统计器
  */
 public class ServerStats {
+    /** 从zk启动开始，或是最近一次重置服务端统计信息之后，服务端向客户端发送响应包次数 */
     private long packetsSent;
+    /** 从zk启动开始，或是最近一次重置服务端统计信息之后，服务端接收到的来自客户端的请求包次数 */
     private long packetsReceived;
+    /** 从zk启动开始，或是最近一次重置服务端统计信息之后，服务端请求处理的最大延时 */
     private long maxLatency;
+    /** 从zk启动开始，或是最近一次重置服务端统计信息之后，服务端请求处理的最小延时 */
     private long minLatency = Long.MAX_VALUE;
+     /** 从zk启动开始，或是最近一次重置服务端统计信息之后，服务端请求处理的总延时 */
     private long totalLatency = 0;
+    /** 从zk启动开始，或是最近一次重置服务端统计信息之后，服务端处理的客户端请求总次数 */
     private long count = 0;
 
     private final Provider provider;
 
     public interface Provider {
+
+        /**
+         * 返回队列中尚未处理的请求，这些请求尚未被处理
+         */
         public long getOutstandingRequests();
+
+        /**
+         * 获取最后操作DataTree的事务ID
+         *
+         * @return
+         */
         public long getLastProcessedZxid();
+
         public String getState();
+
+        /**
+         * 返回此服务器上活动的客户端连接的总数
+         */
         public int getNumAliveConnections();
+
+        /**
+         * 获取zk的快照文件数量
+         *
+         * @return
+         */
         public long getDataDirSize();
+
+        /**
+         * 获取zk事务日志文件数量
+         *
+         * @return
+         */
         public long getLogDirSize();
     }
     

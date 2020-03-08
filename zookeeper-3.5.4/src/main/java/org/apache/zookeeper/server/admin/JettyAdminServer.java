@@ -18,36 +18,27 @@
 
 package org.apache.zookeeper.server.admin;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import org.apache.zookeeper.server.ZooKeeperServer;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import org.apache.zookeeper.server.ZooKeeperServer;
-import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletHolder;
-import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.IOException;
+import java.util.*;
 
 /**
- * This class encapsulates a Jetty server for running Commands.
+ * 启动jetty服务器，用于通过调用url执行zookeeper命令，这个类封装了一个Jetty服务器来运行命令。
  *
- * Given the default settings, start a ZooKeeper server and visit
- * http://<hostname>:8080/commands for links to all registered commands. Visiting
- * http://<hostname>:8080/commands/<commandname> will execute the associated
- * Command and return the result in the body of the response. Any keyword
- * arguments to the command are specified with URL parameters (e.g.,
- * http://localhost:8080/commands/set_trace_mask?traceMask=306).
+ * 给定默认设置，启动ZooKeeper服务器并访问，
+ * http://<hostname>:8080/commands，用于链接到所有已注册的命令。参照：http://<hostname>:8080/commands/<commandname>将执行相关的命令并在响应体中返回结果。
+ * 命令的任何关键字参数都用URL参数指定(例如，http://localhost:8080/commands/set_trace_mask?traceMask=306)。
  *
  * @see Commands
  * @see CommandOutputter
@@ -55,11 +46,14 @@ import org.slf4j.LoggerFactory;
 public class JettyAdminServer implements AdminServer {
     static final Logger LOG = LoggerFactory.getLogger(JettyAdminServer.class);
 
+    /** 默认的服务端口 */
     public static final int DEFAULT_PORT = 8080;
     public static final int DEFAULT_IDLE_TIMEOUT = 30000;
     public static final String DEFAULT_COMMAND_URL = "/commands";
+    /***/
     private static final String DEFAULT_ADDRESS = "0.0.0.0";
 
+    /** jetty的Server类 */
     private final Server server;
     private final String address;
     private final int port;
@@ -73,7 +67,6 @@ public class JettyAdminServer implements AdminServer {
              Integer.getInteger("zookeeper.admin.idleTimeout", DEFAULT_IDLE_TIMEOUT),
              System.getProperty("zookeeper.admin.commandURL", DEFAULT_COMMAND_URL));
     }
-
     public JettyAdminServer(String address, int port, int timeout, String commandUrl) {
         this.port = port;
         this.idleTimeout = timeout;
@@ -102,15 +95,11 @@ public class JettyAdminServer implements AdminServer {
         try {
             server.start();
         } catch (Exception e) {
-            // Server.start() only throws Exception, so let's at least wrap it
-            // in an identifiable subclass
-            throw new AdminServerException(String.format(
-                    "Problem starting AdminServer on address %s,"
-                            + " port %d and command URL %s", address, port,
-                    commandUrl), e);
+            // Server.start() only throws Exception, so let's at least wrap it in an identifiable subclass
+            throw new AdminServerException(String.format("Problem starting AdminServer on address %s,"
+                            + " port %d and command URL %s", address, port, commandUrl), e);
         }
-        LOG.info(String.format("Started AdminServer on address %s, port %d"
-                + " and command URL %s", address, port, commandUrl));
+        LOG.info(String.format("Started AdminServer on address %s, port %d" + " and command URL %s", address, port, commandUrl));
     }
 
     /**
@@ -125,30 +114,36 @@ public class JettyAdminServer implements AdminServer {
         try {
             server.stop();
         } catch (Exception e) {
-            throw new AdminServerException(String.format(
-                    "Problem stopping AdminServer on address %s,"
-                            + " port %d and command URL %s", address, port, commandUrl),
-                    e);
+            throw new AdminServerException(String.format("Problem stopping AdminServer on address %s,"
+                    + " port %d and command URL %s", address, port, commandUrl), e);
         }
     }
 
     /**
-     * Set the ZooKeeperServer that will be used to run Commands.
+     * 设置用于运行命令的ZooKeeperServer。
      *
-     * It is not necessary to set the ZK server before calling
-     * AdminServer.start(), and the ZK server can be set to null when, e.g.,
-     * that server is being shut down. If the ZK server is not set or set to
-     * null, the AdminServer will still be able to issue Commands, but they will
-     * return an error until a ZK server is set.
+     * 没有必要在调用AdminServer.start()之前设置ZK服务器，并且可以将ZK服务器设置为null，例如，该服务器正在关闭。
+     * 如果ZK服务器没有设置或设置为null, AdminServer仍然可以发出命令，但是在设置ZK服务器之前，它们将返回一个错误。
      */
     @Override
     public void setZooKeeperServer(ZooKeeperServer zkServer) {
         this.zkServer = zkServer;
     }
 
+    /**
+     * 用于处理来自Jetty客户端的请求
+     */
     private class CommandServlet extends HttpServlet {
         private static final long serialVersionUID = 1L;
 
+        /**
+         * 处理get请求
+         *
+         * @param request
+         * @param response
+         * @throws ServletException
+         * @throws IOException
+         */
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             // Capture the command name from the URL
             String cmd = request.getPathInfo();
@@ -171,10 +166,10 @@ public class JettyAdminServer implements AdminServer {
                 kwargs.put(entry.getKey(), entry.getValue()[0]);
             }
 
-            // Run the command
+            // 运行命令
             CommandResponse cmdResponse = Commands.runCommand(cmd, zkServer, kwargs);
 
-            // Format and print the output of the command
+            // 格式化并打印命令的输出
             CommandOutputter outputter = new JsonOutputter();
             response.setStatus(HttpServletResponse.SC_OK);
             response.setContentType(outputter.getContentType());
@@ -195,4 +190,10 @@ public class JettyAdminServer implements AdminServer {
         }
         return links;
     }
+
+    // 测试：
+    // 使用如下代码启动jetty，并访问：http://localhost:8080/commands
+    // public static void main(String[] args) throws AdminServerException {
+    //     new JettyAdminServer().start();
+    // }
 }

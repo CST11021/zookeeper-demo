@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,26 +18,28 @@
 
 package org.apache.zookeeper.server.auth;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.data.Id;
 import org.apache.zookeeper.server.ServerCnxn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+/**
+ *
+ */
 public class DigestAuthenticationProvider implements AuthenticationProvider {
-    private static final Logger LOG =
-        LoggerFactory.getLogger(DigestAuthenticationProvider.class);
+
+    private static final Logger LOG = LoggerFactory.getLogger(DigestAuthenticationProvider.class);
 
     /** specify a command line property with key of 
      * "zookeeper.DigestAuthenticationProvider.superDigest"
      * and value of "super:<base64encoded(SHA1(password))>" to enable
      * super user access (i.e. acls disabled)
      */
-    private final static String superDigest = System.getProperty(
-        "zookeeper.DigestAuthenticationProvider.superDigest");
+    private final static String superDigest = System.getProperty("zookeeper.DigestAuthenticationProvider.superDigest");
 
     public String getScheme() {
         return "digest";
@@ -45,7 +47,7 @@ public class DigestAuthenticationProvider implements AuthenticationProvider {
 
     static final private String base64Encode(byte b[]) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < b.length;) {
+        for (int i = 0; i < b.length; ) {
             int pad = 0;
             int v = (b[i++] & 0xff) << 16;
             if (i < b.length) {
@@ -88,17 +90,14 @@ public class DigestAuthenticationProvider implements AuthenticationProvider {
         return i == 62 ? '+' : '/';
     }
 
-    static public String generateDigest(String idPassword)
-            throws NoSuchAlgorithmException {
+    static public String generateDigest(String idPassword) throws NoSuchAlgorithmException {
         String parts[] = idPassword.split(":", 2);
         byte digest[] = MessageDigest.getInstance("SHA1").digest(
                 idPassword.getBytes());
         return parts[0] + ":" + base64Encode(digest);
     }
 
-    public KeeperException.Code 
-        handleAuthentication(ServerCnxn cnxn, byte[] authData)
-    {
+    public KeeperException.Code handleAuthentication(ServerCnxn cnxn, byte[] authData) {
         String id = new String(authData);
         try {
             String digest = generateDigest(id);
@@ -108,7 +107,7 @@ public class DigestAuthenticationProvider implements AuthenticationProvider {
             cnxn.addAuthInfo(new Id(getScheme(), digest));
             return KeeperException.Code.OK;
         } catch (NoSuchAlgorithmException e) {
-            LOG.error("Missing algorithm",e);
+            LOG.error("Missing algorithm", e);
         }
         return KeeperException.Code.AUTHFAILED;
     }

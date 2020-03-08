@@ -47,6 +47,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * 该类用于读取zk事务日志文件
+ *
+ *
  * This class implements the TxnLog interface. It provides api's
  * to access the txnlogs and add entries to it.
  * <p>
@@ -89,10 +92,10 @@ import org.slf4j.LoggerFactory;
  * </pre></blockquote>
  */
 public class FileTxnLog implements TxnLog {
+
     private static final Logger LOG;
 
-    public final static int TXNLOG_MAGIC =
-        ByteBuffer.wrap("ZKLG".getBytes()).getInt();
+    public final static int TXNLOG_MAGIC = ByteBuffer.wrap("ZKLG".getBytes()).getInt();
 
     public final static int VERSION = 2;
 
@@ -112,23 +115,25 @@ public class FileTxnLog implements TxnLog {
     }
 
     long lastZxidSeen;
+
+    /** 用于将事务日志输出到文件的流 */
     volatile BufferedOutputStream logStream = null;
     volatile OutputArchive oa;
     volatile FileOutputStream fos = null;
 
+    /** 表示zk事务日志文件 */
     File logDir;
+
     private final boolean forceSync = !System.getProperty("zookeeper.forceSync", "yes").equals("no");
     long dbId;
-    private LinkedList<FileOutputStream> streamsToFlush =
-        new LinkedList<FileOutputStream>();
+    private LinkedList<FileOutputStream> streamsToFlush = new LinkedList<FileOutputStream>();
     File logFileWrite = null;
     private FilePadding filePadding = new FilePadding();
 
     private volatile long syncElapsedMS = -1L;
 
     /**
-     * constructor for FileTxnLog. Take the directory
-     * where the txnlogs are stored
+     * constructor for FileTxnLog. Take the directory where the txnlogs are stored
      * @param logDir the directory where the txnlogs are stored
      */
     public FileTxnLog(File logDir) {
@@ -136,16 +141,17 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
-      * method to allow setting preallocate size
-      * of log file to pad the file.
-      * @param size the size to set to in bytes
+      * 方法允许设置日志文件的预分配大小以填充文件。
+     *
+      * @param size 要设置为字节数的大小
       */
     public static void setPreallocSize(long size) {
         FilePadding.setPreallocSize(size);
     }
 
     /**
-     * creates a checksum algorithm to be used
+     * 创建要使用的校验和算法
+     *
      * @return the checksum used for this txnlog
      */
     protected Checksum makeChecksumAlgorithm(){
@@ -153,7 +159,8 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
-     * rollover the current log file to a new one.
+     * 将当前日志文件滚动到新的日志文件。
+     *
      * @throws IOException
      */
     public synchronized void rollLog() throws IOException {
@@ -165,13 +172,15 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
-     * close all the open file handles
+     * 关闭所有打开的文件句柄
+     *
      * @throws IOException
       */
     public synchronized void close() throws IOException {
         if (logStream != null) {
             logStream.close();
         }
+
         for (FileOutputStream log : streamsToFlush) {
             log.close();
         }
@@ -183,16 +192,12 @@ public class FileTxnLog implements TxnLog {
      * @param txn the transaction part of the entry
      * returns true iff something appended, otw false
      */
-    public synchronized boolean append(TxnHeader hdr, Record txn)
-        throws IOException
-    {
+    public synchronized boolean append(TxnHeader hdr, Record txn) throws IOException {
         if (hdr == null) {
             return false;
         }
         if (hdr.getZxid() <= lastZxidSeen) {
-            LOG.warn("Current zxid " + hdr.getZxid()
-                    + " is <= " + lastZxidSeen + " for "
-                    + hdr.getType());
+            LOG.warn("Current zxid " + hdr.getZxid() + " is <= " + lastZxidSeen + " for " + hdr.getType());
         } else {
             lastZxidSeen = hdr.getZxid();
         }

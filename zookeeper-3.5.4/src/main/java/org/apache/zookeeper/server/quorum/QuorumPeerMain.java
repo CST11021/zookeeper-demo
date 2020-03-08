@@ -75,6 +75,7 @@ public class QuorumPeerMain {
 
     /**
      * 要启动复制的服务器，请在命令行上指定配置文件名。
+     *
      * @param args 文件名路径
      */
     public static void main(String[] args) {
@@ -106,18 +107,22 @@ public class QuorumPeerMain {
         System.exit(0);
     }
 
-    protected void initializeAndRun(String[] args)
-        throws ConfigException, IOException, AdminServerException
-    {
+    /**
+     *
+     * @param args
+     * @throws ConfigException
+     * @throws IOException
+     * @throws AdminServerException
+     */
+    protected void initializeAndRun(String[] args) throws ConfigException, IOException, AdminServerException {
         QuorumPeerConfig config = new QuorumPeerConfig();
+        // 如果是一个参数，则表示是配置文件的路径
         if (args.length == 1) {
             config.parse(args[0]);
         }
 
         // Start and schedule the the purge task
-        DatadirCleanupManager purgeMgr = new DatadirCleanupManager(config
-                .getDataDir(), config.getDataLogDir(), config
-                .getSnapRetainCount(), config.getPurgeInterval());
+        DatadirCleanupManager purgeMgr = new DatadirCleanupManager(config.getDataDir(), config.getDataLogDir(), config.getSnapRetainCount(), config.getPurgeInterval());
         purgeMgr.start();
 
         // 通过解析zoo.cfg server数量来判断是否是集群
@@ -131,9 +136,7 @@ public class QuorumPeerMain {
         }
     }
 
-    public void runFromConfig(QuorumPeerConfig config)
-            throws IOException, AdminServerException
-    {
+    public void runFromConfig(QuorumPeerConfig config) throws IOException, AdminServerException {
       try {
           ManagedUtil.registerLog4jMBeans();
       } catch (JMException e) {

@@ -17,14 +17,16 @@
  */
 
 package org.apache.zookeeper.server.persistence;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.BinaryOutputArchive;
+import org.apache.jute.InputArchive;
+import org.apache.jute.OutputArchive;
+import org.apache.zookeeper.server.DataTree;
+import org.apache.zookeeper.server.util.SerializeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,15 +34,6 @@ import java.util.Map;
 import java.util.zip.Adler32;
 import java.util.zip.CheckedInputStream;
 import java.util.zip.CheckedOutputStream;
-
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.BinaryOutputArchive;
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.server.DataTree;
-import org.apache.zookeeper.server.util.SerializeUtils;
 
 /**
  * This class implements the snapshot interface.
@@ -64,18 +57,17 @@ public class FileSnap implements SnapShot {
     }
 
     /**
-     * deserialize a data tree from the most recent snapshot
-     * @return the zxid of the snapshot
+     * 反序列化来自最新快照的数据树和会话
+     *
+     * @return 快照的zxid
      */
-    public long deserialize(DataTree dt, Map<Long, Integer> sessions)
-            throws IOException {
-        // we run through 100 snapshots (not all of them)
-        // if we cannot get it running within 100 snapshots
-        // we should  give up
+    public long deserialize(DataTree dt, Map<Long, Integer> sessions) throws IOException {
+        // 我们运行100个快照(不是全部)，如果我们不能在100个快照内运行它，我们应该放弃
         List<File> snapList = findNValidSnapshots(100);
         if (snapList.size() == 0) {
             return -1L;
         }
+
         File snap = null;
         boolean foundValid = false;
         for (int i = 0, snapListSize = snapList.size(); i < snapListSize; i++) {
@@ -147,13 +139,13 @@ public class FileSnap implements SnapShot {
      * @throws IOException
      */
     private List<File> findNValidSnapshots(int n) throws IOException {
+
         List<File> files = Util.sortDataDir(snapDir.listFiles(), SNAPSHOT_FILE_PREFIX, false);
+
         int count = 0;
         List<File> list = new ArrayList<File>();
         for (File f : files) {
-            // we should catch the exceptions
-            // from the valid snapshot and continue
-            // until we find a valid one
+            // 我们应该从有效快照捕获异常，并一直持续到找到有效快照
             try {
                 if (Util.isValidSnapshot(f)) {
                     list.add(f);

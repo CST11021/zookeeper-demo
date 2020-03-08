@@ -29,15 +29,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Manages cleanup of container ZNodes. This class is meant to only
- * be run from the leader. There's no harm in running from followers/observers
- * but that will be extra work that's not needed. Once started, it periodically
- * checks container nodes that have a cversion > 0 and have no children. A
- * delete is attempted on the node. The result of the delete is unimportant.
- * If the proposal fails or the container node is not empty there's no harm.
+ * 用于管理容器节点的清理。
+ * 这个类只能从leader处运行。
+ * 避开关注者/观察者没有坏处，但那是不必要的额外工作。
+ * 一旦启动，它会定期检查具有cversion >且没有子节点的容器节点。
+ * 在节点上尝试删除。删除的结果不重要。
+ * 如果建议失败或容器节点不是空的，没有任何危害。
  */
 public class ContainerManager {
+
     private static final Logger LOG = LoggerFactory.getLogger(ContainerManager.class);
+
     private final ZKDatabase zkDb;
     private final RequestProcessor requestProcessor;
     private final int checkIntervalMs;
@@ -46,15 +48,14 @@ public class ContainerManager {
     private final AtomicReference<TimerTask> task = new AtomicReference<TimerTask>(null);
 
     /**
-     * @param zkDb the ZK database
+     * @param zkDb             the ZK database
      * @param requestProcessor request processer - used to inject delete
      *                         container requests
-     * @param checkIntervalMs how often to check containers in milliseconds
-     * @param maxPerMinute the max containers to delete per second - avoids
-     *                     herding of container deletions
+     * @param checkIntervalMs  how often to check containers in milliseconds
+     * @param maxPerMinute     the max containers to delete per second - avoids
+     *                         herding of container deletions
      */
-    public ContainerManager(ZKDatabase zkDb, RequestProcessor requestProcessor,
-                            int checkIntervalMs, int maxPerMinute) {
+    public ContainerManager(ZKDatabase zkDb, RequestProcessor requestProcessor, int checkIntervalMs, int maxPerMinute) {
         this.zkDb = zkDb;
         this.requestProcessor = requestProcessor;
         this.checkIntervalMs = checkIntervalMs;
@@ -80,7 +81,7 @@ public class ContainerManager {
                         Thread.currentThread().interrupt();
                         LOG.info("interrupted");
                         cancel();
-                    } catch ( Throwable e ) {
+                    } catch (Throwable e) {
                         LOG.error("Error checking containers", e);
                     }
                 }
@@ -158,7 +159,7 @@ public class ContainerManager {
             if (node != null) {
                 Set<String> children = node.getChildren();
                 if ((children == null) || (children.size() == 0)) {
-                    if ( EphemeralType.get(node.stat.getEphemeralOwner()) == EphemeralType.TTL ) {
+                    if (EphemeralType.get(node.stat.getEphemeralOwner()) == EphemeralType.TTL) {
                         long elapsed = getElapsed(node);
                         long ttl = EphemeralType.TTL.getValue(node.stat.getEphemeralOwner());
                         if ((ttl != 0) && (getElapsed(node) > ttl)) {

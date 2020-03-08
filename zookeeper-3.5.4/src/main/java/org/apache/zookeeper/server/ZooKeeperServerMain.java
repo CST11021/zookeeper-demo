@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
  * 注意：
  * 1、启动zk服务后并不能直接通过命令行来创建、查看zk上的节点，还需要通过运行{@link org.apache.zookeeper.ZooKeeperMain#main(String[])}来启动命令行工具
  * 2、通过zkServer.sh启动zookeeper时，正常指定{@link org.apache.zookeeper.server.quorum.QuorumPeerMain}作为启动主类
+ * 3、ZooKeeperServerMain类用于单机启动
  *
  */
 @InterfaceAudience.Public
@@ -48,15 +49,16 @@ public class ZooKeeperServerMain {
 
     private static final String USAGE = "Usage: ZooKeeperServerMain configfile | port datadir [ticktime] [maxcnxns]";
 
-    // ZooKeeper server supports two kinds of connection: unencrypted and encrypted.
+    /** ZooKeeper服务器支持两种连接方式:未加密和加密 */
     private ServerCnxnFactory cnxnFactory;
+    /** ZooKeeper服务器支持两种连接方式:未加密和加密 */
     private ServerCnxnFactory secureCnxnFactory;
     private ContainerManager containerManager;
 
     private AdminServer adminServer;
 
     /**
-     * 启动zk服务的入口：
+     * 启动单机版zk服务的入口：
      * 如果args是一个参数，则表示是配置文件的路径；
      *
      * 如果args是四个参数，其中前两参数必填，后两个参数可选，分别为：
@@ -64,6 +66,14 @@ public class ZooKeeperServerMain {
      * 2、存放事务记录、内存树快照记录的dataDir；
      * 3、用于指定seesion检查时间间隔的tickTime；
      * 4、控制最大客户端连接数的maxClientCnxns。
+     *
+     *
+     * 启动可以分为以下5个主要步骤：
+     * 1、配置文件解析；
+     * 2、初始化数据管理器；
+     * 3、初始化网络I/O管理器；
+     * 4、数据恢复；
+     * 5、对外服务；
      *
      * @param args
      */
@@ -140,9 +150,8 @@ public class ZooKeeperServerMain {
         LOG.info("Starting server");
         FileTxnSnapLog txnLog = null;
         try {
-            // Note that this thread isn't going to be doing anything else, so rather than spawning another thread, we will just call run() in this thread.
-            // create a file logger url from the command line args
             txnLog = new FileTxnSnapLog(config.dataLogDir, config.dataDir);
+
             final ZooKeeperServer zkServer = new ZooKeeperServer(txnLog, config.tickTime, config.minSessionTimeout, config.maxSessionTimeout, null);
 
             // 初始化一个CountDownLatch对象shutDownLatch，用于线程之间协作，其主要有两个方法：countDown()和await()，
@@ -152,30 +161,33 @@ public class ZooKeeperServerMain {
             zkServer.registerServerShutdownHandler(new ZooKeeperServerShutdownHandler(shutdownLatch));
 
 
-
-            // 启动AdminServer
+            // 启动AdminServer：默认启用，可以通过zookeeper.admin.enableServer=false来禁用
             adminServer = AdminServerFactory.createAdminServer();
             adminServer.setZooKeeperServer(zkServer);
             adminServer.start();
 
-
-
+            // 启动cnxnFactory
             boolean needStartZKServer = true;
             if (config.getClientPortAddress() != null) {
                 cnxnFactory = ServerCnxnFactory.createFactory();
+                // 设置zk服务端口（一般为2181）和最大客户端连接数
                 cnxnFactory.configure(config.getClientPortAddress(), config.getMaxClientCnxns(), false);
                 cnxnFactory.startup(zkServer);
-                // zkServer has been started. So we don't need to start it again in secureCnxnFactory.
+                // zkServer已经启动，所以我们不需要在secureCnxnFactory中再次启动它。
                 needStartZKServer = false;
             }
 
+            // 启动secureCnxnFactory
             if (config.getSecureClientPortAddress() != null) {
                 secureCnxnFactory = ServerCnxnFactory.createFactory();
                 secureCnxnFactory.configure(config.getSecureClientPortAddress(), config.getMaxClientCnxns(), true);
                 secureCnxnFactory.startup(zkServer, needStartZKServer);
             }
 
-            containerManager = new ContainerManager(zkServer.getZKDatabase(), zkServer.firstProcessor,
+            // 启动ContainerManager
+            containerManager = new ContainerManager(
+                    zkServer.getZKDatabase(),
+                    zkServer.firstProcessor,
                     Integer.getInteger("znode.container.checkIntervalMs", (int) TimeUnit.MINUTES.toMillis(1)),
                     Integer.getInteger("znode.container.maxPerMinute", 10000)
             );

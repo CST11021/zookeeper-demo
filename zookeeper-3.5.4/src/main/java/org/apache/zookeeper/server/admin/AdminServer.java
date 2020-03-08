@@ -22,14 +22,17 @@ import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.server.ZooKeeperServer;
 
 /**
- * Interface for an embedded admin server that runs Commands. There is only one
- * functional implementation, JettyAdminServer. DummyAdminServer, which does
- * nothing, is used when we do not wish to run a server.
+ * 用于启动Admin Server的嵌入式接口，他有两个实现类：
+ * JettyAdminServer：
+ * DummyAdminServer：不做任何事，当我们不想运行服务器时使用它。
  */
 @InterfaceAudience.Public
 public interface AdminServer {
+
     public void start() throws AdminServerException;
+
     public void shutdown() throws AdminServerException;
+
     public void setZooKeeperServer(ZooKeeperServer zkServer);
 
     @InterfaceAudience.Public

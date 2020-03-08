@@ -18,25 +18,26 @@
 
 package org.apache.zookeeper.server.auth;
 
-import java.util.Enumeration;
-import java.util.HashMap;
-
+import org.apache.zookeeper.server.ZooKeeperServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.zookeeper.server.ZooKeeperServer;
+import java.util.Enumeration;
+import java.util.HashMap;
 
 public class ProviderRegistry {
     private static final Logger LOG = LoggerFactory.getLogger(ProviderRegistry.class);
 
     private static boolean initialized = false;
-    private static HashMap<String, AuthenticationProvider> authenticationProviders =
-        new HashMap<String, AuthenticationProvider>();
+
+    /** 保存scheme及对应的AuthenticationProvider */
+    private static HashMap<String, AuthenticationProvider> authenticationProviders = new HashMap<String, AuthenticationProvider>();
 
     public static void initialize() {
         synchronized (ProviderRegistry.class) {
             if (initialized)
                 return;
+
             IPAuthenticationProvider ipp = new IPAuthenticationProvider();
             DigestAuthenticationProvider digp = new DigestAuthenticationProvider();
             authenticationProviders.put(ipp.getScheme(), ipp);
@@ -47,10 +48,8 @@ public class ProviderRegistry {
                 if (k.startsWith("zookeeper.authProvider.")) {
                     String className = System.getProperty(k);
                     try {
-                        Class<?> c = ZooKeeperServer.class.getClassLoader()
-                                .loadClass(className);
-                        AuthenticationProvider ap = (AuthenticationProvider) c.getDeclaredConstructor()
-                                .newInstance();
+                        Class<?> c = ZooKeeperServer.class.getClassLoader().loadClass(className);
+                        AuthenticationProvider ap = (AuthenticationProvider) c.getDeclaredConstructor().newInstance();
                         authenticationProviders.put(ap.getScheme(), ap);
                     } catch (Exception e) {
                         LOG.warn("Problems loading " + className,e);
@@ -64,6 +63,7 @@ public class ProviderRegistry {
     public static AuthenticationProvider getProvider(String scheme) {
         if(!initialized)
             initialize();
+
         return authenticationProviders.get(scheme);
     }
 

@@ -18,67 +18,70 @@
 
 package org.apache.zookeeper.server.persistence;
 
-import java.io.IOException;
-
 import org.apache.jute.Record;
 import org.apache.zookeeper.txn.TxnHeader;
 
+import java.io.IOException;
+
 /**
- * Interface for reading transaction logs.
+ * 读取zk事务日志文件的接口，该接口只有一个实现即FileTxnLog
  *
  */
 public interface TxnLog {
     
     /**
-     * roll the current
-     * log being appended to
+     * 追加到的当前日志
+     *
      * @throws IOException 
      */
     void rollLog() throws IOException;
+
     /**
-     * Append a request to the transaction log
-     * @param hdr the transaction header
-     * @param r the transaction itself
-     * returns true iff something appended, otw false 
+     * 将请求追加到事务日志
+     *
+     * @param hdr   事务头
+     * @param r     事务本身
+     * returns 添加成功返回true，否则false
      * @throws IOException
      */
     boolean append(TxnHeader hdr, Record r) throws IOException;
 
     /**
-     * Start reading the transaction logs
-     * from a given zxid
+     * 从给定的zxid开始读取事务日志
+     *
      * @param zxid
-     * @return returns an iterator to read the 
-     * next transaction in the logs.
+     * @return 返回一个迭代器来读取日志中的下一个事务。
      * @throws IOException
      */
     TxnIterator read(long zxid) throws IOException;
     
     /**
-     * the last zxid of the logged transactions.
-     * @return the last zxid of the logged transactions.
+     * 返回记录的事务的最后一个zxid。
+     *
+     * @return
      * @throws IOException
      */
     long getLastLoggedZxid() throws IOException;
     
     /**
-     * truncate the log to get in sync with the 
-     * leader.
-     * @param zxid the zxid to truncate at.
+     * 截断日志以与leader保持同步。
+     *
+     * @param zxid 要截断的zxid
      * @throws IOException 
      */
     boolean truncate(long zxid) throws IOException;
     
     /**
-     * the dbid for this transaction log. 
-     * @return the dbid for this transaction log.
+     * 返回此事务日志的dbid
+     *
+     * @return
      * @throws IOException
      */
     long getDbId() throws IOException;
     
     /**
-     * commit the transaction and make sure
-     * they are persisted
+     * 提交事务并确保它们被持久化
+     *
      * @throws IOException
      */
     void commit() throws IOException;
@@ -90,42 +93,45 @@ public interface TxnLog {
     long getTxnLogSyncElapsedTime();
    
     /** 
-     * close the transactions logs
+     * 关闭事务日志
      */
     void close() throws IOException;
+
     /**
-     * an iterating interface for reading 
-     * transaction logs. 
+     * 用于读取事务日志的迭代接口。
      */
     public interface TxnIterator {
         /**
-         * return the transaction header.
+         * 获取事务头
+         *
          * @return return the transaction header.
          */
         TxnHeader getHeader();
         
         /**
-         * return the transaction record.
+         * 返回事务记录
+         *
          * @return return the transaction record.
          */
         Record getTxn();
      
         /**
-         * go to the next transaction record.
+         * 转到下一个事务记录
+         *
          * @throws IOException
          */
         boolean next() throws IOException;
         
         /**
-         * close files and release the 
-         * resources
+         * 关闭文件并释放资源
+         *
          * @throws IOException
          */
         void close() throws IOException;
         
         /**
-         * Get an estimated storage space used to store transaction records
-         * that will return by this iterator
+         * 获取用于存储将由该迭代器返回的事务记录的估计存储空间
+         *
          * @throws IOException
          */
         long getStorageSize() throws IOException;

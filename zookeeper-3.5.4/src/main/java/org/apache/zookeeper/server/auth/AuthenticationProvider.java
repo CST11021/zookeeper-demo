@@ -22,13 +22,12 @@ import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.server.ServerCnxn;
 
 /**
- * This interface is implemented by authentication providers to add new kinds of
- * authentication schemes to ZooKeeper.
+ * 此接口由身份验证提供者实现，以向ZooKeeper添加新的身份验证方案。
  */
 public interface AuthenticationProvider {
+
     /**
-     * The String used to represent this provider. This will correspond to the
-     * scheme field of an Id.
+     * 用于表示此提供程序的字符串。这将对应于Id的scheme字段。
      * 
      * @return the scheme of this provider.
      */

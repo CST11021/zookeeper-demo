@@ -18,23 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Writer;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.nio.channels.CancelledKeyException;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.SocketChannel;
-import java.security.cert.Certificate;
-import java.util.Queue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
@@ -46,10 +29,23 @@ import org.apache.zookeeper.proto.WatcherEvent;
 import org.apache.zookeeper.server.NIOServerCnxnFactory.SelectorThread;
 import org.apache.zookeeper.server.command.CommandExecutor;
 import org.apache.zookeeper.server.command.FourLetterCommands;
-import org.apache.zookeeper.server.command.SetTraceMaskCommand;
 import org.apache.zookeeper.server.command.NopCommand;
+import org.apache.zookeeper.server.command.SetTraceMaskCommand;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.nio.channels.CancelledKeyException;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.SocketChannel;
+import java.security.cert.Certificate;
+import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * This class handles communication with clients using NIO. There is one per
@@ -80,13 +76,12 @@ public class NIOServerCnxn extends ServerCnxn {
     private final ZooKeeperServer zkServer;
 
     /**
-     * The number of requests that have been submitted but not yet responded to.
+     * 用于统计来自客户端的请求，这些请求已提交到队列但尚未处理的请求的数目
      */
     private final AtomicInteger outstandingRequests = new AtomicInteger(0);
 
     /**
-     * This is the id that uniquely identifies the session of a client. Once
-     * this session is no longer active, the ephemeral nodes will go away.
+     * 这是唯一标识客户端会话的id。一旦这个会话不再活动，临时节点就会消失。
      */
     private long sessionId;
 
@@ -376,15 +371,23 @@ public class NIOServerCnxn extends ServerCnxn {
         }
     }
 
+    /**
+     * 获取来自客户端的请求，并处理它
+     *
+     * @throws IOException
+     */
     private void readRequest() throws IOException {
         zkServer.processPacket(this, incomingBuffer);
     }
 
-    // Only called as callback from zkServer.processPacket()
+    /**
+     * 仅在从zkServer.processPacket()回调时调用。
+     *
+     * @param h
+     */
     protected void incrOutstandingRequests(RequestHeader h) {
         if (h.getXid() >= 0) {
             outstandingRequests.incrementAndGet();
-            // check throttling
             int inProcess = zkServer.getInProcess();
             if (inProcess > outstandingLimit) {
                 if (LOG.isDebugEnabled()) {
@@ -739,11 +742,6 @@ public class NIOServerCnxn extends ServerCnxn {
         sendResponse(h, e, "notification");
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.apache.zookeeper.server.ServerCnxnIface#getSessionId()
-     */
     @Override
     public long getSessionId() {
         return sessionId;

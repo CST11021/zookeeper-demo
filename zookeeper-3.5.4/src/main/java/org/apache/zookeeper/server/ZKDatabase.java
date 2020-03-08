@@ -18,20 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
-
 import org.apache.jute.InputArchive;
 import org.apache.jute.OutputArchive;
 import org.apache.jute.Record;
@@ -56,22 +42,29 @@ import org.apache.zookeeper.txn.TxnHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
+
 /**
- * This class maintains the in memory database of zookeeper
- * server states that includes the sessions, datatree and the
- * committed logs. It is booted up  after reading the logs
- * and snapshots from the disk.
+ * ZKDatabase是zk的内存数据库，负责管理zk的所有会话记录以及DataTree和事务日志的存储，
+ * 这个类维护zookeeper服务器状态的内存数据库，包括会话、数据树和提交的日志，它是在从磁盘读取日志和快照之后启动的。
  */
 public class ZKDatabase {
 
     private static final Logger LOG = LoggerFactory.getLogger(ZKDatabase.class);
 
-    /**
-     * make sure on a clear you take care of
-     * all these members.
-     */
+    /** zk内存数据存储的核心，也是一个树形结构 */
     protected DataTree dataTree;
+
     protected ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
+
+    /** 事务日志文件和快照数据文件 */
     protected FileTxnSnapLog snapLog;
     protected long minCommittedLog, maxCommittedLog;
 
@@ -87,12 +80,16 @@ public class ZKDatabase {
     protected LinkedList<Proposal> committedLog = new LinkedList<Proposal>();
     protected ReentrantReadWriteLock logLock = new ReentrantReadWriteLock();
     volatile private boolean initialized = false;
+    private final PlayBackListener commitProposalPlaybackListener = new PlayBackListener() {
+        public void onTxnLoaded(TxnHeader hdr, Record txn){
+            addCommittedProposal(hdr, txn);
+        }
+    };
 
     /**
-     * the filetxnsnaplog that this zk database
-     * maps to. There is a one to one relationship
-     * between a filetxnsnaplog and zkdatabase.
-     * @param snapLog the FileTxnSnapLog mapping this zkdatabase
+     * 这个zk数据库映射到的filetxnsnaplog，filetxnsnaplog和zkdatabase之间存在一对一的关系
+     *
+     * @param snapLog ZKDatabase对应的
      */
     public ZKDatabase(FileTxnSnapLog snapLog) {
         dataTree = new DataTree();
@@ -100,37 +97,33 @@ public class ZKDatabase {
         this.snapLog = snapLog;
 
         try {
-            snapshotSizeFactor = Double.parseDouble(
-                System.getProperty(SNAPSHOT_SIZE_FACTOR,
-                        Double.toString(DEFAULT_SNAPSHOT_SIZE_FACTOR)));
+            snapshotSizeFactor = Double.parseDouble(System.getProperty(SNAPSHOT_SIZE_FACTOR, Double.toString(DEFAULT_SNAPSHOT_SIZE_FACTOR)));
             if (snapshotSizeFactor > 1) {
                 snapshotSizeFactor = DEFAULT_SNAPSHOT_SIZE_FACTOR;
-                LOG.warn("The configured {} is invalid, going to use " +
-                        "the default {}", SNAPSHOT_SIZE_FACTOR,
-                        DEFAULT_SNAPSHOT_SIZE_FACTOR);
+                LOG.warn("The configured {} is invalid, going to use the default {}", SNAPSHOT_SIZE_FACTOR, DEFAULT_SNAPSHOT_SIZE_FACTOR);
             }
         } catch (NumberFormatException e) {
-            LOG.error("Error parsing {}, using default value {}",
-                    SNAPSHOT_SIZE_FACTOR, DEFAULT_SNAPSHOT_SIZE_FACTOR);
+            LOG.error("Error parsing {}, using default value {}", SNAPSHOT_SIZE_FACTOR, DEFAULT_SNAPSHOT_SIZE_FACTOR);
             snapshotSizeFactor = DEFAULT_SNAPSHOT_SIZE_FACTOR;
         }
         LOG.info("{} = {}", SNAPSHOT_SIZE_FACTOR, snapshotSizeFactor);
     }
 
     /**
-     * checks to see if the zk database has been
-     * initialized or not.
-     * @return true if zk database is initialized and false if not
+     * 将数据从磁盘加载到内存中，并将事物添加到内存中的提交日志中
+     *
+     * @return 返回磁盘上最后一个有效的zxid
+     * @throws IOException
      */
-    public boolean isInitialized() {
-        return initialized;
+    public long loadDataBase() throws IOException {
+        long zxid = snapLog.restore(dataTree, sessionsWithTimeouts, commitProposalPlaybackListener);
+        initialized = true;
+        return zxid;
     }
 
     /**
-     * clear the zkdatabase.
-     * Note to developers - be careful to see that
-     * the clear method does clear out all the
-     * data structures in zkdatabase.
+     * 清除zkdatabase。
+     * 开发人员请注意，清除方法清除了zkdatabase中的所有数据结构。
      */
     public void clear() {
         minCommittedLog = 0;
@@ -149,42 +142,6 @@ public class ZKDatabase {
         }
         initialized = false;
     }
-
-    /**
-     * the datatree for this zkdatabase
-     * @return the datatree for this zkdatabase
-     */
-    public DataTree getDataTree() {
-        return this.dataTree;
-    }
-
-    /**
-     * the committed log for this zk database
-     * @return the committed log for this zkdatabase
-     */
-    public long getmaxCommittedLog() {
-        return maxCommittedLog;
-    }
-
-
-    /**
-     * the minimum committed transaction log
-     * available in memory
-     * @return the minimum committed transaction
-     * log available in memory
-     */
-    public long getminCommittedLog() {
-        return minCommittedLog;
-    }
-    /**
-     * Get the lock that controls the committedLog. If you want to get the pointer to the committedLog, you need
-     * to use this lock to acquire a read lock before calling getCommittedLog()
-     * @return the lock that controls the committed log
-     */
-    public ReentrantReadWriteLock getLogLock() {
-        return logLock;
-    }
-
 
     public synchronized List<Proposal> getCommittedLog() {
         ReadLock rl = logLock.readLock();
@@ -209,7 +166,8 @@ public class ZKDatabase {
     }
 
     /**
-     * return the sessions in the datatree
+     * 返回dataTree中的所有session
+     *
      * @return the data tree sessions
      */
     public Collection<Long> getSessions() {
@@ -224,26 +182,13 @@ public class ZKDatabase {
         return sessionsWithTimeouts;
     }
 
-    private final PlayBackListener commitProposalPlaybackListener = new PlayBackListener() {
-        public void onTxnLoaded(TxnHeader hdr, Record txn){
-            addCommittedProposal(hdr, txn);
-        }
-    };
+
+
+
 
     /**
-     * load the database from the disk onto memory and also add
-     * the transactions to the committedlog in memory.
-     * @return the last valid zxid on disk
-     * @throws IOException
-     */
-    public long loadDataBase() throws IOException {
-        long zxid = snapLog.restore(dataTree, sessionsWithTimeouts, commitProposalPlaybackListener);
-        initialized = true;
-        return zxid;
-    }
-
-    /**
-     * Fast forward the database adding transactions from the committed log into memory.
+     * 快进数据库，将事务从提交的日志添加到内存中。
+     *
      * @return the last valid zxid.
      * @throws IOException
      */
@@ -321,8 +266,7 @@ public class ZKDatabase {
      *                  0 is unlimited, negative value means disable.
      * @return list of proposal (request part of each proposal is null)
      */
-    public Iterator<Proposal> getProposalsFromTxnLog(long startZxid,
-                                                     long sizeLimit) {
+    public Iterator<Proposal> getProposalsFromTxnLog(long startZxid, long sizeLimit) {
         if (sizeLimit < 0) {
             LOG.debug("Negative size limit - retrieving proposal via txnlog is disabled");
             return TxnLogProposalIterator.EMPTY_ITERATOR;
@@ -475,8 +419,7 @@ public class ZKDatabase {
      * @param childWatches the child watches the client wants to reset
      * @param watcher the watcher function
      */
-    public void setWatches(long relativeZxid, List<String> dataWatches,
-            List<String> existWatches, List<String> childWatches, Watcher watcher) {
+    public void setWatches(long relativeZxid, List<String> dataWatches, List<String> existWatches, List<String> childWatches, Watcher watcher) {
         dataTree.setWatches(relativeZxid, dataWatches, existWatches, childWatches, watcher);
     }
 
@@ -543,23 +486,24 @@ public class ZKDatabase {
 
     /**
      * deserialize a snapshot from an input archive
+     *
      * @param ia the input archive you want to deserialize from
      * @throws IOException
      */
     public void deserializeSnapshot(InputArchive ia) throws IOException {
         clear();
-        SerializeUtils.deserializeSnapshot(getDataTree(),ia,getSessionWithTimeOuts());
+        SerializeUtils.deserializeSnapshot(getDataTree(), ia, getSessionWithTimeOuts());
         initialized = true;
     }
 
     /**
      * serialize the snapshot
+     *
      * @param oa the output archive to which the snapshot needs to be serialized
      * @throws IOException
      * @throws InterruptedException
      */
-    public void serializeSnapshot(OutputArchive oa) throws IOException,
-    InterruptedException {
+    public void serializeSnapshot(OutputArchive oa) throws IOException, InterruptedException {
         SerializeUtils.serializeSnapshot(getDataTree(), oa, getSessionWithTimeOuts());
     }
 
@@ -644,4 +588,50 @@ public class ZKDatabase {
     public boolean removeWatch(String path, WatcherType type, Watcher watcher) {
         return dataTree.removeWatch(path, type, watcher);
     }
+
+
+
+
+    /**
+     * checks to see if the zk database has been
+     * initialized or not.
+     * @return true if zk database is initialized and false if not
+     */
+    public boolean isInitialized() {
+        return initialized;
+    }
+    /**
+     * the datatree for this zkdatabase
+     * @return the datatree for this zkdatabase
+     */
+    public DataTree getDataTree() {
+        return this.dataTree;
+    }
+    /**
+     * the committed log for this zk database
+     * @return the committed log for this zkdatabase
+     */
+    public long getmaxCommittedLog() {
+        return maxCommittedLog;
+    }
+    /**
+     * the minimum committed transaction log
+     * available in memory
+     * @return the minimum committed transaction
+     * log available in memory
+     */
+    public long getminCommittedLog() {
+        return minCommittedLog;
+    }
+    /**
+     * Get the lock that controls the committedLog. If you want to get the pointer to the committedLog, you need
+     * to use this lock to acquire a read lock before calling getCommittedLog()
+     * @return the lock that controls the committed log
+     */
+    public ReentrantReadWriteLock getLogLock() {
+        return logLock;
+    }
+
+
+
 }

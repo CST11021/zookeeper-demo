@@ -41,7 +41,7 @@ public class Request {
      */
     public final long sessionId;
 
-    // xid用于记录客户端请求发起的先后序号，用来确保单个客户端请求的响应顺序
+    /** xid用于记录客户端请求发起的先后序号，用来确保单个客户端请求的响应顺序 */
     public final int cxid;
 
     /** 表示请求的类型，对应{@link org.apache.zookeeper.ZooDefs.OpCode}，除了“会话创建”请求，其他所有客户端请求中都会带上请求头 */
@@ -49,6 +49,7 @@ public class Request {
 
     public final ByteBuffer request;
 
+    /** 请求发送到服务端后，由ServerCnxn处理该请求，cnxn表示处理该请求的ServerCnxn实例 */
     public final ServerCnxn cnxn;
 
     private TxnHeader hdr;
@@ -57,6 +58,7 @@ public class Request {
 
     public long zxid = -1;
 
+    /** 授权用户信息，比如创建节点时，如果父节点设置了用户权限认证，则需要先认证后才能创建节点，该信息表示创建的节点的用户信息 */
     public final List<Id> authInfo;
 
     /** 表示请求的创建时间 */
@@ -101,10 +103,9 @@ public class Request {
 
 
     /**
-     * is the packet type a valid packet in zookeeper
+     * 检查数据包类型是否有效
      *
-     * @param type
-     *                the type of the packet
+     * @param type the type of the packet
      * @return true if a valid packet, false if not
      */
     static boolean isValid(int type) {

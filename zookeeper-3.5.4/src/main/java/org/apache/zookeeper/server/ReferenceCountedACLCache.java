@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ReferenceCountedACLCache {
     private static final Logger LOG = LoggerFactory.getLogger(ReferenceCountedACLCache.class);
 
+    /** 存储Long值对应的List<ACL> */
     final Map<Long, List<ACL>> longKeyMap = new HashMap<Long, List<ACL>>();
 
     /** 一个List<ACL>表示一个zk节点权限，value表示这组权限集合的id */
@@ -45,6 +46,7 @@ public class ReferenceCountedACLCache {
 
     final Map<Long, AtomicLongWithEquals> referenceCounter = new HashMap<Long, AtomicLongWithEquals>();
 
+    /** 该Long值表示一个完全开放的ACL，没有权限限制 */
     private static final long OPEN_UNSAFE_ACL_ID = -1L;
 
     /**
@@ -53,8 +55,8 @@ public class ReferenceCountedACLCache {
     long aclIndex = 0;
 
     /**
-     * converts the list of acls to a long.
-     * Increments the reference counter for this ACL.
+     * 将List<ACL>转为Long值
+     *
      * @param acls
      * @return a long that map to the acls
      */
@@ -76,7 +78,7 @@ public class ReferenceCountedACLCache {
     }
 
     /**
-     * converts a long to a list of acls.
+     * 将Long值转换为acl列表。
      *
      * @param longVal
      * @return a list of ACLs that map to the long
@@ -84,8 +86,10 @@ public class ReferenceCountedACLCache {
     public synchronized List<ACL> convertLong(Long longVal) {
         if (longVal == null)
             return null;
+        // 如果是-1，返回的是一个完全开放的ACL，没有权限限制
         if (longVal == OPEN_UNSAFE_ACL_ID)
             return ZooDefs.Ids.OPEN_ACL_UNSAFE;
+
         List<ACL> acls = longKeyMap.get(longVal);
         if (acls == null) {
             LOG.error("ERROR: ACL not available for long " + longVal);

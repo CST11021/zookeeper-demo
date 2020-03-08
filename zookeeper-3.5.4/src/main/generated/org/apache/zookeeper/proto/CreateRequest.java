@@ -28,6 +28,7 @@ public class CreateRequest implements Record {
     private String path;
     /** 表示节点数据 */
     private byte[] data;
+    /** 表示创建节点设置的ACL权限 */
     private java.util.List<org.apache.zookeeper.data.ACL> acl;
     /** 表示该节点的类型，参考：{@link org.apache.zookeeper.CreateMode#flag} */
     private int flags;

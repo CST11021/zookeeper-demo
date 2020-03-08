@@ -18,19 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.Set;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.management.JMException;
-import javax.security.auth.login.AppConfigurationEntry;
-import javax.security.auth.login.Configuration;
-import javax.security.auth.login.LoginException;
-
 import org.apache.zookeeper.Environment;
 import org.apache.zookeeper.Login;
 import org.apache.zookeeper.common.ZKConfig;
@@ -39,20 +26,72 @@ import org.apache.zookeeper.server.auth.SaslServerCallbackHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.management.JMException;
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.Configuration;
+import javax.security.auth.login.LoginException;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ *
+ */
 public abstract class ServerCnxnFactory {
 
-    public static final String ZOOKEEPER_SERVER_CNXN_FACTORY = "zookeeper.serverCnxnFactory";
-    
     private static final Logger LOG = LoggerFactory.getLogger(ServerCnxnFactory.class);
-
-    // Tells whether SSL is enabled on this ServerCnxnFactory
-    protected boolean secure;
 
     /**
      * The buffer will cause the connection to be close when we do a send.
      */
     static final ByteBuffer closeConn = ByteBuffer.allocate(0);
+
+    /** 表示一个配置项，用于配置zk使用的ServerCnxnFactory的实现类的全限定类名，没有配置默认使用NIOServerCnxnFactory */
+    public static final String ZOOKEEPER_SERVER_CNXN_FACTORY = "zookeeper.serverCnxnFactory";
+    public Login login;
+    /** 告诉这个ServerCnxnFactory上是否启用了SSL */
+    protected boolean secure;
+
+    protected SaslServerCallbackHandler saslServerCallbackHandler;
+
+    protected ZooKeeperServer zkServer;
+
+    // Connection set is relied on heavily by four letter commands Construct a ConcurrentHashSet using a ConcurrentHashMap
+    protected final Set<ServerCnxn> cnxns = Collections.newSetFromMap(new ConcurrentHashMap<ServerCnxn, Boolean>());
+
+
+
+    static public ServerCnxnFactory createFactory() throws IOException {
+        String serverCnxnFactoryName = System.getProperty(ZOOKEEPER_SERVER_CNXN_FACTORY);
+        if (serverCnxnFactoryName == null) {
+            serverCnxnFactoryName = NIOServerCnxnFactory.class.getName();
+        }
+
+        try {
+            ServerCnxnFactory serverCnxnFactory = (ServerCnxnFactory) Class.forName(serverCnxnFactoryName).getDeclaredConstructor().newInstance();
+            LOG.info("Using {} as server connection factory", serverCnxnFactoryName);
+            return serverCnxnFactory;
+        } catch (Exception e) {
+            IOException ioe = new IOException("Couldn't instantiate " + serverCnxnFactoryName);
+            ioe.initCause(e);
+            throw ioe;
+        }
+    }
+    static public ServerCnxnFactory createFactory(int clientPort, int maxClientCnxns) throws IOException {
+        return createFactory(new InetSocketAddress(clientPort), maxClientCnxns);
+    }
+    static public ServerCnxnFactory createFactory(InetSocketAddress addr, int maxClientCnxns) throws IOException {
+        ServerCnxnFactory factory = createFactory();
+        factory.configure(addr, maxClientCnxns);
+        return factory;
+    }
+
+
+
 
     public abstract int getLocalPort();
     
@@ -76,13 +115,17 @@ public abstract class ServerCnxnFactory {
         configure(addr, maxcc, false);
     }
 
-    public abstract void configure(InetSocketAddress addr, int maxcc, boolean secure)
-            throws IOException;
+    /**
+     * zk设置
+     *
+     * @param addr      zk对外的服务端口
+     * @param maxcc     控制最大客户端连接数
+     * @param secure    是否启用了SSL
+     * @throws IOException
+     */
+    public abstract void configure(InetSocketAddress addr, int maxcc, boolean secure) throws IOException;
 
     public abstract void reconfigure(InetSocketAddress addr);
-
-    protected SaslServerCallbackHandler saslServerCallbackHandler;
-    public Login login;
 
     /** Maximum number of connections allowed from particular host (ip) */
     public abstract int getMaxClientCnxnsPerHost();
@@ -98,10 +141,15 @@ public abstract class ServerCnxnFactory {
         startup(zkServer, true);
     }
 
-    // This method is to maintain compatiblity of startup(zks) and enable sharing of zks
-    // when we add secureCnxnFactory.
-    public abstract void startup(ZooKeeperServer zkServer, boolean startServer)
-            throws IOException, InterruptedException;
+    /**
+     * This method is to maintain compatiblity of startup(zks) and enable sharing of zks when we add secureCnxnFactory.
+     *
+     * @param zkServer
+     * @param startServer
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public abstract void startup(ZooKeeperServer zkServer, boolean startServer) throws IOException, InterruptedException;
 
     public abstract void join() throws InterruptedException;
 
@@ -109,10 +157,15 @@ public abstract class ServerCnxnFactory {
 
     public abstract void start();
 
-    protected ZooKeeperServer zkServer;
+    /**
+     * 设置ZooKeeperServer
+     *
+     * @param zks
+     */
     final public void setZooKeeperServer(ZooKeeperServer zks) {
         this.zkServer = zks;
         if (zks != null) {
+            // 是否启用了SSL
             if (secure) {
                 zks.setSecureServerCnxnFactory(this);
             } else {
@@ -122,39 +175,6 @@ public abstract class ServerCnxnFactory {
     }
 
     public abstract void closeAll();
-    
-    static public ServerCnxnFactory createFactory() throws IOException {
-        String serverCnxnFactoryName =
-            System.getProperty(ZOOKEEPER_SERVER_CNXN_FACTORY);
-        if (serverCnxnFactoryName == null) {
-            serverCnxnFactoryName = NIOServerCnxnFactory.class.getName();
-        }
-        try {
-            ServerCnxnFactory serverCnxnFactory = (ServerCnxnFactory) Class.forName(serverCnxnFactoryName)
-                    .getDeclaredConstructor().newInstance();
-            LOG.info("Using {} as server connection factory", serverCnxnFactoryName);
-            return serverCnxnFactory;
-        } catch (Exception e) {
-            IOException ioe = new IOException("Couldn't instantiate "
-                    + serverCnxnFactoryName);
-            ioe.initCause(e);
-            throw ioe;
-        }
-    }
-    
-    static public ServerCnxnFactory createFactory(int clientPort,
-            int maxClientCnxns) throws IOException
-    {
-        return createFactory(new InetSocketAddress(clientPort), maxClientCnxns);
-    }
-
-    static public ServerCnxnFactory createFactory(InetSocketAddress addr,
-            int maxClientCnxns) throws IOException
-    {
-        ServerCnxnFactory factory = createFactory();
-        factory.configure(addr, maxClientCnxns);
-        return factory;
-    }
 
     public abstract InetSocketAddress getLocalAddress();
 
@@ -162,13 +182,8 @@ public abstract class ServerCnxnFactory {
 
     public abstract Iterable<Map<String, Object>> getAllConnectionInfo(boolean brief);
 
-    private final ConcurrentHashMap<ServerCnxn, ConnectionBean> connectionBeans =
-        new ConcurrentHashMap<ServerCnxn, ConnectionBean>();
+    private final ConcurrentHashMap<ServerCnxn, ConnectionBean> connectionBeans = new ConcurrentHashMap<ServerCnxn, ConnectionBean>();
 
-    // Connection set is relied on heavily by four letter commands
-    // Construct a ConcurrentHashSet using a ConcurrentHashMap
-    protected final Set<ServerCnxn> cnxns = Collections.newSetFromMap(
-        new ConcurrentHashMap<ServerCnxn, Boolean>());
     public void unregisterConnection(ServerCnxn serverCnxn) {
         ConnectionBean jmxConnectionBean = connectionBeans.remove(serverCnxn);
         if (jmxConnectionBean != null){

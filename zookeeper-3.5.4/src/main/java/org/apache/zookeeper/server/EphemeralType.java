@@ -150,7 +150,7 @@ public enum EphemeralType {
     static final String TTL_3_5_3_EMULATION_PROPERTY = "zookeeper.emulate353TTLNodes";
 
     /**
-     * Return true if extended ephemeral types are enabled
+     * 返回是否启用了扩展的临时类型，即zookeeper.extendedTypesEnabled对应的配置
      *
      * @return true/false
      */

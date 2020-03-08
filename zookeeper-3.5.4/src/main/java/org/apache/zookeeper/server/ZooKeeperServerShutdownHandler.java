@@ -17,16 +17,15 @@
  */
 package org.apache.zookeeper.server;
 
-import java.util.concurrent.CountDownLatch;
-
 import org.apache.zookeeper.server.ZooKeeperServer.State;
 
+import java.util.concurrent.CountDownLatch;
+
 /**
- * ZooKeeper server shutdown handler which will be used to handle ERROR or
- * SHUTDOWN server state transitions, which in turn releases the associated
- * shutdown latch.
+ * ZooKeeper服务器关闭处理程序，用于处理错误或关闭服务器状态转换，从而释放相关的关闭锁存器。
  */
 class ZooKeeperServerShutdownHandler {
+
     private final CountDownLatch shutdownLatch;
 
     ZooKeeperServerShutdownHandler(CountDownLatch shutdownLatch) {
