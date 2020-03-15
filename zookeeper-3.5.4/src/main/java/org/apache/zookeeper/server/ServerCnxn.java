@@ -37,7 +37,9 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Interface to a Server connection - represents a connection from a client to the server.
+ * 封装了客户端连接到zk服务的信息，注意，ZK中客户端和服务端之间维持TCP长连接，ServerCnxn实现了{@link Stats}和{@link Watcher}接口：
+ * Stats：可以查看建立连接的时间，连接期间请求与响应的次数等各种统计信息
+ * Watcher：可以监听zk服务的关键事件，当事件发生时作出相应的处理
  */
 public abstract class ServerCnxn implements Stats, Watcher {
 

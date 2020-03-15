@@ -41,6 +41,9 @@ public class ServerStats {
 
     private final Provider provider;
 
+    /**
+     * zk服务
+     */
     public interface Provider {
 
         /**
@@ -55,6 +58,11 @@ public class ServerStats {
          */
         public long getLastProcessedZxid();
 
+        /**
+         * 表示服务的类型，这里使用getState命名表示当前zk节点的状态是可变的，比如：当前可能follower类型角色，当重新进行选举后，可能变为leader状态
+         *
+         * @return
+         */
         public String getState();
 
         /**

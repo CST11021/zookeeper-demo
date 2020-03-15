@@ -39,7 +39,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- *
+ * 用于创建ServerCnxn的工厂
  */
 public abstract class ServerCnxnFactory {
 
@@ -58,14 +58,21 @@ public abstract class ServerCnxnFactory {
 
     protected SaslServerCallbackHandler saslServerCallbackHandler;
 
+    /** 表示zk连接的zk服务器 */
     protected ZooKeeperServer zkServer;
 
-    // Connection set is relied on heavily by four letter commands Construct a ConcurrentHashSet using a ConcurrentHashMap
+    /**
+     * 维护ServerCnxn实例对应的MBean
+     */
+    private final ConcurrentHashMap<ServerCnxn, ConnectionBean> connectionBeans = new ConcurrentHashMap<ServerCnxn, ConnectionBean>();
+
+    /** 用于保存当前客户端连接的到zk服务的ServerCnxn实例 */
     protected final Set<ServerCnxn> cnxns = Collections.newSetFromMap(new ConcurrentHashMap<ServerCnxn, Boolean>());
 
 
 
     static public ServerCnxnFactory createFactory() throws IOException {
+        // 获取ServerCnxnFactory的实现类名，默认为：NIOServerCnxnFactory
         String serverCnxnFactoryName = System.getProperty(ZOOKEEPER_SERVER_CNXN_FACTORY);
         if (serverCnxnFactoryName == null) {
             serverCnxnFactoryName = NIOServerCnxnFactory.class.getName();
@@ -91,26 +98,52 @@ public abstract class ServerCnxnFactory {
     }
 
 
-
-
+    /**
+     * 获取连接的端口，一般为2181
+     *
+     * @return
+     */
     public abstract int getLocalPort();
-    
+
+    /**
+     * 获取当前的连接实例
+     *
+     * @return
+     */
     public abstract Iterable<ServerCnxn> getConnections();
 
+    /**
+     * 获取当前连接alive的实例个数
+     *
+     * @return
+     */
     public int getNumAliveConnections() {
         return cnxns.size();
     }
 
+    /**
+     * 获取连接的zk服务节点实例
+     *
+     * @return
+     */
     public ZooKeeperServer getZooKeeperServer() {
         return zkServer;
     }
 
     /**
-     * @return true if the cnxn that contains the sessionId exists in this ServerCnxnFactory
-     *         and it's closed. Otherwise false.
+     * 根据sessionId关闭session
+     *
+     * @return true if the cnxn that contains the sessionId exists in this ServerCnxnFactory and it's closed. Otherwise false.
      */
     public abstract boolean closeSession(long sessionId);
 
+    /**
+     * zk设置
+     *
+     * @param addr      设置通道连接的客户端的IP及端口
+     * @param maxcc     控制最大客户端连接数
+     * @throws IOException
+     */
     public void configure(InetSocketAddress addr, int maxcc) throws IOException {
         configure(addr, maxcc, false);
     }
@@ -118,31 +151,61 @@ public abstract class ServerCnxnFactory {
     /**
      * zk设置
      *
-     * @param addr      zk对外的服务端口
+     * @param addr      设置通道连接的客户端的zk服务IP及端口
      * @param maxcc     控制最大客户端连接数
      * @param secure    是否启用了SSL
      * @throws IOException
      */
     public abstract void configure(InetSocketAddress addr, int maxcc, boolean secure) throws IOException;
 
+    /**
+     * 设置通道连接的客户端的IP及端口
+     *
+     * @param addr
+     */
     public abstract void reconfigure(InetSocketAddress addr);
 
-    /** Maximum number of connections allowed from particular host (ip) */
+    /**
+     * 获取zk服务允许的最大连接数
+     *
+     * @return
+     */
     public abstract int getMaxClientCnxnsPerHost();
 
-    /** Maximum number of connections allowed from particular host (ip) */
+    /**
+     * 设置zk服务允许的最大连接数
+     *
+     * @param max
+     */
     public abstract void setMaxClientCnxnsPerHost(int max);
 
+    /**
+     * 是否启用了SSL
+     *
+     * @return
+     */
     public boolean isSecure() {
         return secure;
     }
 
+    /**
+     *
+     */
+    public abstract void start();
+
+    /**
+     * 启动zk服务实例
+     *
+     * @param zkServer
+     * @throws IOException
+     * @throws InterruptedException
+     */
     public void startup(ZooKeeperServer zkServer) throws IOException, InterruptedException {
         startup(zkServer, true);
     }
 
     /**
-     * This method is to maintain compatiblity of startup(zks) and enable sharing of zks when we add secureCnxnFactory.
+     * 启动zk服务实例
      *
      * @param zkServer
      * @param startServer
@@ -151,14 +214,20 @@ public abstract class ServerCnxnFactory {
      */
     public abstract void startup(ZooKeeperServer zkServer, boolean startServer) throws IOException, InterruptedException;
 
+    /**
+     * 主线程执行完成后才执行该方法
+     *
+     * @throws InterruptedException
+     */
     public abstract void join() throws InterruptedException;
 
+    /**
+     * shutdown服务
+     */
     public abstract void shutdown();
 
-    public abstract void start();
-
     /**
-     * 设置ZooKeeperServer
+     * 设置客户端连接的ZooKeeperServer实例
      *
      * @param zks
      */
@@ -174,23 +243,60 @@ public abstract class ServerCnxnFactory {
         }
     }
 
+    /**
+     * close所有ServerCnxn实例，即关闭所有连接
+     */
     public abstract void closeAll();
 
+    /**
+     * 获取客户端的address
+     *
+     * @return
+     */
     public abstract InetSocketAddress getLocalAddress();
 
+    /**
+     * reset所有的ServerCnxn实例的统计信息
+     */
     public abstract void resetAllConnectionStats();
 
+    /**
+     * 获取所有ServerCnxn实例的连接信息
+     *
+     * @param brief 为true时，返回
+     *             info.put("session_id", getSessionId());
+     *             info.put("last_operation", getLastOperation());
+     *             info.put("established", getEstablished());
+     *             info.put("session_timeout", getSessionTimeout());
+     *             info.put("last_cxid", getLastCxid());
+     *             info.put("last_zxid", getLastZxid());
+     *             info.put("last_response_time", getLastResponseTime());
+     *             info.put("last_latency", getLastLatency());
+     *             info.put("min_latency", getMinLatency());
+     *             info.put("avg_latency", getAvgLatency());
+     *             info.put("max_latency", getMaxLatency());
+     *             以上详细信息
+     * @return
+     */
     public abstract Iterable<Map<String, Object>> getAllConnectionInfo(boolean brief);
 
-    private final ConcurrentHashMap<ServerCnxn, ConnectionBean> connectionBeans = new ConcurrentHashMap<ServerCnxn, ConnectionBean>();
-
+    /**
+     * 从JMX 中注销ServerCnxn实例对应的MBean
+     *
+     * @param serverCnxn
+     */
     public void unregisterConnection(ServerCnxn serverCnxn) {
         ConnectionBean jmxConnectionBean = connectionBeans.remove(serverCnxn);
         if (jmxConnectionBean != null){
             MBeanRegistry.getInstance().unregister(jmxConnectionBean);
         }
     }
-    
+
+    /**
+     * 注册ServerCnxn实例对应的MBean到JMX
+     *
+     * @param serverCnxn
+     */
     public void registerConnection(ServerCnxn serverCnxn) {
         if (zkServer != null) {
             ConnectionBean jmxConnectionBean = new ConnectionBean(serverCnxn, zkServer);
@@ -205,6 +311,8 @@ public abstract class ServerCnxnFactory {
     }
 
     /**
+     * 如果使用的Sasl登录，需要额外的配置
+     *
      * Initialize the server SASL if specified.
      *
      * If the user has specified a "ZooKeeperServer.LOGIN_CONTEXT_NAME_KEY"

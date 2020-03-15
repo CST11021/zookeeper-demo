@@ -33,8 +33,8 @@ package org.apache.zookeeper.server;
  *
  * LeaderZooKeeperServer：	LeaderRequestProcessor -> PrepRequestProcessor -> ProposalRequestProcessor（SyncRequestProcessor->AckRequestProcessor）-> CommitProcessor -> Leader.ToBeAppliedRequestProcessor -> FinalRequestProcessor
  * FollowerZooKeeperServer：	FollowerRequestProcessor-> CommitProcessor->FinalRequestProcessor；SyncRequestProcessor->SendAckRequestProcessor
- * ObserverZooKeeperServer：	ObserverRequestProcessor->CommitProcessor->FinalRequestProcessor；SyncRequestProcessor
- * ReadOnlyZooKeeperServer：	ReadOnlyRequestProcessor->PrepRequestProcessor->FinalRequestProcessor
+ * ObserverZooKeeperServer：	ObserverRequestProcessor-> CommitProcessor->FinalRequestProcessor；SyncRequestProcessor
+ * ReadOnlyZooKeeperServer：	ReadOnlyRequestProcessor-> PrepRequestProcessor->FinalRequestProcessor
  *
  */
 public interface RequestProcessor {

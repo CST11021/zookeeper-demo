@@ -30,6 +30,9 @@ import java.util.Set;
  */
 public interface SessionTracker {
 
+    /**
+     * 用于查看session信息的接口
+     */
     public static interface Session {
         /**
          * 获取sessionId
@@ -52,7 +55,11 @@ public interface SessionTracker {
         boolean isClosing();
     }
 
+    /**
+     * 使session过期的接口
+     */
     public static interface SessionExpirer {
+
         /**
          * 使session过期
          *
@@ -60,6 +67,10 @@ public interface SessionTracker {
          */
         void expire(Session session);
 
+        /**
+         * 表示zk的serverId，即MyId
+         * @return
+         */
         long getServerId();
     }
 

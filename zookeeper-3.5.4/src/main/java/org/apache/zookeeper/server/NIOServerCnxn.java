@@ -57,7 +57,7 @@ public class NIOServerCnxn extends ServerCnxn {
     private final NIOServerCnxnFactory factory;
 
     /**
-     * 监听客户端的SocketChannel
+     * 监听客户端的SocketChannel，客户端发起的TCP连接,也即SocketChannel类
      */
     private final SocketChannel sock;
 
@@ -93,9 +93,7 @@ public class NIOServerCnxn extends ServerCnxn {
 
     private final int outstandingLimit;
 
-    public NIOServerCnxn(ZooKeeperServer zk, SocketChannel sock,
-                         SelectionKey sk, NIOServerCnxnFactory factory,
-                         SelectorThread selectorThread) throws IOException {
+    public NIOServerCnxn(ZooKeeperServer zk, SocketChannel sock, SelectionKey sk, NIOServerCnxnFactory factory, SelectorThread selectorThread) throws IOException {
         this.zkServer = zk;
         this.sock = sock;
         this.sk = sk;
@@ -161,10 +159,21 @@ public class NIOServerCnxn extends ServerCnxn {
         requestInterestOpsUpdate();
     }
 
-    /** Read the request payload (everything following the length prefix) */
+    /**
+     * 有两种情况会调用此方法:
+     *  1.根据lengthBuffer的值为incomingBuffer分配空间后,此时尚未将数据从socketChannel读取至incomingBuffer中
+     *  2.已经将数据从socketChannel中读取至incomingBuffer,且读取完毕
+     *
+     * Read the request payload (everything following the length prefix) */
     private void readPayload() throws IOException, InterruptedException {
-        if (incomingBuffer.remaining() != 0) { // have we read length bytes?
-            int rc = sock.read(incomingBuffer); // sock is non-blocking, so ok
+        // have we read length bytes?
+        if (incomingBuffer.remaining() != 0) {
+            // sock is non-blocking, so ok
+            //对应情况1,此时刚为incomingBuffer分配空间,incomingBuffer为空,进行一次数据读取
+            //(1)若将incomingBuffer读满,则直接进行处理;
+            //(2)若未将incomingBuffer读满,则说明此次发送的数据不能构成一个完整的请求,则等待下一次数据到达后调用doIo()时再次将数据
+            //从socketChannel读取至incomingBuffer
+            int rc = sock.read(incomingBuffer);
             if (rc < 0) {
                 throw new EndOfStreamException(
                         "Unable to read additional data from client sessionid 0x"
@@ -173,14 +182,21 @@ public class NIOServerCnxn extends ServerCnxn {
             }
         }
 
-        if (incomingBuffer.remaining() == 0) { // have we read length bytes?
+        // have we read length bytes?
+        if (incomingBuffer.remaining() == 0) {
+            // 不管是情况1还是情况2,此时incomingBuffer已读满,其中内容必是一个request,处理该request
+            // 更新统计值
             packetReceived();
             incomingBuffer.flip();
+            // 当第一次从channel中获取请求的数据，并保存到incomingBuffer后，initialized设置为true
             if (!initialized) {
+                // 处理连接请求，如果initialized=false说明之前为处理过请求，则该请求是连接请求
                 readConnectRequest();
             } else {
                 readRequest();
             }
+
+            //请求处理结束,重置lenBuffer和incomingBuffer
             lenBuffer.clear();
             incomingBuffer = lenBuffer;
         }
@@ -308,17 +324,26 @@ public class NIOServerCnxn extends ServerCnxn {
     }
 
     /**
-     * Handles read/write IO on connection.
+     * 当SocketChannel上有数据可读时,worker thread调用NIOServerCnxn.doIO()进行读操作
+     *
+     * @param k
+     * @throws InterruptedException
      */
     void doIO(SelectionKey k) throws InterruptedException {
         try {
             if (isSocketOpen() == false) {
-                LOG.warn("trying to do i/o on a null socket for session:0x"
-                         + Long.toHexString(sessionId));
-
+                LOG.warn("trying to do i/o on a null socket for session:0x" + Long.toHexString(sessionId));
                 return;
             }
+
+            // 处理读操作的流程
+            // 1.最开始incomingBuffer就是lenBuffer,容量为4.第一次读取4个字节,即此次请求报文的长度
+            // 2.根据请求报文的长度分配incomingBuffer的大小
+            // 3.将读到的字节存放在incomingBuffer中,直至读满(由于第2步中为incomingBuffer分配的长度刚好是报文的长度,此时incomingBuffer中刚好是一个报文)
+            // 4.处理报文
             if (k.isReadable()) {
+                // 若是客户端请求,此时触发读事件
+                // 初始化时incomingBuffer即时lengthBuffer,只分配了4个字节,供用户读取一个int(此int值就是此次请求报文的总长度)
                 int rc = sock.read(incomingBuffer);
                 if (rc < 0) {
                     throw new EndOfStreamException(
@@ -326,17 +351,34 @@ public class NIOServerCnxn extends ServerCnxn {
                             + Long.toHexString(sessionId)
                             + ", likely client has closed socket");
                 }
+
+                /*
+                只有incomingBuffer.remaining() == 0,才会进行下一步的处理,否则一直读取数据直到incomingBuffer读满,此时有两种可能:
+                一、incomingBuffer就是lenBuffer,此时incomingBuffer的内容是此次请求报文的长度.
+                    根据lenBuffer为incomingBuffer分配空间后调用readPayload().
+                    在readPayload()中会立马进行一次数据读取,
+                    (1)若可以将incomingBuffer读满,则incomingBuffer中就是一个完整的请求,处理该请求;
+                    (2)若不能将incomingBuffer读满,说明出现了拆包问题,此时不能构造一个完整的请求,只能等待客户端继续发送数据,等到下次socketChannel可读时,继续将数据读取到incomingBuffer中
+                二、incomingBuffer不是lenBuffer,说明上次读取时出现了拆包问题,incomingBuffer中只有一个请求的部分数据.
+                而这次读取的数据加上上次读取的数据凑成了一个完整的请求,调用readPayload()
+                 */
                 if (incomingBuffer.remaining() == 0) {
                     boolean isPayload;
-                    if (incomingBuffer == lenBuffer) { // start of next request
+                    // 开始下一个请求：解析上文中读取的报文总长度,同时为"incomingBuffer"分配len的空间供读取全部报文
+                    if (incomingBuffer == lenBuffer) {
                         incomingBuffer.flip();
+                        // 为incomeingBuffer分配空间时还包括了判断是否是"4字命令"的逻辑
                         isPayload = readLength(k);
                         incomingBuffer.clear();
                     } else {
+                        //2.incomingBuffer不是lenBuffer,此时incomingBuffer的内容是payload
                         // continuation
                         isPayload = true;
                     }
-                    if (isPayload) { // not the case for 4letterword
+
+                    if (isPayload) {
+                        // 不是4字的情况
+                        // 处理报文
                         readPayload();
                     }
                     else {
@@ -346,6 +388,8 @@ public class NIOServerCnxn extends ServerCnxn {
                     }
                 }
             }
+
+
             if (k.isWritable()) {
                 handleWrite(k);
 
@@ -354,8 +398,7 @@ public class NIOServerCnxn extends ServerCnxn {
                 }
             }
         } catch (CancelledKeyException e) {
-            LOG.warn("CancelledKeyException causing close of session 0x"
-                     + Long.toHexString(sessionId));
+            LOG.warn("CancelledKeyException causing close of session 0x" + Long.toHexString(sessionId));
             if (LOG.isDebugEnabled()) {
                 LOG.debug("CancelledKeyException stack trace", e);
             }
@@ -368,8 +411,7 @@ public class NIOServerCnxn extends ServerCnxn {
             // expecting close to log session closure
             close();
         } catch (IOException e) {
-            LOG.warn("Exception causing close of session 0x"
-                     + Long.toHexString(sessionId) + ": " + e.getMessage());
+            LOG.warn("Exception causing close of session 0x" + Long.toHexString(sessionId) + ": " + e.getMessage());
             if (LOG.isDebugEnabled()) {
                 LOG.debug("IOException stack trace", e);
             }
@@ -435,7 +477,7 @@ public class NIOServerCnxn extends ServerCnxn {
     }
 
     /**
-     * 读取请求的数据到incomingBuffer
+     * 将来自客户端的请求建立连接的请求的数据报文读取到incomingBuffer
      *
      * @throws IOException
      * @throws InterruptedException

@@ -43,6 +43,7 @@ interface Stats {
 
     /**
      * 最低延迟，毫秒
+     *
      * @since 3.3.0
      */
     long getMinLatency();

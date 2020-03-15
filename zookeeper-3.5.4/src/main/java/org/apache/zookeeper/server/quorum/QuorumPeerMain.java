@@ -208,6 +208,7 @@ public class QuorumPeerMain {
             quorumPeer.initialize();
 
             quorumPeer.start();
+            // 调用线程等待该线程完成后,才能继续往下运行
             quorumPeer.join();
         } catch (InterruptedException e) {
             // warn, but generally this is ok

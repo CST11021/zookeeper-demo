@@ -79,7 +79,6 @@ public class Vote {
     }
 
 
-    QuorumVerifier
     public int getVersion() {
         return version;
     }

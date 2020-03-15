@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,17 +18,13 @@
 
 package org.apache.zookeeper.server;
 
-import java.util.ArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.zookeeper.common.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * WorkerService is a worker thread pool for running tasks and is implemented
@@ -45,29 +41,31 @@ import org.slf4j.LoggerFactory;
  * useful even with a single thread.
  */
 public class WorkerService {
-    private static final Logger LOG =
-        LoggerFactory.getLogger(WorkerService.class);
 
-    private final ArrayList<ExecutorService> workers =
-        new ArrayList<ExecutorService>();
+    private static final Logger LOG = LoggerFactory.getLogger(WorkerService.class);
 
+    private final ArrayList<ExecutorService> workers = new ArrayList<ExecutorService>();
+
+    /** 线程名称前缀 */
     private final String threadNamePrefix;
+
+    /** 线程池数量 */
     private int numWorkerThreads;
+
+    /** 该值如果为true，则创建对应{@link #numWorkerThreads}数量的线程池，否则创建一个线程池，并添加到{@link #workers}， */
     private boolean threadsAreAssignable;
+
     private long shutdownTimeoutMS = 5000;
 
+    /** 标记服务是否开始 */
     private volatile boolean stopped = true;
 
     /**
-     * @param name                  worker threads are named <name>Thread-##
-     * @param numThreads            number of worker threads (0 - N)
-     *                              If 0, scheduled work is run immediately by
-     *                              the calling thread.
-     * @param useAssignableThreads  whether the worker threads should be
-     *                              individually assignable or not
+     * @param name                  工作线程名为：${} + "Thread"
+     * @param numThreads            工作线程的数量(0 - N)如果为0，则调度的工作将由调用线程立即运行。
+     * @param useAssignableThreads  工作线程是否应该单独分配
      */
-    public WorkerService(String name, int numThreads,
-                         boolean useAssignableThreads) {
+    public WorkerService(String name, int numThreads, boolean useAssignableThreads) {
         this.threadNamePrefix = (name == null ? "" : name) + "Thread";
         this.numWorkerThreads = numThreads;
         this.threadsAreAssignable = useAssignableThreads;
@@ -75,38 +73,19 @@ public class WorkerService {
     }
 
     /**
-     * Callers should implement a class extending WorkRequest in order to
-     * schedule work with the service.
-     */
-    public static abstract class WorkRequest {
-        /**
-         * Must be implemented. Is called when the work request is run.
-         */
-        public abstract void doWork() throws Exception;
-
-        /**
-         * (Optional) If implemented, is called if the service is stopped
-         * or unable to schedule the request.
-         */
-        public void cleanup() {
-        }
-    }
-
-    /**
-     * Schedule work to be done.  If a worker thread pool is not being
-     * used, work is done directly by this thread. This schedule API is
-     * for use with non-assignable WorkerServices. For assignable
-     * WorkerServices, will always run on the first thread.
+     * 如果没有配置使用线程池，则直接调用{@link WorkRequest#doWork()}方法同步执行
+     *
+     * @param workRequest
      */
     public void schedule(WorkRequest workRequest) {
         schedule(workRequest, 0);
     }
 
     /**
-     * Schedule work to be done by the thread assigned to this id. Thread
-     * assignment is a single mod operation on the number of threads.  If a
-     * worker thread pool is not being used, work is done directly by
-     * this thread.
+     * 如果没有配置使用线程池，则直接调用{@link WorkRequest#doWork()}方法同步执行
+     *
+     * @param workRequest
+     * @param id
      */
     public void schedule(WorkRequest workRequest, long id) {
         if (stopped) {
@@ -114,11 +93,9 @@ public class WorkerService {
             return;
         }
 
-        ScheduledWorkRequest scheduledWorkRequest =
-            new ScheduledWorkRequest(workRequest);
+        ScheduledWorkRequest scheduledWorkRequest = new ScheduledWorkRequest(workRequest);
 
-        // If we have a worker thread pool, use that; otherwise, do the work
-        // directly.
+        // 如果我们有一个工作线程池，使用它;否则，直接做工作。
         int size = workers.size();
         if (size > 0) {
             try {
@@ -131,8 +108,7 @@ public class WorkerService {
                 workRequest.cleanup();
             }
         } else {
-            // When there is no worker thread pool, do the work directly
-            // and wait for its completion
+            // 当没有工作线程池时，直接执行工作并等待其完成
             scheduledWorkRequest.start();
             try {
                 scheduledWorkRequest.join();
@@ -143,7 +119,82 @@ public class WorkerService {
         }
     }
 
+    /**
+     * 创建线程池，并添加到{@link #workers}中
+     */
+    public void start() {
+        if (numWorkerThreads > 0) {
+            if (threadsAreAssignable) {
+                for (int i = 1; i <= numWorkerThreads; ++i) {
+                    workers.add(Executors.newFixedThreadPool(1, new DaemonThreadFactory(threadNamePrefix, i)));
+                }
+            } else {
+                workers.add(Executors.newFixedThreadPool(numWorkerThreads, new DaemonThreadFactory(threadNamePrefix)));
+            }
+        }
+        stopped = false;
+    }
+
+    /**
+     * shutdown线程池
+     */
+    public void stop() {
+        stopped = true;
+
+        // Signal for graceful shutdown
+        for (ExecutorService worker : workers) {
+            worker.shutdown();
+        }
+    }
+
+    /**
+     * 延迟shutdown
+     *
+     * @param shutdownTimeoutMS
+     */
+    public void join(long shutdownTimeoutMS) {
+        // Give the worker threads time to finish executing
+        long now = Time.currentElapsedTime();
+        long endTime = now + shutdownTimeoutMS;
+        for (ExecutorService worker : workers) {
+            boolean terminated = false;
+            while ((now = Time.currentElapsedTime()) <= endTime) {
+                try {
+                    terminated = worker.awaitTermination(endTime - now, TimeUnit.MILLISECONDS);
+                    break;
+                } catch (InterruptedException e) {
+                    // ignore
+                }
+            }
+            if (!terminated) {
+                // If we've timed out, do a hard shutdown
+                worker.shutdownNow();
+            }
+        }
+    }
+
+
+    /**
+     * Callers should implement a class extending WorkRequest in order to
+     * schedule work with the service.
+     */
+    public static abstract class WorkRequest {
+
+        /**
+         * Must be implemented. Is called when the work request is run.
+         */
+        public abstract void doWork() throws Exception;
+
+        /**
+         * (可选)如果实现该方法，则在服务停止或无法调度请求时调用。
+         */
+        public void cleanup() {
+        }
+
+    }
+
     private class ScheduledWorkRequest extends ZooKeeperThread {
+
         private final WorkRequest workRequest;
 
         ScheduledWorkRequest(WorkRequest workRequest) {
@@ -154,7 +205,7 @@ public class WorkerService {
         @Override
         public void run() {
             try {
-                // Check if stopped while request was on queue
+                // 检查请求在队列中是否停止
                 if (stopped) {
                     workRequest.cleanup();
                     return;
@@ -185,66 +236,18 @@ public class WorkerService {
         DaemonThreadFactory(String name, int firstThreadNum) {
             threadNumber.set(firstThreadNum);
             SecurityManager s = System.getSecurityManager();
-            group = (s != null)? s.getThreadGroup() :
-                                 Thread.currentThread().getThreadGroup();
+            group = (s != null) ? s.getThreadGroup() :
+                    Thread.currentThread().getThreadGroup();
             namePrefix = name + "-";
         }
 
         public Thread newThread(Runnable r) {
-            Thread t = new Thread(group, r,
-                                  namePrefix + threadNumber.getAndIncrement(),
-                                  0);
+            Thread t = new Thread(group, r, namePrefix + threadNumber.getAndIncrement(), 0);
             if (!t.isDaemon())
                 t.setDaemon(true);
             if (t.getPriority() != Thread.NORM_PRIORITY)
                 t.setPriority(Thread.NORM_PRIORITY);
             return t;
-        }
-    }
-
-    public void start() {
-        if (numWorkerThreads > 0) {
-            if (threadsAreAssignable) {
-                for(int i = 1; i <= numWorkerThreads; ++i) {
-                    workers.add(Executors.newFixedThreadPool(
-                        1, new DaemonThreadFactory(threadNamePrefix, i)));
-                }
-            } else {
-                workers.add(Executors.newFixedThreadPool(
-                    numWorkerThreads, new DaemonThreadFactory(threadNamePrefix)));
-            }
-        }
-        stopped = false;
-    }
-
-    public void stop() {
-        stopped = true;
-
-        // Signal for graceful shutdown
-        for(ExecutorService worker : workers) {
-            worker.shutdown();
-        }
-    }
-
-    public void join(long shutdownTimeoutMS) {
-        // Give the worker threads time to finish executing
-        long now = Time.currentElapsedTime();
-        long endTime = now + shutdownTimeoutMS;
-        for(ExecutorService worker : workers) {
-            boolean terminated = false;
-            while ((now = Time.currentElapsedTime()) <= endTime) {
-                try {
-                    terminated = worker.awaitTermination(
-                        endTime - now, TimeUnit.MILLISECONDS);
-                    break;
-                } catch (InterruptedException e) {
-                    // ignore
-                }
-            }
-            if (!terminated) {
-                // If we've timed out, do a hard shutdown
-                worker.shutdownNow();
-            }
         }
     }
 }

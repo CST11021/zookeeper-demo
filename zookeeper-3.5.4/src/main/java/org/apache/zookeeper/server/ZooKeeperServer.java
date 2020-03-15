@@ -114,8 +114,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     }
 
     /**
-     * This is the secret that we use to generate passwords, for the moment it
-     * is more of a sanity check.
+     * 这是我们用来生成密码的秘钥，目前它更多的是一种完整性检查。
      */
     static final private long superSecret = 0XB3415C00L;
 

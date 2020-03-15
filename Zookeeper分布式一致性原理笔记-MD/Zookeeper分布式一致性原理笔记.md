@@ -1599,18 +1599,6 @@ EventThread是客户端ClientCnxn内部的另一个核心线程，负责客户�
 
 
 
-##数据与存储
-
-
-
-
-
-
-
-
-
-
-
 # 第八章 ZooKeeper运维（未完。。。）
 
  
@@ -1682,42 +1670,32 @@ zk中有一系列的命令可以查看服务器的运行状态，它们的长度
 
 * **conf**
 
-  conf命令用于输出 ZooKeeper服务器运行时使用的基本配置信息，包括clientPort、dataDir和tickTime等，以便运维人员能快速查看 ZooKeeper当前运行时的一些参数，如上图所示。注意，conf命令输出的配置信息仅仅是输出一些最基本的配置参数。
+conf命令用于输出ZooKeeper服务器运行时使用的基本配置信息，包括clientPort、dataDir和tickTime等。
 
-  另外，conf命令会根据当前的运行模式来决定输出的信息。上图所示的输出信息是针对集群模式下的样例，如果是单机模式（standalone），就不会输出诸如initLimit、syncLimit、electionAlg和electionPort等集群相关的配置信息。
-
-  ```bash
-  [root@study-01 ~]# echo conf |nc 192.168.190.129 2181
-  clientPort=2181
-  dataDir=/usr/local/zookeeper-3.4.11/dataDir/version-2
-  dataLogDir=/usr/local/zookeeper-3.4.11/dataLogDir/version-2
-  tickTime=2000
-  maxClientCnxns=60
-  minSessionTimeout=4000
-  maxSessionTimeout=40000
-  serverId=0
-  [root@study-01 ~]# 
-  ```
+```bash
+[root@study-01 ~]# echo conf |nc 192.168.190.129 2181
+clientPort=2181
+dataDir=/usr/local/zookeeper-3.4.11/dataDir/version-2
+dataLogDir=/usr/local/zookeeper-3.4.11/dataLogDir/version-2
+tickTime=2000
+maxClientCnxns=60
+minSessionTimeout=4000
+maxSessionTimeout=40000
+serverId=0
+[root@study-01 ~]# 
+```
 
 * **cons**
 
-  cons命令用于输出当前这台服务器上所有客户端连接的详细信息，包括每个客户端的客户端IP、会话ID和最后一次与服务器交互的操作类型等。
-
-  ```bash
-  [root@study-01 ~]# echo cons |nc 192.168.190.129 2181
-   /127.0.0.1:41152[1](queued=0,recved=2,sent=2,sid=0x10001004ed60001,lop=PING,est=1524493375316,to=30000,lcxid=0x0,lzxid=0x59,lresp=19999999,llat=0,minlat=0,avglat=1,maxlat=2)
-   /192.168.190.129:34277[0](queued=0,recved=1,sent=0)
-  
-  [root@study-01 ~]# 
-  ```
+cons命令用于输出当前这台服务器上所有客户端连接的详细信息，包括每个客户端的客户端IP、会话ID和最后一次与服务器交互的操作类型等。
 
 * **crst**
 
-  crst命令是一个功能性命令，用于重置所有的客户端连接统计信息。
+crst命令是一个功能性命令，用于重置所有的客户端连接统计信息。
 
 * **dump**
 
-dump命令用于输出当前集群的所有会话信息，包括这些会话的会话ID，以及每个会话创建的临时节点等信息。如果在Leader服务器上执行该命令的话，我们还能够看到每个会话的超时时间。
+dump命令用于输出当前集群的所有会话信息，包括这些会话的会话ID，以及每个会话创建的临时节点等信息。
 
 * **envi**
 
@@ -1755,6 +1733,10 @@ wchp命令和wchc命令非常类似，也是用于输出当前服务器上管理
 * **mntr**
 
 mntr命令用于输出比stat命令更为详尽的服务器统计信息，包括请求处理的延迟情况、服务器内存数据库大小和集群的数据同步情况。
+
+
+
+
 
 
 

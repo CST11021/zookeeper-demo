@@ -230,6 +230,13 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     ServerCnxnFactory secureCnxnFactory;
     private FileTxnSnapLog logFactory = null;
     private final QuorumStats quorumStats;
+    /**
+     * 启动jetty服务器，用于通过调用url执行zookeeper命令，这个类封装了一个Jetty服务器来运行命令。
+     *
+     * 给定默认设置，启动ZooKeeper服务器并访问，
+     * http://<hostname>:8080/commands，用于链接到所有已注册的命令。参照：http://<hostname>:8080/commands/<commandname>将执行相关的命令并在响应体中返回结果。
+     * 命令的任何关键字参数都用URL参数指定(例如，http://localhost:8080/commands/set_trace_mask?traceMask=306)。
+     */
     AdminServer adminServer;
     ResponderThread responder;
     public Follower follower;
@@ -804,7 +811,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
 
     /**
-     * Only used by QuorumStats at the moment
+     * 目前只被QuorumStats使用
      */
     public String[] getQuorumPeers() {
         List<String> l = new ArrayList<String>();
@@ -825,6 +832,11 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         return l.toArray(new String[0]);
     }
 
+    /**
+     * 返回服务器的选举状态
+     *
+     * @return
+     */
     public String getServerState() {
         switch (getPeerState()) {
             case LOOKING:

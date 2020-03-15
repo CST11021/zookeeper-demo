@@ -28,6 +28,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
+ *
+ * 事务提交处理器。对于非事务请求，该处理器会直接将其交付给下一级处理器处理；
+ * 对于事务请求，其会等待集群内针对Proposal的投票直到该Proposal可被提交，利用CommitProcessor，每个服务器都可以很好地控制对事务请求的顺序处理。
+ *
  * This RequestProcessor matches the incoming committed requests with the
  * locally submitted requests. The trick is that locally submitted requests that
  * change the state of the system will come back as incoming committed requests,
@@ -60,35 +64,29 @@ import java.util.concurrent.atomic.AtomicReference;
  * The current implementation solves the third constraint by simply allowing no
  * read requests to be processed in parallel with write requests.
  */
-public class CommitProcessor extends ZooKeeperCriticalThread implements
-        RequestProcessor {
+public class CommitProcessor extends ZooKeeperCriticalThread implements RequestProcessor {
+
     private static final Logger LOG = LoggerFactory.getLogger(CommitProcessor.class);
 
     /** Default: numCores */
     public static final String ZOOKEEPER_COMMIT_PROC_NUM_WORKER_THREADS = "zookeeper.commitProcessor.numWorkerThreads";
     /** Default worker pool shutdown timeout in ms: 5000 (5s) */
     public static final String ZOOKEEPER_COMMIT_PROC_SHUTDOWN_TIMEOUT = "zookeeper.commitProcessor.shutdownTimeout";
-
     /**
      * Requests that we are holding until the commit comes in.
      */
     protected final LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
-
     /**
      * Requests that have been committed.
      */
     protected final LinkedBlockingQueue<Request> committedRequests = new LinkedBlockingQueue<Request>();
-
     /** Request for which we are currently awaiting a commit */
     protected final AtomicReference<Request> nextPending = new AtomicReference<Request>();
     /** Request currently being committed (ie, sent off to next processor) */
     private final AtomicReference<Request> currentlyCommitting = new AtomicReference<Request>();
-
     /** The number of requests currently being processed */
     protected AtomicInteger numRequestsProcessing = new AtomicInteger(0);
-
     RequestProcessor nextProcessor;
-
     protected volatile boolean stopped = true;
     private long workerShutdownTimeoutMS;
     protected WorkerService workerPool;
@@ -106,39 +104,23 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
         this.matchSyncs = matchSyncs;
     }
 
-    private boolean isProcessingRequest() {
-        return numRequestsProcessing.get() != 0;
-    }
+    @Override
+    public void start() {
+        int numCores = Runtime.getRuntime().availableProcessors();
+        int numWorkerThreads = Integer.getInteger(
+                ZOOKEEPER_COMMIT_PROC_NUM_WORKER_THREADS, numCores);
+        workerShutdownTimeoutMS = Long.getLong(
+                ZOOKEEPER_COMMIT_PROC_SHUTDOWN_TIMEOUT, 5000);
 
-    private boolean isWaitingForCommit() {
-        return nextPending.get() != null;
-    }
-
-    private boolean isProcessingCommit() {
-        return currentlyCommitting.get() != null;
-    }
-
-    protected boolean needCommit(Request request) {
-        switch (request.type) {
-            case OpCode.create:
-            case OpCode.create2:
-            case OpCode.createTTL:
-            case OpCode.createContainer:
-            case OpCode.delete:
-            case OpCode.deleteContainer:
-            case OpCode.setData:
-            case OpCode.reconfig:
-            case OpCode.multi:
-            case OpCode.setACL:
-                return true;
-            case OpCode.sync:
-                return matchSyncs;
-            case OpCode.createSession:
-            case OpCode.closeSession:
-                return !request.isLocalSession();
-            default:
-                return false;
+        LOG.info("Configuring CommitProcessor with "
+                + (numWorkerThreads > 0 ? numWorkerThreads : "no")
+                + " worker threads.");
+        if (workerPool == null) {
+            workerPool = new WorkerService(
+                    "CommitProcWork", numWorkerThreads, true);
         }
+        stopped = false;
+        super.start();
     }
 
     @Override
@@ -183,7 +165,42 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
         LOG.info("CommitProcessor exited loop!");
     }
 
-    /*
+    private boolean isProcessingRequest() {
+        return numRequestsProcessing.get() != 0;
+    }
+
+    private boolean isWaitingForCommit() {
+        return nextPending.get() != null;
+    }
+
+    private boolean isProcessingCommit() {
+        return currentlyCommitting.get() != null;
+    }
+
+    protected boolean needCommit(Request request) {
+        switch (request.type) {
+            case OpCode.create:
+            case OpCode.create2:
+            case OpCode.createTTL:
+            case OpCode.createContainer:
+            case OpCode.delete:
+            case OpCode.deleteContainer:
+            case OpCode.setData:
+            case OpCode.reconfig:
+            case OpCode.multi:
+            case OpCode.setACL:
+                return true;
+            case OpCode.sync:
+                return matchSyncs;
+            case OpCode.createSession:
+            case OpCode.closeSession:
+                return !request.isLocalSession();
+            default:
+                return false;
+        }
+    }
+
+    /**
      * Separated this method from the main run loop
      * for test purposes (ZOOKEEPER-1863)
      */
@@ -231,25 +248,6 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements
                 sendToNextProcessor(request);
             }
         }
-    }
-
-    @Override
-    public void start() {
-        int numCores = Runtime.getRuntime().availableProcessors();
-        int numWorkerThreads = Integer.getInteger(
-                ZOOKEEPER_COMMIT_PROC_NUM_WORKER_THREADS, numCores);
-        workerShutdownTimeoutMS = Long.getLong(
-                ZOOKEEPER_COMMIT_PROC_SHUTDOWN_TIMEOUT, 5000);
-
-        LOG.info("Configuring CommitProcessor with "
-                + (numWorkerThreads > 0 ? numWorkerThreads : "no")
-                + " worker threads.");
-        if (workerPool == null) {
-            workerPool = new WorkerService(
-                    "CommitProcWork", numWorkerThreads, true);
-        }
-        stopped = false;
-        super.start();
     }
 
     /**

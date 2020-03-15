@@ -54,6 +54,7 @@ public class QuorumPeerConfig {
     private static boolean reconfigEnabled = false;
     /** 对客户端暴露的端口，一般为2181 */
     protected InetSocketAddress clientPortAddress;
+    /** SSL方式：对客户端暴露的端口，一般为2181 */
     protected InetSocketAddress secureClientPortAddress;
     /**
      * 表示内存数据库快照存放地址
