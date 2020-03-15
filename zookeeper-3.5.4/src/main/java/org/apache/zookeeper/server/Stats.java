@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,48 +21,79 @@ package org.apache.zookeeper.server;
 import java.util.Date;
 
 /**
- * Statistics on the ServerCnxn
+ * 关于 ServerCnxn 的统计信息
  */
 interface Stats {
-    /** Date/time the connection was established
-     * @since 3.3.0 */
+
+    /**
+     * 建立连接的日期/时间
+     */
     Date getEstablished();
 
     /**
-     * The number of requests that have been submitted but not yet
-     * responded to.
+     * 获取已经提交但是尚未回复的请求个数
      */
     long getOutstandingRequests();
-    /** Number of packets received */
+
+    /** 获取接收到的packets个数 */
     long getPacketsReceived();
-    /** Number of packets sent (incl notifications) */
+
+    /** 获取已经发送packet个数 */
     long getPacketsSent();
-    /** Min latency in ms
-     * @since 3.3.0 */
+
+    /**
+     * 最低延迟，毫秒
+     * @since 3.3.0
+     */
     long getMinLatency();
-    /** Average latency in ms
-     * @since 3.3.0 */
+
+    /**
+     * 平均延迟，毫秒
+     *
+     * @since 3.3.0
+     */
     long getAvgLatency();
-    /** Max latency in ms
-     * @since 3.3.0 */
+
+    /**
+     * 最高延迟，毫秒
+     * @since 3.3.0
+     */
     long getMaxLatency();
-    /** Last operation performed by this connection
-     * @since 3.3.0 */
+
+    /**
+     * 连接最后一次操作
+     * @since 3.3.0
+     */
     String getLastOperation();
-    /** Last cxid of this connection
-     * @since 3.3.0 */
+
+    /**
+     * 最后一次连接的cxid
+     *
+     * @since 3.3.0
+     */
     long getLastCxid();
-    /** Last zxid of this connection
-     * @since 3.3.0 */
+
+    /**
+     * 最后一次连接的zxid
+     * @since 3.3.0
+     */
     long getLastZxid();
-    /** Last time server sent a response to client on this connection
-     * @since 3.3.0 */
+
+    /**
+     * 上次回复的时间
+     * @since 3.3.0
+     */
     long getLastResponseTime();
-    /** Latency of last response to client on this connection in ms
-     * @since 3.3.0 */
+
+    /**
+     * 上一次回复的延迟
+     * @since 3.3.0
+     */
     long getLastLatency();
 
-    /** Reset counters
-     * @since 3.3.0 */
+    /**
+     * 还原各种计数器
+     * @since 3.3.0
+     */
     void resetStats();
 }

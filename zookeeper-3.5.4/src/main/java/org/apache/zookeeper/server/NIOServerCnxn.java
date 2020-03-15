@@ -56,20 +56,26 @@ public class NIOServerCnxn extends ServerCnxn {
 
     private final NIOServerCnxnFactory factory;
 
+    /**
+     * 监听客户端的SocketChannel
+     */
     private final SocketChannel sock;
 
     private final SelectorThread selectorThread;
 
     private final SelectionKey sk;
 
+    /**
+     * 当第一次从channel中获取请求的数据，并保存到incomingBuffer后，该值设置为true
+     */
     private boolean initialized;
 
     private final ByteBuffer lenBuffer = ByteBuffer.allocate(4);
 
+    /** 从SocketChannel读取请求数据后，会将数据保存放在这里 */
     private ByteBuffer incomingBuffer = lenBuffer;
 
-    private final Queue<ByteBuffer> outgoingBuffers =
-        new LinkedBlockingQueue<ByteBuffer>();
+    private final Queue<ByteBuffer> outgoingBuffers = new LinkedBlockingQueue<ByteBuffer>();
 
     private int sessionTimeout;
 
@@ -404,8 +410,7 @@ public class NIOServerCnxn extends ServerCnxn {
         return !outgoingBuffers.isEmpty();
     }
 
-    // returns whether we are interested in taking new requests, which is
-    // determined by whether we are currently throttled or not
+    // 返回我们是否有兴趣接收新的请求，这取决于我们当前是否处于节流状态
     private boolean getReadInterest() {
         return !throttled.get();
     }
@@ -420,19 +425,26 @@ public class NIOServerCnxn extends ServerCnxn {
         }
     }
 
-    // Disable throttling and resume acceptance of new requests. If this
-    // entailed a state change, register an interest op update request with
-    // the selector.
+    /**
+     * 禁用节流并恢复对新请求的接受。如果这导致了状态更改，则使用选择器注册一个感兴趣的op更新请求。
+     */
     public void enableRecv() {
         if (throttled.compareAndSet(true, false)) {
             requestInterestOpsUpdate();
         }
     }
 
+    /**
+     * 读取请求的数据到incomingBuffer
+     *
+     * @throws IOException
+     * @throws InterruptedException
+     */
     private void readConnectRequest() throws IOException, InterruptedException {
         if (!isZKServerRunning()) {
             throw new IOException("ZooKeeperServer not running");
         }
+        // 读取请求的数据到incomingBuffer
         zkServer.processConnectRequest(this, incomingBuffer);
         initialized = true;
     }
@@ -573,11 +585,7 @@ public class NIOServerCnxn extends ServerCnxn {
         return outstandingRequests.get();
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.apache.zookeeper.server.ServerCnxnIface#getSessionTimeout()
-     */
+
     public int getSessionTimeout() {
         return sessionTimeout;
     }
@@ -683,12 +691,7 @@ public class NIOServerCnxn extends ServerCnxn {
 
     private final static byte fourBytes[] = new byte[4];
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.apache.zookeeper.server.ServerCnxnIface#sendResponse(org.apache.zookeeper.proto.ReplyHeader,
-     *      org.apache.jute.Record, java.lang.String)
-     */
+
     @Override
     public void sendResponse(ReplyHeader h, Record r, String tag) {
         try {

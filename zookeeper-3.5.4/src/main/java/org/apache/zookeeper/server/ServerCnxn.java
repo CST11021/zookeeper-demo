@@ -18,20 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
-import java.security.cert.Certificate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.jute.Record;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
@@ -41,14 +27,26 @@ import org.apache.zookeeper.proto.RequestHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
+import java.security.cert.Certificate;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Interface to a Server connection - represents a connection from a client to the server.
  */
 public abstract class ServerCnxn implements Stats, Watcher {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ServerCnxn.class);
+
     /** 这只是一个表示请求的任意对象 */
     final public static Object me = new Object();
-    private static final Logger LOG = LoggerFactory.getLogger(ServerCnxn.class);
-    
+
+    /** 表示认证过的用户 */
     protected ArrayList<Id> authInfo = new ArrayList<Id>();
 
     /**
@@ -58,20 +56,89 @@ public abstract class ServerCnxn implements Stats, Watcher {
      */
     boolean isOldClient = true;
 
+    // ----------------------
+    // 统计ServerCnxn相关的信息
+    // ----------------------
+
+    /** 建立连接的日期/时间  */
+    protected final Date established = new Date();
+    /** 表示接收到的packets个数 */
+    protected final AtomicLong packetsReceived = new AtomicLong();
+    /** 表示已经发送packet个数 */
+    protected final AtomicLong packetsSent = new AtomicLong();
+    /** 最低延迟，毫秒 */
+    protected long minLatency;
+    /** 最高延迟，毫秒 */
+    protected long maxLatency;
+    /** 连接最后一次操作 */
+    protected String lastOp;
+    /** 最后一次连接的cxid */
+    protected long lastCxid;
+    /** 最后一次连接的zxid */
+    protected long lastZxid;
+    /** 上次回复的时间 */
+    protected long lastResponseTime;
+    /** 上一次回复的延迟 */
+    protected long lastLatency;
+    /** response的次数 */
+    protected long count;
+    /** 总共累计的延时毫秒数 */
+    protected long totalLatency;
+
+
+    /**
+     * session超时时间
+     *
+     * @return
+     */
     abstract int getSessionTimeout();
 
+    /**
+     * 设置session超时时间
+     *
+     * @param sessionTimeout
+     */
+    abstract void setSessionTimeout(int sessionTimeout);
+
+    /**
+     * 关闭服务
+     */
     abstract void close();
 
-    public abstract void sendResponse(ReplyHeader h, Record r, String tag)
-        throws IOException;
+    /**
+     * 发送响应体
+     *
+     * @param h
+     * @param r
+     * @param tag
+     * @throws IOException
+     */
+    public abstract void sendResponse(ReplyHeader h, Record r, String tag) throws IOException;
 
-    /* notify the client the session is closing and close/cleanup socket */
+    /**
+     * 通知客户端会话正在关闭并关闭/清理套接字
+     */
     abstract void sendCloseSession();
 
+    /**
+     * ServerCnxn也实现了Watcher接口，当相应的时间发生时，会调用该方法
+     *
+     * @param event
+     */
     public abstract void process(WatchedEvent event);
 
+    /**
+     * 获取sessionId
+     *
+     * @return
+     */
     public abstract long getSessionId();
 
+    /**
+     * 设置sessionId
+     *
+     * @param sessionId
+     */
     abstract void setSessionId(long sessionId);
 
     /** auth info for the cnxn, returns an unmodifyable list */
@@ -79,6 +146,11 @@ public abstract class ServerCnxn implements Stats, Watcher {
         return Collections.unmodifiableList(authInfo);
     }
 
+    /**
+     * 添加授权用户
+     *
+     * @param id
+     */
     public void addAuthInfo(Id id) {
         if (authInfo.contains(id) == false) {
             authInfo.add(id);
@@ -94,8 +166,6 @@ public abstract class ServerCnxn implements Stats, Watcher {
     abstract void enableRecv();
 
     abstract void disableRecv();
-
-    abstract void setSessionTimeout(int sessionTimeout);
 
     protected ZooKeeperSaslServer zooKeeperSaslServer = null;
 
@@ -136,146 +206,25 @@ public abstract class ServerCnxn implements Stats, Watcher {
     }
 
     protected abstract ServerStats serverStats();
-    
-    protected final Date established = new Date();
-
-    protected final AtomicLong packetsReceived = new AtomicLong();
-    protected final AtomicLong packetsSent = new AtomicLong();
-
-    protected long minLatency;
-    protected long maxLatency;
-    protected String lastOp;
-    protected long lastCxid;
-    protected long lastZxid;
-    protected long lastResponseTime;
-    protected long lastLatency;
-
-    protected long count;
-    protected long totalLatency;
-
-    public synchronized void resetStats() {
-        packetsReceived.set(0);
-        packetsSent.set(0);
-        minLatency = Long.MAX_VALUE;
-        maxLatency = 0;
-        lastOp = "NA";
-        lastCxid = -1;
-        lastZxid = -1;
-        lastResponseTime = 0;
-        lastLatency = 0;
-
-        count = 0;
-        totalLatency = 0;
-    }
-
-    protected long incrPacketsReceived() {
-        return packetsReceived.incrementAndGet();
-    }
-    
-    protected void incrOutstandingRequests(RequestHeader h) {
-    }
-
-    protected long incrPacketsSent() {
-        return packetsSent.incrementAndGet();
-    }
-
-    protected synchronized void updateStatsForResponse(long cxid, long zxid,
-            String op, long start, long end)
-    {
-        // don't overwrite with "special" xids - we're interested
-        // in the clients last real operation
-        if (cxid >= 0) {
-            lastCxid = cxid;
-        }
-        lastZxid = zxid;
-        lastOp = op;
-        lastResponseTime = end;
-        long elapsed = end - start;
-        lastLatency = elapsed;
-        if (elapsed < minLatency) {
-            minLatency = elapsed;
-        }
-        if (elapsed > maxLatency) {
-            maxLatency = elapsed;
-        }
-        count++;
-        totalLatency += elapsed;
-    }
-
-    public Date getEstablished() {
-        return (Date)established.clone();
-    }
-
-    public abstract long getOutstandingRequests();
-
-    public long getPacketsReceived() {
-        return packetsReceived.longValue();
-    }
-
-    public long getPacketsSent() {
-        return packetsSent.longValue();
-    }
-
-    public synchronized long getMinLatency() {
-        return minLatency == Long.MAX_VALUE ? 0 : minLatency;
-    }
-
-    public synchronized long getAvgLatency() {
-        return count == 0 ? 0 : totalLatency / count;
-    }
-
-    public synchronized long getMaxLatency() {
-        return maxLatency;
-    }
-
-    public synchronized String getLastOperation() {
-        return lastOp;
-    }
-
-    public synchronized long getLastCxid() {
-        return lastCxid;
-    }
-
-    public synchronized long getLastZxid() {
-        return lastZxid;
-    }
-
-    public synchronized long getLastResponseTime() {
-        return lastResponseTime;
-    }
-
-    public synchronized long getLastLatency() {
-        return lastLatency;
-    }
 
     /**
-     * Prints detailed stats information for the connection.
+     * 获取客户端的地址，即请求来自哪里
      *
-     * @see dumpConnectionInfo(PrintWriter, boolean) for brief stats
+     * @return
      */
-    @Override
-    public String toString() {
-        StringWriter sw = new StringWriter();
-        PrintWriter pwriter = new PrintWriter(sw);
-        dumpConnectionInfo(pwriter, false);
-        pwriter.flush();
-        pwriter.close();
-        return sw.toString();
-    }
-
     public abstract InetSocketAddress getRemoteSocketAddress();
+
     public abstract int getInterestOps();
     public abstract boolean isSecure();
     public abstract Certificate[] getClientCertificateChain();
     public abstract void setClientCertificateChain(Certificate[] chain);
-    
+
     /**
      * Print information about the connection.
      * @param brief iff true prints brief details, otw full detail
      * @return information about this connection
      */
-    public synchronized void
-    dumpConnectionInfo(PrintWriter pwriter, boolean brief) {
+    public synchronized void dumpConnectionInfo(PrintWriter pwriter, boolean brief) {
         pwriter.print(" ");
         pwriter.print(getRemoteSocketAddress());
         pwriter.print("[");
@@ -367,4 +316,187 @@ public abstract class ServerCnxn implements Stats, Watcher {
             }
         }
     }
+
+
+
+
+
+    // ---------------------------------------
+    // 关于 ServerCnxn 的统计信息，Stats接口的实现
+    // ---------------------------------------
+
+    /**
+     * 建立连接的日期/时间
+     */
+    public Date getEstablished() {
+        return (Date)established.clone();
+    }
+    /**
+     * 获取已经提交但是尚未回复的请求个数
+     *
+     * @return
+     */
+    public abstract long getOutstandingRequests();
+    /**
+     * 获取接收到的packets个数
+     * @return
+     */
+    public long getPacketsReceived() {
+        return packetsReceived.longValue();
+    }
+    /**
+     * 获取已经发送packet个数
+     *
+     * @return
+     */
+    public long getPacketsSent() {
+        return packetsSent.longValue();
+    }
+    /**
+     * 最低延迟，毫秒
+     *
+     * @return
+     */
+    public synchronized long getMinLatency() {
+        return minLatency == Long.MAX_VALUE ? 0 : minLatency;
+    }
+    /**
+     * 平均延迟，毫秒
+     * @return
+     */
+    public synchronized long getAvgLatency() {
+        return count == 0 ? 0 : totalLatency / count;
+    }
+    /**
+     * 最高延迟，毫秒
+     *
+     * @return
+     */
+    public synchronized long getMaxLatency() {
+        return maxLatency;
+    }
+    /**
+     * 连接最后一次操作
+     *
+     * @return
+     */
+    public synchronized String getLastOperation() {
+        return lastOp;
+    }
+    /**
+     * 最后一次连接的cxid
+     *
+     * @return
+     */
+    public synchronized long getLastCxid() {
+        return lastCxid;
+    }
+    /**
+     * 最后一次连接的zxid
+     *
+     * @return
+     */
+    public synchronized long getLastZxid() {
+        return lastZxid;
+    }
+    /**
+     * 上次回复的时间
+     *
+     * @return
+     */
+    public synchronized long getLastResponseTime() {
+        return lastResponseTime;
+    }
+    /**
+     * 上一次回复的延迟
+     *
+     * @return
+     */
+    public synchronized long getLastLatency() {
+        return lastLatency;
+    }
+    /**
+     * 还原各种计数器
+     */
+    public synchronized void resetStats() {
+        packetsReceived.set(0);
+        packetsSent.set(0);
+        minLatency = Long.MAX_VALUE;
+        maxLatency = 0;
+        lastOp = "NA";
+        lastCxid = -1;
+        lastZxid = -1;
+        lastResponseTime = 0;
+        lastLatency = 0;
+
+        count = 0;
+        totalLatency = 0;
+    }
+    /**
+     * 将接收到的packets个数+1
+     *
+     * @return
+     */
+    protected long incrPacketsReceived() {
+        return packetsReceived.incrementAndGet();
+    }
+    /**
+     * 将请求已提交到队列但尚未处理的请求的数目+1
+     *
+     * @param h
+     */
+    protected void incrOutstandingRequests(RequestHeader h) {
+    }
+    /**
+     * 将已经发送packet个数
+     *
+     * @return
+     */
+    protected long incrPacketsSent() {
+        return packetsSent.incrementAndGet();
+    }
+    /**
+     * response后，调用该方法更新状态
+     *
+     * @param cxid
+     * @param zxid
+     * @param op
+     * @param start
+     * @param end
+     */
+    protected synchronized void updateStatsForResponse(long cxid, long zxid, String op, long start, long end) {
+        // don't overwrite with "special" xids - we're interested in the clients last real operation
+        if (cxid >= 0) {
+            lastCxid = cxid;
+        }
+        lastZxid = zxid;
+        lastOp = op;
+        lastResponseTime = end;
+        long elapsed = end - start;
+        lastLatency = elapsed;
+        if (elapsed < minLatency) {
+            minLatency = elapsed;
+        }
+        if (elapsed > maxLatency) {
+            maxLatency = elapsed;
+        }
+        count++;
+        totalLatency += elapsed;
+    }
+
+    /**
+     * Prints detailed stats information for the connection.
+     *
+     * @see #dumpConnectionInfo(PrintWriter, boolean) for brief stats
+     */
+    @Override
+    public String toString() {
+        StringWriter sw = new StringWriter();
+        PrintWriter pwriter = new PrintWriter(sw);
+        dumpConnectionInfo(pwriter, false);
+        pwriter.flush();
+        pwriter.close();
+        return sw.toString();
+    }
+
 }

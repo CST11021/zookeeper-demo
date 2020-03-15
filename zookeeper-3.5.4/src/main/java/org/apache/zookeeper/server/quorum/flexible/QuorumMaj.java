@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,20 +18,18 @@
 
 package org.apache.zookeeper.server.quorum.flexible;
 
-import java.util.HashMap;
-import java.util.Set;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Map.Entry;
-
 import org.apache.zookeeper.server.quorum.QuorumPeer.LearnerType;
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
 import org.apache.zookeeper.server.quorum.QuorumPeerConfig.ConfigException;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Set;
+
 /**
- * This class implements a validator for majority quorums. The implementation is
- * straightforward.
- * 
+ * QuorumVerifier有两个实现类，但现在基本都默认使用QuorumMaj类，即投票是否满足超过一半的集群数目
  */
 public class QuorumMaj implements QuorumVerifier {
     private Map<Long, QuorumServer> allMembers = new HashMap<Long, QuorumServer>();
@@ -40,32 +38,7 @@ public class QuorumMaj implements QuorumVerifier {
     private long version = 0;
     private int half;
 
-    public int hashCode() {
-        assert false : "hashCode not designed";
-        return 42; // any arbitrary constant will do
-    }
 
-    public boolean equals(Object o) {
-        if (!(o instanceof QuorumMaj)) {
-            return false;
-        }
-        QuorumMaj qm = (QuorumMaj) o;
-        if (qm.getVersion() == version)
-            return true;
-        if (allMembers.size() != qm.getAllMembers().size())
-            return false;
-        for (QuorumServer qs : allMembers.values()) {
-            QuorumServer qso = qm.getAllMembers().get(qs.id);
-            if (qso == null || !qs.equals(qso))
-                return false;
-        }
-        return true;
-    }
-
-    /**
-     * Defines a majority to avoid computing it every time.
-     * 
-     */
     public QuorumMaj(Map<Long, QuorumServer> allMembers) {
         this.allMembers = allMembers;
         for (QuorumServer qs : allMembers.values()) {
@@ -77,7 +50,6 @@ public class QuorumMaj implements QuorumVerifier {
         }
         half = votingMembers.size() / 2;
     }
-
     public QuorumMaj(Properties props) throws ConfigException {
         for (Entry<Object, Object> entry : props.entrySet()) {
             String key = entry.getKey().toString();
@@ -101,14 +73,63 @@ public class QuorumMaj implements QuorumVerifier {
     }
 
     /**
-     * Returns weight of 1 by default.
-     * 
+     * 这个方法在此类中是没有太多含义的，之所返回1是因为在totalOrderPredicate方法中有个判断，如果返回值==0会直接判小，这个在QuorumVerifier的另一个实现类中才会有返回0的可能性。
+     *
      * @param id
      */
     public long getWeight(long id) {
         return (long) 1;
     }
 
+    /**
+     * 判断投票值是否超过了一半的server
+     *
+     * @param ackSet
+     * @return
+     */
+    public boolean containsQuorum(Set<Long> ackSet) {
+        return (ackSet.size() > half);
+    }
+
+
+
+
+    public Map<Long, QuorumServer> getAllMembers() {
+        return allMembers;
+    }
+    public Map<Long, QuorumServer> getVotingMembers() {
+        return votingMembers;
+    }
+    public Map<Long, QuorumServer> getObservingMembers() {
+        return observingMembers;
+    }
+    public long getVersion() {
+        return version;
+    }
+    public void setVersion(long ver) {
+        version = ver;
+    }
+
+    public int hashCode() {
+        assert false : "hashCode not designed";
+        return 42; // any arbitrary constant will do
+    }
+    public boolean equals(Object o) {
+        if (!(o instanceof QuorumMaj)) {
+            return false;
+        }
+        QuorumMaj qm = (QuorumMaj) o;
+        if (qm.getVersion() == version)
+            return true;
+        if (allMembers.size() != qm.getAllMembers().size())
+            return false;
+        for (QuorumServer qs : allMembers.values()) {
+            QuorumServer qso = qm.getAllMembers().get(qs.id);
+            if (qso == null || !qs.equals(qso))
+                return false;
+        }
+        return true;
+    }
     public String toString() {
         StringBuilder sw = new StringBuilder();
 
@@ -124,33 +145,5 @@ public class QuorumMaj implements QuorumVerifier {
         sw.append("version=");
         sw.append(hexVersion);
         return sw.toString();
-    }    
-
-    /**
-     * Verifies if a set is a majority. Assumes that ackSet contains acks only
-     * from votingMembers
-     */
-    public boolean containsQuorum(Set<Long> ackSet) {
-        return (ackSet.size() > half);
-    }
-
-    public Map<Long, QuorumServer> getAllMembers() {
-        return allMembers;
-    }
-
-    public Map<Long, QuorumServer> getVotingMembers() {
-        return votingMembers;
-    }
-
-    public Map<Long, QuorumServer> getObservingMembers() {
-        return observingMembers;
-    }
-
-    public long getVersion() {
-        return version;
-    }
-    
-    public void setVersion(long ver) {
-        version = ver;
     }
 }

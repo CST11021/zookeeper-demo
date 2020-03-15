@@ -29,128 +29,98 @@ import java.util.Set;
 import java.util.Arrays;
 
 /**
- * This class contains constants for all the four letter commands
+ * 这个类包含所有四个字母命令的常量
  */
 public class FourLetterCommands {
-    /*
-     * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
-     * Zk Admin</a>. this link is for all the commands.
-     */
-    public final static int confCmd =
-        ByteBuffer.wrap("conf".getBytes()).getInt();
 
-    /*
-     * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
-     * Zk Admin</a>. this link is for all the commands.
-     */
-    public final static int consCmd =
-        ByteBuffer.wrap("cons".getBytes()).getInt();
+    private static final Logger LOG = LoggerFactory.getLogger(FourLetterCommands.class);
 
-    /*
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int crstCmd =
-        ByteBuffer.wrap("crst".getBytes()).getInt();
-
-    /*
+    public final static int confCmd = ByteBuffer.wrap("conf".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int dirsCmd =
-        ByteBuffer.wrap("dirs".getBytes()).getInt();
-
-    /*
+    public final static int consCmd = ByteBuffer.wrap("cons".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int dumpCmd =
-        ByteBuffer.wrap("dump".getBytes()).getInt();
-
-    /*
+    public final static int crstCmd = ByteBuffer.wrap("crst".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int enviCmd =
-        ByteBuffer.wrap("envi".getBytes()).getInt();
-
-    /*
+    public final static int dirsCmd = ByteBuffer.wrap("dirs".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int getTraceMaskCmd =
-        ByteBuffer.wrap("gtmk".getBytes()).getInt();
-
-    /*
+    public final static int dumpCmd = ByteBuffer.wrap("dump".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int ruokCmd =
-        ByteBuffer.wrap("ruok".getBytes()).getInt();
-    /*
+    public final static int enviCmd = ByteBuffer.wrap("envi".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int setTraceMaskCmd =
-        ByteBuffer.wrap("stmk".getBytes()).getInt();
-
-    /*
+    public final static int getTraceMaskCmd = ByteBuffer.wrap("gtmk".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int srvrCmd =
-        ByteBuffer.wrap("srvr".getBytes()).getInt();
-
-    /*
+    public final static int ruokCmd = ByteBuffer.wrap("ruok".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int srstCmd =
-        ByteBuffer.wrap("srst".getBytes()).getInt();
-
-    /*
+    public final static int setTraceMaskCmd = ByteBuffer.wrap("stmk".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int statCmd =
-        ByteBuffer.wrap("stat".getBytes()).getInt();
-
-    /*
+    public final static int srvrCmd = ByteBuffer.wrap("srvr".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int wchcCmd =
-        ByteBuffer.wrap("wchc".getBytes()).getInt();
-
-    /*
+    public final static int srstCmd = ByteBuffer.wrap("srst".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int wchpCmd =
-        ByteBuffer.wrap("wchp".getBytes()).getInt();
-
-    /*
+    public final static int statCmd = ByteBuffer.wrap("stat".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int wchsCmd =
-        ByteBuffer.wrap("wchs".getBytes()).getInt();
-
-    /*
+    public final static int wchcCmd = ByteBuffer.wrap("wchc".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int mntrCmd = ByteBuffer.wrap("mntr".getBytes())
-            .getInt();
-
-    /*
+    public final static int wchpCmd = ByteBuffer.wrap("wchp".getBytes()).getInt();
+    /**
      * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
      * Zk Admin</a>. this link is for all the commands.
      */
-    public final static int isroCmd = ByteBuffer.wrap("isro".getBytes())
-            .getInt();
-
-    /*
+    public final static int wchsCmd = ByteBuffer.wrap("wchs".getBytes()).getInt();
+    /**
+     * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
+     * Zk Admin</a>. this link is for all the commands.
+     */
+    public final static int mntrCmd = ByteBuffer.wrap("mntr".getBytes()).getInt();
+    /**
+     * See <a href="{@docRoot}/../../../docs/zookeeperAdmin.html#sc_zkCommands">
+     * Zk Admin</a>. this link is for all the commands.
+     */
+    public final static int isroCmd = ByteBuffer.wrap("isro".getBytes()).getInt();
+    /**
      * The control sequence sent by the telnet program when it closes a
      * connection. Include simply to keep the logs cleaner (the server would
      * close the connection anyway because it would parse this as a negative
@@ -158,83 +128,16 @@ public class FourLetterCommands {
      */
     public final static int telnetCloseCmd = 0xfff4fffd;
 
+    /** 在zookeper -2693中，我们引入了一个配置选项，只允许执行指定的白名单命令，只有在白名单中配置了命令才会执行。 */
     private static final String ZOOKEEPER_4LW_COMMANDS_WHITELIST = "zookeeper.4lw.commands.whitelist";
 
-    private static final Logger LOG = LoggerFactory.getLogger(FourLetterCommands.class);
-
+    /** 用于保存命令编码对应的命令 */
     private static final Map<Integer, String> cmd2String = new HashMap<Integer, String>();
 
     private static final Set<String> whiteListedCommands = new HashSet<String>();
 
+    /** 用于标记是否初始化了白名单命令 */
     private static boolean whiteListInitialized = false;
-
-    // @VisibleForTesting
-    public synchronized static void resetWhiteList() {
-        whiteListInitialized = false;
-        whiteListedCommands.clear();
-    }
-
-    /**
-     * Return the string representation of the specified command code.
-     */
-    public static String getCommandString(int command) {
-        return cmd2String.get(command);
-    }
-
-    /**
-     * Check if the specified command code is from a known command.
-     *
-     * @param command The integer code of command.
-     * @return true if the specified command is known, false otherwise.
-     */
-    public static boolean isKnown(int command) {
-        return cmd2String.containsKey(command);
-    }
-
-    /**
-     * Check if the specified command is enabled.
-     *
-     * In ZOOKEEPER-2693 we introduce a configuration option to only
-     * allow a specific set of white listed commands to execute.
-     * A command will only be executed if it is also configured
-     * in the white list.
-     *
-     * @param command The command string.
-     * @return true if the specified command is enabled
-     */
-    public synchronized static boolean isEnabled(String command) {
-        if (whiteListInitialized) {
-            return whiteListedCommands.contains(command);
-        }
-
-        String commands = System.getProperty(ZOOKEEPER_4LW_COMMANDS_WHITELIST);
-        if (commands != null) {
-            String[] list = commands.split(",");
-            for (String cmd : list) {
-                if (cmd.trim().equals("*")) {
-                    for (Map.Entry<Integer, String> entry : cmd2String.entrySet()) {
-                        whiteListedCommands.add(entry.getValue());
-                    }
-                    break;
-                }
-                if (!cmd.trim().isEmpty()) {
-                    whiteListedCommands.add(cmd.trim());
-                }
-            }
-        }
-
-        // It is sad that isro and srvr are used by ZooKeeper itself. Need fix this
-        // before deprecating 4lw.
-        if (System.getProperty("readonlymode.enabled", "false").equals("true")) {
-            whiteListedCommands.add("isro");
-        }
-        // zkServer.sh depends on "srvr".
-        whiteListedCommands.add("srvr");
-        whiteListInitialized = true;
-        LOG.info("The list of known four letter word commands is : {}", Arrays.asList(cmd2String));
-        LOG.info("The list of enabled four letter word commands is : {}", Arrays.asList(whiteListedCommands));
-        return whiteListedCommands.contains(command);
-    }
 
     // specify all of the commands that are available
     static {
@@ -257,4 +160,77 @@ public class FourLetterCommands {
         cmd2String.put(isroCmd, "isro");
         cmd2String.put(telnetCloseCmd, "telnet close");
     }
+
+    /**
+     * 清除四字命令白名单
+     */
+    public synchronized static void resetWhiteList() {
+        whiteListInitialized = false;
+        whiteListedCommands.clear();
+    }
+
+    /**
+     * 返回指定命令代码的字符串表示形式。
+     *
+     * @param command
+     * @return
+     */
+    public static String getCommandString(int command) {
+        return cmd2String.get(command);
+    }
+
+    /**
+     * 检查指定的命令代码是否来正确
+     *
+     * @param command The integer code of command.
+     * @return true if the specified command is known, false otherwise.
+     */
+    public static boolean isKnown(int command) {
+        return cmd2String.containsKey(command);
+    }
+
+    /**
+     * 检查指定的命令是否已启用。
+     *
+     * 在zookeper -2693中，我们引入了一个配置选项，只允许执行指定的白名单命令，只有在白名单中配置了命令才会执行。
+     *
+     * @param command The command string.
+     * @return true if the specified command is enabled
+     */
+    public synchronized static boolean isEnabled(String command) {
+        if (whiteListInitialized) {
+            return whiteListedCommands.contains(command);
+        }
+
+        // 解析配置的白名单命令
+        String commands = System.getProperty(ZOOKEEPER_4LW_COMMANDS_WHITELIST);
+        if (commands != null) {
+            String[] list = commands.split(",");
+            for (String cmd : list) {
+                if (cmd.trim().equals("*")) {
+                    for (Map.Entry<Integer, String> entry : cmd2String.entrySet()) {
+                        whiteListedCommands.add(entry.getValue());
+                    }
+                    break;
+                }
+                if (!cmd.trim().isEmpty()) {
+                    whiteListedCommands.add(cmd.trim());
+                }
+            }
+        }
+
+        // 令人遗憾的是，isro和srvr被zookeeper自己使用了，在弃用4字命令之前需要修复这个问题
+        if (System.getProperty("readonlymode.enabled", "false").equals("true")) {
+            whiteListedCommands.add("isro");
+        }
+
+        // zkServer.sh depends on "srvr".
+        whiteListedCommands.add("srvr");
+        whiteListInitialized = true;
+        LOG.info("The list of known four letter word commands is : {}", Arrays.asList(cmd2String));
+        LOG.info("The list of enabled four letter word commands is : {}", Arrays.asList(whiteListedCommands));
+        return whiteListedCommands.contains(command);
+    }
+
+
 }

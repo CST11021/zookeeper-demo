@@ -539,8 +539,15 @@ public class ZKDatabase {
         this.snapLog.close();
     }
 
+    /**
+     * 初始化dataTree中"/zookeeper/config"的节点信息
+     *
+     * @param qv
+     */
     public synchronized void initConfigInZKDatabase(QuorumVerifier qv) {
-        if (qv == null) return; // only happens during tests
+        // only happens during tests
+        if (qv == null) return;
+
         try {
             if (this.dataTree.getNode(ZooDefs.CONFIG_NODE) == null) {
                 // should only happen during upgrade

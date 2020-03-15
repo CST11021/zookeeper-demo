@@ -27,28 +27,20 @@ import java.net.InetSocketAddress;
 import java.util.Arrays;
 
 /**
- * Server configuration storage.
- *
- * We use this instead of Properties as it's typed.
- *
+ * 服务器配置存储。我们使用它来代替属性类型。 *
  */
 @InterfaceAudience.Public
 public class ServerConfig {
     ////
-    //// If you update the configuration parameters be sure
-    //// to update the "conf" 4letter word
+    //// If you update the configuration parameters be sure to update the "conf" 4letter word
     ////
 
-    /**
-     * 对客户端暴露的端口，一般为2181
-     */
+    /** 对客户端暴露的端口，一般为2181 */
     protected InetSocketAddress clientPortAddress;
-
     /**
      *
      */
     protected InetSocketAddress secureClientPortAddress;
-
     /**
      * 表示内存数据库快照存放地址
      *
@@ -58,7 +50,6 @@ public class ServerConfig {
      * (内存数据库快照存放地址，如果没有指定事务日志存放地址(dataLogDir)，默认也是存放在这个路径下，建议两个地址分开存放到不同的设备上。)
      */
     protected File dataDir;
-
     /**
      * 表示事务日志文件的目录
      *
@@ -70,19 +61,14 @@ public class ServerConfig {
      * 配置一个单独的磁盘或是挂载点，将极大地提升zk的整体性能。
      */
     protected File dataLogDir;
-
     /**
      * 该参数有默认值：3000，单位是毫秒，可以不配置，不支持系统属性方式配置。
      * 参数tickTime用于配置zk中最小时间单元的长度，很多运行时的时间间隔都是使用tickTime的倍数来表示的。
      * 例如，zk中会话的最小超时时间默认是2*tickTime。(心跳基本时间单位，毫秒级，ZK基本上所有的时间都是这个时间的整数倍)。
      */
     protected int tickTime = ZooKeeperServer.DEFAULT_TICK_TIME;
-
-    /**
-     * 控制最大客户端连接数
-     */
+    /** 控制最大客户端连接数 */
     protected int maxClientCnxns;
-
     /** 最小的客户端session超时时间，默认值为2个tickTime，单位是毫秒，如果没有显式设置，则默认为-1，表示使用默认值 */
     protected int minSessionTimeout = -1;
     /** 最大的客户端session超时时间，默认值为20个tickTime，单位是毫秒，如果没有显式设置，则默认为-1，表示使用默认值 */
@@ -109,7 +95,6 @@ public class ServerConfig {
             maxClientCnxns = Integer.parseInt(args[3]);
         }
     }
-
     /**
      * Parse a ZooKeeper configuration file
      * @param path the patch of the configuration file
@@ -139,6 +124,9 @@ public class ServerConfig {
         minSessionTimeout = config.getMinSessionTimeout();
         maxSessionTimeout = config.getMaxSessionTimeout();
     }
+
+
+    // getter ...
 
     public InetSocketAddress getClientPortAddress() {
         return clientPortAddress;

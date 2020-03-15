@@ -18,18 +18,25 @@
 
 package org.apache.zookeeper.server.command;
 
-import java.io.PrintWriter;
-
 import org.apache.zookeeper.server.ServerCnxn;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 
+import java.io.PrintWriter;
+
 public class CommandExecutor {
+
     /**
-     * This class decides which command to be executed and then executes
+     * 该类决定执行哪个命令，然后执行
+     *
+     * @param serverCnxn
+     * @param pwriter
+     * @param commandCode
+     * @param zkServer
+     * @param factory
+     * @return
      */
-    public boolean execute(ServerCnxn serverCnxn, PrintWriter pwriter,
-            final int commandCode, ZooKeeperServer zkServer, ServerCnxnFactory factory) {
+    public boolean execute(ServerCnxn serverCnxn, PrintWriter pwriter, final int commandCode, ZooKeeperServer zkServer, ServerCnxnFactory factory) {
         AbstractFourLetterCommand command = getCommand(serverCnxn,pwriter, commandCode);
 
         if (command == null) {
@@ -42,8 +49,15 @@ public class CommandExecutor {
         return true;
     }
 
-    private AbstractFourLetterCommand getCommand(ServerCnxn serverCnxn,
-            PrintWriter pwriter, final int commandCode) {
+    /**
+     * 根据命令编码获取对应的四字命令
+     *
+     * @param serverCnxn
+     * @param pwriter
+     * @param commandCode
+     * @return
+     */
+    private AbstractFourLetterCommand getCommand(ServerCnxn serverCnxn, PrintWriter pwriter, final int commandCode) {
         AbstractFourLetterCommand command = null;
         if (commandCode == FourLetterCommands.ruokCmd) {
             command = new RuokCommand(pwriter, serverCnxn);

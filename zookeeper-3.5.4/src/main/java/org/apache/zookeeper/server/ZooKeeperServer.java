@@ -961,6 +961,13 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return zkDb.getEphemerals();
     }
 
+    /**
+     * 读取请求的数据到incomingBuffer
+     *
+     * @param cnxn
+     * @param incomingBuffer
+     * @throws IOException
+     */
     public void processConnectRequest(ServerCnxn cnxn, ByteBuffer incomingBuffer) throws IOException {
         BinaryInputArchive bia = BinaryInputArchive.getArchive(new ByteBufferInputStream(incomingBuffer));
         ConnectRequest connReq = new ConnectRequest();

@@ -18,14 +18,13 @@
 
 package org.apache.zookeeper.server.quorum.auth;
 
-import java.io.DataInputStream;
-import java.io.IOException;
 import org.apache.jute.BinaryInputArchive;
-
+import org.apache.zookeeper.server.quorum.QuorumAuthPacket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.zookeeper.server.quorum.QuorumAuthPacket;
+import java.io.DataInputStream;
+import java.io.IOException;
 
 public class QuorumAuth {
     private static final Logger LOG = LoggerFactory.getLogger(QuorumAuth.class);
@@ -51,6 +50,7 @@ public class QuorumAuth {
     // server, it'll think the received packet is an authentication packet
     public static final long QUORUM_AUTH_MAGIC_NUMBER = -0xa0dbcafecafe1234L;
 
+    /***/
     public enum Status {
          IN_PROGRESS(0), SUCCESS(1), ERROR(-1);
         private int status;

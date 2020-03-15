@@ -21,8 +21,7 @@ package org.apache.zookeeper.server.quorum.auth;
 import java.net.Socket;
 
 /**
- * This class represents no authentication learner, it just return
- * without performing any authentication.
+ * 这个类表示不进行任何身份验证，它只是返回而不执行任何身份验证。
  */
 public class NullQuorumAuthLearner implements QuorumAuthLearner {
 
@@ -30,4 +29,5 @@ public class NullQuorumAuthLearner implements QuorumAuthLearner {
     public void authenticate(Socket sock, String hostname) {
         return; // simply return don't require auth
     }
+
 }

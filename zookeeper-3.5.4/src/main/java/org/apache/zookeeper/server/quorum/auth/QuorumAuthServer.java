@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.net.Socket;
 
 /**
- * Interface for quorum server authentication mechanisms.
+ * Quorum服务器身份验证机制的接口
  */
 public interface QuorumAuthServer {
 

@@ -18,28 +18,29 @@
 
 package org.apache.zookeeper.server.command;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-
 import org.apache.zookeeper.server.ServerCnxn;
 import org.apache.zookeeper.server.ServerCnxnFactory;
 import org.apache.zookeeper.server.ZooKeeperServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+
 /**
- * Set of threads for command ports. All the 4 letter commands are run via a
- * thread. Each class maps to a correspoding 4 letter command. CommandThread is
- * the abstract class from which all the others inherit.
+ * zk四字命令的父类，所有4个字母的命令都是通过一个线程运行的。每个类映射到一个相应的字母命令。
  */
 public abstract class AbstractFourLetterCommand {
-    private static final Logger LOG = LoggerFactory
-        .getLogger(AbstractFourLetterCommand.class);
 
+    private static final Logger LOG = LoggerFactory.getLogger(AbstractFourLetterCommand.class);
+
+    /** 作为提示信息，意思是：这个ZooKeeper实例当前不服务请求 */
     public static final String ZK_NOT_SERVING = "This ZooKeeper instance is not currently serving requests";
 
+    /** 用于将命令的执行结果输出到控制台 */
     protected PrintWriter pw;
     protected ServerCnxn serverCnxn;
+    /** 表示执行命令的zk服务 */
     protected ZooKeeperServer zkServer;
     protected ServerCnxnFactory factory;
 
@@ -48,10 +49,16 @@ public abstract class AbstractFourLetterCommand {
         this.serverCnxn = serverCnxn;
     }
 
+    /**
+     * 线程开始
+     */
     public void start() {
         run();
     }
 
+    /**
+     * 执行命令
+     */
     public void run() {
         try {
             commandRun();
@@ -77,5 +84,10 @@ public abstract class AbstractFourLetterCommand {
         this.factory = factory;
     }
 
+    /**
+     * 执行命令，抽象方法，留给子类实现
+     *
+     * @throws IOException
+     */
     public abstract void commandRun() throws IOException;
 }

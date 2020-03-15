@@ -18,21 +18,17 @@
 
 package org.apache.zookeeper.server;
 
-import java.io.File;
-import java.io.FileFilter;
-import java.io.IOException;
-import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.yetus.audience.InterfaceAudience;
 import org.apache.zookeeper.server.persistence.FileTxnSnapLog;
 import org.apache.zookeeper.server.persistence.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.text.DateFormat;
+import java.util.*;
 
 /**
  * this class is used to clean up the 
@@ -44,6 +40,7 @@ import org.slf4j.LoggerFactory;
  */
 @InterfaceAudience.Public
 public class PurgeTxnLog {
+
     private static final Logger LOG = LoggerFactory.getLogger(PurgeTxnLog.class);
 
     private static final String COUNT_ERR_MSG = "count should be greater than or equal to 3";
@@ -61,14 +58,11 @@ public class PurgeTxnLog {
     private static final String PREFIX_LOG = "log";
 
     /**
-     * Purges the snapshot and logs keeping the last num snapshots and the
-     * corresponding logs. If logs are rolling or a new snapshot is created
-     * during this process, these newest N snapshots or any data logs will be
-     * excluded from current purging cycle.
+     * 清除最近保存的快照和日志，如果日志正在滚动或在此过程中创建了一个新的快照，这些最新的N个快照或任何数据日志将被排除在当前清除周期之外。
      *
-     * @param dataDir the dir that has the logs
-     * @param snapDir the dir that has the snapshots
-     * @param num the number of snapshots to keep
+     * @param dataDir zk事务日志
+     * @param snapDir zk快照日志
+     * @param num 要保存的快照的数量
      * @throws IOException
      */
     public static void purge(File dataDir, File snapDir, int num) throws IOException {
@@ -85,10 +79,9 @@ public class PurgeTxnLog {
         }
     }
 
-    // VisibleForTesting
     static void purgeOlderSnapshots(FileTxnSnapLog txnLog, File snapShot) {
-        final long leastZxidToBeRetain = Util.getZxidFromName(
-                snapShot.getName(), PREFIX_SNAPSHOT);
+
+        final long leastZxidToBeRetain = Util.getZxidFromName(snapShot.getName(), PREFIX_SNAPSHOT);
 
         /**
          * We delete all files with a zxid in their name that is less than leastZxidToBeRetain.
@@ -161,34 +154,6 @@ public class PurgeTxnLog {
         }
 
     }
-    
-    /**
-     * @param args dataLogDir [snapDir] -n count
-     * dataLogDir -- path to the txn log directory
-     * snapDir -- path to the snapshot directory
-     * count -- the number of old snaps/logs you want to keep, value should be greater than or equal to 3<br>
-     */
-    public static void main(String[] args) throws IOException {
-        if (args.length < 3 || args.length > 4) {
-            printUsageThenExit();
-        }
-        File dataDir = validateAndGetFile(args[0]);
-        File snapDir = dataDir;
-        int num = -1;
-        String countOption = "";
-        if (args.length == 3) {
-            countOption = args[1];
-            num = validateAndGetCount(args[2]);
-        } else {
-            snapDir = validateAndGetFile(args[1]);
-            countOption = args[2];
-            num = validateAndGetCount(args[3]);
-        }
-        if (!"-n".equals(countOption)) {
-            printUsageThenExit();
-        }
-        purge(dataDir, snapDir, num);
-    }
 
     /**
      * validates file existence and returns the file
@@ -232,5 +197,34 @@ public class PurgeTxnLog {
     private static void printUsageThenExit() {
         printUsage();
         System.exit(1);
+    }
+
+    /**
+     * @param args dataLogDir [snapDir] -n count
+     * dataLogDir -- path to the txn log directory
+     * snapDir -- path to the snapshot directory
+     * count -- the number of old snaps/logs you want to keep, value should be greater than or equal to 3<br>
+     */
+    public static void main(String[] args) throws IOException {
+        if (args.length < 3 || args.length > 4) {
+            printUsageThenExit();
+        }
+
+        File dataDir = validateAndGetFile(args[0]);
+        File snapDir = dataDir;
+        int num = -1;
+        String countOption = "";
+        if (args.length == 3) {
+            countOption = args[1];
+            num = validateAndGetCount(args[2]);
+        } else {
+            snapDir = validateAndGetFile(args[1]);
+            countOption = args[2];
+            num = validateAndGetCount(args[3]);
+        }
+        if (!"-n".equals(countOption)) {
+            printUsageThenExit();
+        }
+        purge(dataDir, snapDir, num);
     }
 }

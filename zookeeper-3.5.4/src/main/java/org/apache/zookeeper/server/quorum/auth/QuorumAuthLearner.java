@@ -29,12 +29,10 @@ public interface QuorumAuthLearner {
     /**
      * Performs an authentication step for the given socket connection.
      *
-     * @param sock
-     *            socket connection to other quorum peer server
-     * @param hostname
-     *            host name of other quorum peer server
-     * @throws IOException
-     *             if there is an authentication failure
+     * @param sock          socket connection to other quorum peer server
+     * @param hostname      host name of other quorum peer server
+     * @throws IOException  if there is an authentication failure
      */
     public void authenticate(Socket sock, String hostname) throws IOException;
+
 }

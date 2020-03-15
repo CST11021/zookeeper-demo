@@ -18,21 +18,6 @@
 
 package org.apache.zookeeper.server;
 
-import static org.jboss.netty.buffer.ChannelBuffers.wrappedBuffer;
-
-import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Writer;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-import java.nio.ByteBuffer;
-import java.security.cert.Certificate;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.jute.BinaryInputArchive;
 import org.apache.jute.BinaryOutputArchive;
 import org.apache.jute.Record;
@@ -51,6 +36,17 @@ import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.nio.ByteBuffer;
+import java.security.cert.Certificate;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.jboss.netty.buffer.ChannelBuffers.wrappedBuffer;
 
 public class NettyServerCnxn extends ServerCnxn {
     private static final Logger LOG = LoggerFactory.getLogger(NettyServerCnxn.class);
@@ -320,19 +316,20 @@ public class NettyServerCnxn extends ServerCnxn {
         }
     }
 
+    /**
+     * 接收消息
+     *
+     * @param message
+     */
     public void receiveMessage(ChannelBuffer message) {
         try {
             while(message.readable() && !throttled) {
                 if (bb != null) {
                     if (LOG.isTraceEnabled()) {
-                        LOG.trace("message readable " + message.readableBytes()
-                                + " bb len " + bb.remaining() + " " + bb);
+                        LOG.trace("message readable " + message.readableBytes() + " bb len " + bb.remaining() + " " + bb);
                         ByteBuffer dat = bb.duplicate();
                         dat.flip();
-                        LOG.trace(Long.toHexString(sessionId)
-                                + " bb 0x"
-                                + ChannelBuffers.hexDump(
-                                        ChannelBuffers.copiedBuffer(dat)));
+                        LOG.trace(Long.toHexString(sessionId) + " bb 0x" + ChannelBuffers.hexDump(ChannelBuffers.copiedBuffer(dat)));
                     }
 
                     if (bb.remaining() > message.readableBytes()) {
@@ -343,16 +340,10 @@ public class NettyServerCnxn extends ServerCnxn {
                     bb.limit(bb.capacity());
 
                     if (LOG.isTraceEnabled()) {
-                        LOG.trace("after readBytes message readable "
-                                + message.readableBytes()
-                                + " bb len " + bb.remaining() + " " + bb);
+                        LOG.trace("after readBytes message readable " + message.readableBytes() + " bb len " + bb.remaining() + " " + bb);
                         ByteBuffer dat = bb.duplicate();
                         dat.flip();
-                        LOG.trace("after readbytes "
-                                + Long.toHexString(sessionId)
-                                + " bb 0x"
-                                + ChannelBuffers.hexDump(
-                                        ChannelBuffers.copiedBuffer(dat)));
+                        LOG.trace("after readbytes " + Long.toHexString(sessionId) + " bb 0x" + ChannelBuffers.hexDump(ChannelBuffers.copiedBuffer(dat)));
                     }
                     if (bb.remaining() == 0) {
                         packetReceived();
@@ -369,8 +360,8 @@ public class NettyServerCnxn extends ServerCnxn {
                                 disableRecvNoWait();
                             }
                         } else {
-                            LOG.debug("got conn req request from "
-                                    + getRemoteSocketAddress());
+                            LOG.debug("got conn req request from " + getRemoteSocketAddress());
+                            // 读取请求的数据到bb
                             zks.processConnectRequest(this, bb);
                             initialized = true;
                         }
@@ -378,15 +369,10 @@ public class NettyServerCnxn extends ServerCnxn {
                     }
                 } else {
                     if (LOG.isTraceEnabled()) {
-                        LOG.trace("message readable "
-                                + message.readableBytes()
-                                + " bblenrem " + bbLen.remaining());
+                        LOG.trace("message readable " + message.readableBytes() + " bblenrem " + bbLen.remaining());
                         ByteBuffer dat = bbLen.duplicate();
                         dat.flip();
-                        LOG.trace(Long.toHexString(sessionId)
-                                + " bbLen 0x"
-                                + ChannelBuffers.hexDump(
-                                        ChannelBuffers.copiedBuffer(dat)));
+                        LOG.trace(Long.toHexString(sessionId) + " bbLen 0x" + ChannelBuffers.hexDump(ChannelBuffers.copiedBuffer(dat)));
                     }
 
                     if (message.readableBytes() < bbLen.remaining()) {
@@ -398,15 +384,11 @@ public class NettyServerCnxn extends ServerCnxn {
                         bbLen.flip();
 
                         if (LOG.isTraceEnabled()) {
-                            LOG.trace(Long.toHexString(sessionId)
-                                    + " bbLen 0x"
-                                    + ChannelBuffers.hexDump(
-                                            ChannelBuffers.copiedBuffer(bbLen)));
+                            LOG.trace(Long.toHexString(sessionId) + " bbLen 0x" + ChannelBuffers.hexDump(ChannelBuffers.copiedBuffer(bbLen)));
                         }
                         int len = bbLen.getInt();
                         if (LOG.isTraceEnabled()) {
-                            LOG.trace(Long.toHexString(sessionId)
-                                    + " bbLen len is " + len);
+                            LOG.trace(Long.toHexString(sessionId) + " bbLen len is " + len);
                         }
 
                         bbLen.clear();

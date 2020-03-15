@@ -18,15 +18,15 @@
 
 package org.apache.zookeeper.server.quorum.flexible;
 
-import java.util.Set;
-import java.util.Map;
-
 import org.apache.zookeeper.server.quorum.QuorumPeer.QuorumServer;
 
+import java.util.Map;
+import java.util.Set;
+
 /**
- * All quorum validators have to implement a method called
- * containsQuorum, which verifies if a HashSet of server 
- * identifiers constitutes a quorum.
+ * QuorumVerifier有两个实现类，但现在基本都默认使用QuorumMaj类，即投票是否满足超过一半的集群数目
+ *
+ * 注意：所有quorum验证器都必须实现一个名为containsQuorum的方法，该方法验证服务器标识符的HashSet是否构成quorum。
  *
  */
 

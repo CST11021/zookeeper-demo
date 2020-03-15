@@ -32,7 +32,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 
 /**
- * A collection of utility methods for dealing with file name parsing, 
+ * A collection of utility methods for dealing with file name parsing,
  * low level I/O file operations and marshalling/unmarshalling.
  */
 public class Util {
@@ -41,8 +41,7 @@ public class Util {
     private static final String LOG_DIR = "logDir";
     private static final String DB_FORMAT_CONV = "dbFormatConversion";
 
-    public static String makeURIString(String dataDir, String dataLogDir,
-                                       String convPolicy) {
+    public static String makeURIString(String dataDir, String dataLogDir, String convPolicy) {
         String uri = "file:" + SNAP_DIR + "=" + dataDir + ";" + LOG_DIR + "=" + dataLogDir;
         if (convPolicy != null)
             uri += ";" + DB_FORMAT_CONV + "=" + convPolicy;
@@ -50,12 +49,12 @@ public class Util {
     }
 
     /**
-     * Given two directory files the method returns a well-formed 
+     * Given two directory files the method returns a well-formed
      * logfile provider URI. This method is for backward compatibility with the
      * existing code that only supports logfile persistence and expects these two
      * parameters passed either on the command-line or in the configuration file.
      *
-     * @param dataDir snapshot directory
+     * @param dataDir    snapshot directory
      * @param dataLogDir transaction log directory
      * @return logfile provider URI
      */
@@ -68,7 +67,7 @@ public class Util {
     }
 
     /**
-     * Creates a valid transaction log file name. 
+     * Creates a valid transaction log file name.
      *
      * @param zxid used as a file name suffix (extension)
      * @return file name
@@ -121,7 +120,7 @@ public class Util {
      * 从文件名中提取zxid。
      * 文件名应该是使用{@link #makeLogName(long)}或{@link #makeSnapshotName(long)}中的一个创建的。
      *
-     * @param name the file name to parse
+     * @param name   the file name to parse
      * @param prefix the file name prefix (snapshot or log)
      * @return zxid
      */
@@ -142,7 +141,7 @@ public class Util {
      * 快照可能是无效的，如果它是不完整的情况下，当服务器死亡，而在存储快照的过程中。
      * 任何不是快照的文件也是无效的快照。
      *
-     * @param f     要校验的快照文件
+     * @param f 要校验的快照文件
      * @return true if the snapshot is valid
      * @throws IOException
      */
@@ -183,6 +182,7 @@ public class Util {
 
     /**
      * Reads a transaction entry from the input archive.
+     *
      * @param ia archive to read from
      * @return null if the entry is corrupted or EOF has been reached; a buffer
      * (possible empty) containing serialized transaction record.
@@ -205,7 +205,6 @@ public class Util {
         return null;
     }
 
-
     /**
      * Serializes transaction header and transaction data into a byte buffer.
      *
@@ -214,8 +213,7 @@ public class Util {
      * @return serialized transaction record
      * @throws IOException
      */
-    public static byte[] marshallTxnEntry(TxnHeader hdr, Record txn)
-            throws IOException {
+    public static byte[] marshallTxnEntry(TxnHeader hdr, Record txn) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         OutputArchive boa = BinaryOutputArchive.getArchive(baos);
 
@@ -229,23 +227,20 @@ public class Util {
     /**
      * Write the serialized transaction record to the output archive.
      *
-     * @param oa output archive
+     * @param oa    output archive
      * @param bytes serialized transaction record
      * @throws IOException
      */
-    public static void writeTxnBytes(OutputArchive oa, byte[] bytes)
-            throws IOException {
+    public static void writeTxnBytes(OutputArchive oa, byte[] bytes) throws IOException {
         oa.writeBuffer(bytes, "txnEntry");
         oa.writeByte((byte) 0x42, "EOR"); // 'B'
     }
-
 
     /**
      * Compare file file names of form "prefix.version". Sort order result
      * returned in order of version.
      */
-    private static class DataDirFileComparator
-            implements Comparator<File>, Serializable {
+    private static class DataDirFileComparator implements Comparator<File>, Serializable {
         private static final long serialVersionUID = -2648639884525140318L;
 
         private String prefix;
@@ -270,7 +265,6 @@ public class Util {
      * /tmp/zookeeper/version-2/snapshot.8
      * /tmp/zookeeper/version-2/log.9
      * /tmp/zookeeper/version-2/log.1
-     *
      *
      * @param files     要排序的文件
      * @param prefix    不匹配此前缀的文件被假定为version = -1)
