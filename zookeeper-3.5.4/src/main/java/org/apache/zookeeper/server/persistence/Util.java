@@ -67,9 +67,9 @@ public class Util {
     }
 
     /**
-     * Creates a valid transaction log file name.
+     * 创建一个有效的事务日志文件名
      *
-     * @param zxid used as a file name suffix (extension)
+     * @param zxid 将事务id作为文件的后缀扩展
      * @return file name
      */
     public static String makeLogName(long zxid) {
@@ -120,8 +120,8 @@ public class Util {
      * 从文件名中提取zxid。
      * 文件名应该是使用{@link #makeLogName(long)}或{@link #makeSnapshotName(long)}中的一个创建的。
      *
-     * @param name   the file name to parse
-     * @param prefix the file name prefix (snapshot or log)
+     * @param name   要解析的文件
+     * @param prefix 要解析的文件名前缀(snapshot 或者 log)
      * @return zxid
      */
     public static long getZxidFromName(String name, String prefix) {
@@ -206,7 +206,7 @@ public class Util {
     }
 
     /**
-     * Serializes transaction header and transaction data into a byte buffer.
+     * 将事务头和事务数据序列化为字节
      *
      * @param hdr transaction header
      * @param txn transaction data
@@ -225,10 +225,10 @@ public class Util {
     }
 
     /**
-     * Write the serialized transaction record to the output archive.
+     * 将事务头和事务数据输出到序列化器oa
      *
-     * @param oa    output archive
-     * @param bytes serialized transaction record
+     * @param oa        output archive
+     * @param bytes     表示将事务头和事务数据序列化后的字节
      * @throws IOException
      */
     public static void writeTxnBytes(OutputArchive oa, byte[] bytes) throws IOException {

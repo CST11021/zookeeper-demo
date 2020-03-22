@@ -132,7 +132,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     /** 当前机器myid(sid) */
     private long myid;
     /**
-     * This is who I think the leader currently is.
+     * 表示当前该QuorumPeer认为的Leader，及当前的投票结果
      */
     volatile private Vote currentVote;
     private volatile boolean running = true;
@@ -152,9 +152,9 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     protected int minSessionTimeout = -1;
     /** 参考：{@link QuorumPeerConfig#maxSessionTimeout} */
     protected int maxSessionTimeout = -1;
-    /** 初始同步阶段可以接受的节拍数，参考：{@link QuorumPeerConfig#initLimit} */
+    /** 初始同步阶段可以接受的节拍数，初始化阶段，learner和leader的通信读取超时时间，最长为initLimit*tickTime，参考：{@link QuorumPeerConfig#initLimit} */
     protected int initLimit;
-    /** 在发送请求和获得确认之间可以传递的节拍数，参考：{@link QuorumPeerConfig#syncLimit} */
+    /** 在发送请求和获得确认之间可以传递的节拍数，在初始化阶段之后的请求阶段Learner和Leader通信的读取超时时间，参考：{@link QuorumPeerConfig#syncLimit} */
     protected int syncLimit;
     /**
      * Enables/Disables sync request processor. This option is enabled
@@ -316,6 +316,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
             authServer = new SaslQuorumAuthServer(isQuorumServerSaslAuthRequired(), quorumServerLoginContext, authzHosts);
             authLearner = new SaslQuorumAuthLearner(isQuorumLearnerSaslAuthRequired(), quorumServicePrincipal, quorumLearnerLoginContext);
         } else {
+            // 不是sasl不需要身份认证
             authServer = new NullQuorumAuthServer();
             authLearner = new NullQuorumAuthLearner();
         }
@@ -556,12 +557,15 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     @Override
     public void run() {
+        // 更新线程名称
         updateThreadName();
 
         LOG.debug("Starting quorum peer");
         try {
             jmxQuorumBean = new QuorumBean(this);
             MBeanRegistry.getInstance().register(jmxQuorumBean, null);
+
+
             for (QuorumServer s : getView().values()) {
                 ZKMBeanInfo p;
                 if (getId() == s.id) {
@@ -588,9 +592,6 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
         }
 
         try {
-            /*
-             * Main loop
-             */
             while (running) {
                 switch (getPeerState()) {
                     case LOOKING:
@@ -858,7 +859,7 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
     }
 
     /**
-     * Return QuorumVerifier object for the last committed configuration.
+     * 返回最后提交配置的QuorumVerifier对象
      */
     public QuorumVerifier getQuorumVerifier() {
         synchronized (QV_LOCK) {
@@ -1228,9 +1229,10 @@ public class QuorumPeer extends ZooKeeperThread implements QuorumStats.Provider 
 
     private void updateThreadName() {
         String plain = cnxnFactory != null ?
-                cnxnFactory.getLocalAddress() != null ?
-                        cnxnFactory.getLocalAddress().toString() : "disabled" : "disabled";
+                cnxnFactory.getLocalAddress() != null ? cnxnFactory.getLocalAddress().toString() : "disabled"
+                : "disabled";
         String secure = secureCnxnFactory != null ? secureCnxnFactory.getLocalAddress().toString() : "disabled";
+        // 设置线程名称
         setName(String.format("QuorumPeer[myid=%d](plain=%s)(secure=%s)", getId(), plain, secure));
     }
 

@@ -76,7 +76,6 @@ public class ZooKeeperAdmin extends ZooKeeper {
     public ZooKeeperAdmin(String connectString, int sessionTimeout, Watcher watcher) throws IOException {
         super(connectString, sessionTimeout, watcher);
     }
-
     /**
      * Create a ZooKeeperAdmin object which is used to perform dynamic reconfiguration
      * operations.
@@ -109,7 +108,6 @@ public class ZooKeeperAdmin extends ZooKeeper {
     public ZooKeeperAdmin(String connectString, int sessionTimeout, Watcher watcher, ZKClientConfig conf) throws IOException {
         super(connectString, sessionTimeout, watcher, conf);
     }
-
     /**
      * Create a ZooKeeperAdmin object which is used to perform dynamic reconfiguration
      * operations.
@@ -148,19 +146,14 @@ public class ZooKeeperAdmin extends ZooKeeper {
         super(connectString, sessionTimeout, watcher, canBeReadOnly);
     }
 
+
+
     /**
-     * Reconfigure - add/remove servers. Return the new configuration.
-     * @param joiningServers
-     *                a comma separated list of servers being added (incremental reconfiguration)
-     * @param leavingServers
-     *                a comma separated list of servers being removed (incremental reconfiguration)
-     * @param newMembers
-     *                a comma separated list of new membership (non-incremental reconfiguration)
-     * @param fromConfig
-     *                version of the current configuration
-     *                (optional - causes reconfiguration to throw an exception if configuration is no longer current)
-     * @param stat the stat of /zookeeper/config znode will be copied to this
-     *             parameter if not null.
+     * 添加/删除服务器，并返回新配置。
+     * @param joiningServers    要添加的服务器列表(增量重新配置)
+     * @param leavingServers    被删除的服务器的逗号分隔列表(增量重新配置)
+     * @param newMembers        逗号分隔的新成员列表(非增量重新配置)
+     * @param fromConfig        version of the current configuration (optional - causes reconfiguration to throw an exception if configuration is no longer current) parameter if not null.
      * @return new configuration
      * @throws InterruptedException If the server transaction is interrupted.
      * @throws KeeperException If the server signals an error with a non-zero error code.

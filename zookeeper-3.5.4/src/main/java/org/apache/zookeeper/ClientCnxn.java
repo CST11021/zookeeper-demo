@@ -120,9 +120,9 @@ public class ClientCnxn {
     private byte sessionPasswd[] = new byte[16];
 
     /**
-     *如果为真，则允许连接进入r-o模式。
-     *除其他数据外，此字段的值在会话创建握手期间发送。
-     *如果连接另一端的服务器被分区，它将只接受只读客户端。
+     * 如果为真，则允许连接进入r-o模式。
+     * 除其他数据外，此字段的值在会话创建握手期间发送。
+     * 如果连接另一端的服务器被分区，它将只接受只读客户端。
      */
     private boolean readOnly;
 
@@ -1051,8 +1051,7 @@ public class ClientCnxn {
             Packet packet;
             synchronized (pendingQueue) {
                 if (pendingQueue.size() == 0) {
-                    throw new IOException("Nothing in the queue, but got "
-                            + replyHdr.getXid());
+                    throw new IOException("Nothing in the queue, but got " + replyHdr.getXid());
                 }
                 packet = pendingQueue.remove();
             }
@@ -1062,15 +1061,8 @@ public class ClientCnxn {
              */
             try {
                 if (packet.requestHeader.getXid() != replyHdr.getXid()) {
-                    packet.replyHeader.setErr(
-                            KeeperException.Code.CONNECTIONLOSS.intValue());
-                    throw new IOException("Xid out of order. Got Xid "
-                            + replyHdr.getXid() + " with err " +
-                            +replyHdr.getErr() +
-                            " expected Xid "
-                            + packet.requestHeader.getXid()
-                            + " for a packet with details: "
-                            + packet);
+                    packet.replyHeader.setErr(KeeperException.Code.CONNECTIONLOSS.intValue());
+                    throw new IOException("Xid out of order. Got Xid " + replyHdr.getXid() + " with err " + +replyHdr.getErr() + " expected Xid " + packet.requestHeader.getXid() + " for a packet with details: " + packet);
                 }
 
                 packet.replyHeader.setXid(replyHdr.getXid());
@@ -1084,8 +1076,7 @@ public class ClientCnxn {
                 }
 
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Reading reply sessionid:0x"
-                            + Long.toHexString(sessionId) + ", packet:: " + packet);
+                    LOG.debug("Reading reply sessionid:0x" + Long.toHexString(sessionId) + ", packet:: " + packet);
                 }
             } finally {
                 finishPacket(packet);
@@ -1447,14 +1438,12 @@ public class ClientCnxn {
     class EventThread extends ZooKeeperThread {
 
         /**
-         * 保存客户端注册的Watcher和异步接口中注册的回调器AsyncCallback，当相应的事件发生时，会将对应的事件保存到该队列中，然后EventThread
-         * 线程会不断从该队列获取事件并进行响应的处理
+         * 保存客户端注册的Watcher和异步接口中注册的回调器AsyncCallback，当相应的事件发生时，会将对应的事件保存到该队列中，
+         * 然后EventThread 线程会不断从该队列获取事件并进行响应的处理
          */
         private final LinkedBlockingQueue<Object> waitingEvents = new LinkedBlockingQueue<Object>();
-
         /** 表示客户端开始处理发生的事件时，客户端与服务端的连接状态 */
         private volatile KeeperState sessionState = KeeperState.Disconnected;
-
         /** 标识该线程是否被killed */
         private volatile boolean wasKilled = false;
         /** 标识该线程是否是running状态 */

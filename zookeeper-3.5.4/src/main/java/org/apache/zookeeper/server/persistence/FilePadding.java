@@ -26,7 +26,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
 public class FilePadding {
+
     private static final Logger LOG;
+    /** 表示日志文件的预分配大小以填充文件。 */
     private static long preAllocSize = 65536 * 1024;
     private static final ByteBuffer fill = ByteBuffer.allocateDirect(1);
 
@@ -43,36 +45,20 @@ public class FilePadding {
         }
     }
 
+    /** 我们将事务日志写到同一个文件，每次写完后，将在内存中记录文件的大小，表示为currentSize */
     private long currentSize;
 
-    /**
-     * Getter of preAllocSize has been added for testing
-     */
-    public static long getPreAllocSize() {
-        return preAllocSize;
-    }
+
+
 
     /**
-     * method to allow setting preallocate size
-     * of log file to pad the file.
+     * 用0填充当前文件，将其大小增加到比当前大小和位置大的下一个preAllocSize的倍数
      *
-     * @param size the size to set to in bytes
-     */
-    public static void setPreallocSize(long size) {
-        preAllocSize = size;
-    }
-
-    public void setCurrentSize(long currentSize) {
-        this.currentSize = currentSize;
-    }
-
-    /**
-     * pad the current file to increase its size to the next multiple of preAllocSize greater than the current size and position
-     *
-     * @param fileChannel the fileChannel of the file to be padded
+     * @param fileChannel 要填充的日志文件
      * @throws IOException
      */
     long padFile(FileChannel fileChannel) throws IOException {
+        // 通过查看实际的文件大小和当前zk与分配的文件大小，计算重新计算zk文件大小
         long newFileSize = calculateFileSizeWithPadding(fileChannel.position(), currentSize, preAllocSize);
         if (currentSize != newFileSize) {
             fileChannel.write((ByteBuffer) fill.position(0), newFileSize - fill.remaining());
@@ -82,23 +68,18 @@ public class FilePadding {
     }
 
     /**
-     * Calculates a new file size with padding. We only return a new size if
-     * the current file position is sufficiently close (less than 4K) to end of
-     * file and preAllocSize is > 0.
+     * 计算一个新的文件大小填充。如果当前文件位置与文件结束位置非常接近(小于4K)，且preAllocSize为>0，则只返回新大小。
      *
-     * @param position     the point in the file we have written to
-     * @param fileSize     application keeps track of the current file size
-     * @param preAllocSize how many bytes to pad
-     * @return the new file size. It can be the same as fileSize if no
-     * padding was done.
+     * @param position     当前磁盘日志文件大小
+     * @param fileSize     当前zk记录的文件大小
+     * @param preAllocSize 预分配的大小
+     * @return 返回zk记录的文件大小, 如果没有填充，它可以与fileSize相同。
      * @throws IOException
      */
-    // VisibleForTesting
     public static long calculateFileSizeWithPadding(long position, long fileSize, long preAllocSize) {
-        // If preAllocSize is positive and we are within 4KB of the known end of the file calculate a new file size
+        // 确保实际的文件大小和zk通过预分配的大小要在4k以内，否则需要扩容
         if (preAllocSize > 0 && position + 4096 >= fileSize) {
-            // If we have written more than we have previously preallocated we need to make sure the new
-            // file size is larger than what we already have
+            // 当前磁盘文件的大小>zk记录大小，则重新计算zk记录大小，否则预分配一块大小
             if (position > fileSize) {
                 fileSize = position + preAllocSize;
                 fileSize -= fileSize % preAllocSize;
@@ -108,5 +89,17 @@ public class FilePadding {
         }
 
         return fileSize;
+    }
+
+
+
+    public static long getPreAllocSize() {
+        return preAllocSize;
+    }
+    public static void setPreallocSize(long size) {
+        preAllocSize = size;
+    }
+    public void setCurrentSize(long currentSize) {
+        this.currentSize = currentSize;
     }
 }

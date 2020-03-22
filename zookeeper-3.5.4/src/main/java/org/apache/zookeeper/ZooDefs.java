@@ -43,6 +43,7 @@ public class ZooDefs {
         /** 删除节点 */
         public final int delete = 2;
 
+        /** 退出 */
         public final int exists = 3;
 
         /** 获取节点数据 */

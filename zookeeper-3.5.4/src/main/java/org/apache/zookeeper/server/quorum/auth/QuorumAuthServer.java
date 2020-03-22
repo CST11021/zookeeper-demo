@@ -30,12 +30,9 @@ public interface QuorumAuthServer {
     /**
      * Performs an authentication step for the given socket connection.
      *
-     * @param sock
-     *            socket connection to other quorum peer
-     * @param din
-     *            stream used to read auth data send by the quorum learner
+     * @param sock  socket connection to other quorum peer
+     * @param din   stream used to read auth data send by the quorum learner
      * @throws IOException if the server fails to authenticate connecting quorum learner
      */
-    public void authenticate(Socket sock, DataInputStream din)
-            throws IOException;
+    public void authenticate(Socket sock, DataInputStream din) throws IOException;
 }

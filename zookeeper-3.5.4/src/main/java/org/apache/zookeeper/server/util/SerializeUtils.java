@@ -18,27 +18,13 @@
 
 package org.apache.zookeeper.server.util;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.BinaryOutputArchive;
-import org.apache.jute.InputArchive;
-import org.apache.jute.OutputArchive;
-import org.apache.jute.Record;
+import org.apache.jute.*;
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.common.IOUtils;
 import org.apache.zookeeper.server.DataTree;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.ZooTrace;
-import org.apache.zookeeper.txn.CreateContainerTxn;
-import org.apache.zookeeper.txn.CreateSessionTxn;
-import org.apache.zookeeper.txn.CreateTTLTxn;
-import org.apache.zookeeper.txn.CreateTxn;
-import org.apache.zookeeper.txn.CreateTxnV0;
-import org.apache.zookeeper.txn.DeleteTxn;
-import org.apache.zookeeper.txn.ErrorTxn;
-import org.apache.zookeeper.txn.MultiTxn;
-import org.apache.zookeeper.txn.SetACLTxn;
-import org.apache.zookeeper.txn.SetDataTxn;
-import org.apache.zookeeper.txn.TxnHeader;
+import org.apache.zookeeper.txn.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,9 +38,16 @@ import java.util.Map.Entry;
 
 public class SerializeUtils {
     private static final Logger LOG = LoggerFactory.getLogger(SerializeUtils.class);
-    
-    public static Record deserializeTxn(byte txnBytes[], TxnHeader hdr)
-            throws IOException {
+
+    /**
+     * 将字节反序列化为对应事务的Record对象，
+     *
+     * @param txnBytes
+     * @param hdr           该事务头表示txnBytes对应的事务类型
+     * @return
+     * @throws IOException
+     */
+    public static Record deserializeTxn(byte txnBytes[], TxnHeader hdr) throws IOException {
         final ByteArrayInputStream bais = new ByteArrayInputStream(txnBytes);
         InputArchive ia = BinaryInputArchive.getArchive(bais);
 
@@ -124,8 +117,15 @@ public class SerializeUtils {
         return txn;
     }
 
-    public static void deserializeSnapshot(DataTree dt,InputArchive ia,
-            Map<Long, Integer> sessions) throws IOException {
+    /**
+     * 将ia反序列化为DataTree
+     *
+     * @param dt
+     * @param ia
+     * @param sessions
+     * @throws IOException
+     */
+    public static void deserializeSnapshot(DataTree dt,InputArchive ia, Map<Long, Integer> sessions) throws IOException {
         int count = ia.readInt("count");
         while (count > 0) {
             long id = ia.readLong("id");
@@ -141,8 +141,15 @@ public class SerializeUtils {
         dt.deserialize(ia, "tree");
     }
 
-    public static void serializeSnapshot(DataTree dt,OutputArchive oa,
-            Map<Long, Integer> sessions) throws IOException {
+    /**
+     * 将datatree序列化输出
+     *
+     * @param dt
+     * @param oa
+     * @param sessions
+     * @throws IOException
+     */
+    public static void serializeSnapshot(DataTree dt,OutputArchive oa, Map<Long, Integer> sessions) throws IOException {
         HashMap<Long, Integer> sessSnap = new HashMap<Long, Integer>(sessions);
         oa.writeInt(sessSnap.size(), "count");
         for (Entry<Long, Integer> entry : sessSnap.entrySet()) {
@@ -152,6 +159,12 @@ public class SerializeUtils {
         dt.serialize(oa, "tree");
     }
 
+    /**
+     * 将请求序列化为字节
+     *
+     * @param request
+     * @return
+     */
     public static byte[] serializeRequest(Request request) {
         if (request == null || request.getHdr() == null) return null;
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

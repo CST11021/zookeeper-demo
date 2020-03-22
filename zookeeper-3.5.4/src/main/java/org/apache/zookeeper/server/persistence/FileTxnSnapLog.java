@@ -53,8 +53,10 @@ public class FileTxnSnapLog {
 
     public final static String version = "version-";
 
+    /** 表示是否自动创建dataDir目录，默认为true，否则zk启动前需要事先创建的事务日志文件目录，否则抛出{@link DatadirException}异常 */
     public static final String ZOOKEEPER_DATADIR_AUTOCREATE = "zookeeper.datadir.autocreate";
 
+    /** 表示{@link #ZOOKEEPER_DATADIR_AUTOCREATE}的默认值 */
     public static final String ZOOKEEPER_DATADIR_AUTOCREATE_DEFAULT = "true";
 
     /** 包含事务日志的direcotry */
@@ -62,9 +64,9 @@ public class FileTxnSnapLog {
     /** 包含快照目录的目录 */
     private final File snapDir;
 
-    /** 表示zk事务日志文件的目录，对应{@link #dataDir}目录 */
+    /** 表示zk事务日志文件，对应{@link #dataDir}目录 */
     private TxnLog txnLog;
-    /** 表示zk服务器的内存储快照文件的目录，对应{@link #snapDir}目录 */
+    /** 表示zk服务器的内存储快照文件，对应{@link #snapDir}目录 */
     private SnapShot snapLog;
 
     /**
@@ -76,12 +78,17 @@ public class FileTxnSnapLog {
     public FileTxnSnapLog(File dataDir, File snapDir) throws IOException {
         LOG.debug("Opening datadir:{} snapDir:{}", dataDir, snapDir);
 
+        // 事务日志文件：${dataDir}/version-2
         this.dataDir = new File(dataDir, version + VERSION);
+        // 快照文件：${snapDir}/version-2
         this.snapDir = new File(snapDir, version + VERSION);
 
         // by default create snap/log dirs, but otherwise complain instead See ZOOKEEPER-1161 for more details
         boolean enableAutocreate = Boolean.valueOf(System.getProperty(ZOOKEEPER_DATADIR_AUTOCREATE, ZOOKEEPER_DATADIR_AUTOCREATE_DEFAULT));
 
+
+
+        // 检查是否存在dataDir目录，不存在则创建一个目录
         if (!this.dataDir.exists()) {
             if (!enableAutocreate) {
                 throw new DatadirException("Missing data directory " + this.dataDir
@@ -93,10 +100,14 @@ public class FileTxnSnapLog {
                 throw new DatadirException("Unable to create data directory " + this.dataDir);
             }
         }
+        // 检查dataDir是否可写
         if (!this.dataDir.canWrite()) {
             throw new DatadirException("Cannot write to data directory " + this.dataDir);
         }
 
+
+
+        // 检查是否存在 snapDir 目录，不存在则创建一个目录
         if (!this.snapDir.exists()) {
             // by default create this directory, but otherwise complain instead
             // See ZOOKEEPER-1161 for more details
@@ -110,13 +121,16 @@ public class FileTxnSnapLog {
                 throw new DatadirException("Unable to create snap directory " + this.snapDir);
             }
         }
+        // 检查 snapDir 是否可写
         if (!this.snapDir.canWrite()) {
             throw new DatadirException("Cannot write to snap directory " + this.snapDir);
         }
 
-        // check content of transaction log and snapshot dirs if they are two different directories See ZOOKEEPER-2967 for more details
+        // 如果是两个不同的目录，请检查事务日志和快照目录的内容
         if (!this.dataDir.getPath().equals(this.snapDir.getPath())) {
+            // 检查事务日志目录，看看服务启动前是否清理历史快照和log文件，如果没清理则报错
             checkLogDir();
+            // 检查快照目录，看看服务启动前是否清理历史快照文件，如果没清理则报错
             checkSnapDir();
         }
 

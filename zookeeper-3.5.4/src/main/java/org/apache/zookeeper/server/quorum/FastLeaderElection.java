@@ -735,6 +735,17 @@ public class FastLeaderElection implements Election {
         }
     }
 
+    public void shutdown() {
+        stop = true;
+        proposedLeader = -1;
+        proposedZxid = -1;
+        LOG.debug("Shutting down connection manager");
+        manager.halt();
+        LOG.debug("Shutting down messenger");
+        messenger.halt();
+        LOG.debug("FLE is down");
+    }
+
 
     /**
      * Returns the current vlue of the logical clock counter
@@ -837,16 +848,7 @@ public class FastLeaderElection implements Election {
 
     volatile boolean stop;
 
-    public void shutdown() {
-        stop = true;
-        proposedLeader = -1;
-        proposedZxid = -1;
-        LOG.debug("Shutting down connection manager");
-        manager.halt();
-        LOG.debug("Shutting down messenger");
-        messenger.halt();
-        LOG.debug("FLE is down");
-    }
+
 
     /**
      * Send notifications to all peers upon a change in our vote
@@ -1036,8 +1038,6 @@ public class FastLeaderElection implements Election {
             }
         else return Long.MIN_VALUE;
     }
-
-
 
     /**
      * Check if a given sid is represented in either the current or

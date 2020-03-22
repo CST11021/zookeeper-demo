@@ -111,8 +111,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             }
         }
         if (sockKey.isWritable()) {
-            Packet p = findSendablePacket(outgoingQueue,
-                    sendThread.tunnelAuthInProgress());
+            Packet p = findSendablePacket(outgoingQueue, sendThread.tunnelAuthInProgress());
 
             if (p != null) {
                 updateLastSend();

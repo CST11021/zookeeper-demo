@@ -42,13 +42,13 @@ import java.util.zip.CheckedOutputStream;
  * and provides access to the snapshots.
  */
 public class FileSnap implements SnapShot {
+    /** 快照文件的存储目录，注意该目录下可能有多个快照文件 */
     File snapDir;
     private volatile boolean close = false;
     private static final int VERSION = 2;
     private static final long dbId = -1;
     private static final Logger LOG = LoggerFactory.getLogger(FileSnap.class);
-    public final static int SNAP_MAGIC
-            = ByteBuffer.wrap("ZKSN".getBytes()).getInt();
+    public final static int SNAP_MAGIC = ByteBuffer.wrap("ZKSN".getBytes()).getInt();
 
     public static final String SNAPSHOT_FILE_PREFIX = "snapshot";
 
@@ -94,7 +94,6 @@ public class FileSnap implements SnapShot {
         dt.lastProcessedZxid = Util.getZxidFromName(snap.getName(), SNAPSHOT_FILE_PREFIX);
         return dt.lastProcessedZxid;
     }
-
     /**
      * deserialize the datatree from an inputarchive
      * @param dt the datatree to be serialized into
@@ -102,8 +101,7 @@ public class FileSnap implements SnapShot {
      * @param ia the input archive to restore from
      * @throws IOException
      */
-    public void deserialize(DataTree dt, Map<Long, Integer> sessions,
-            InputArchive ia) throws IOException {
+    public void deserialize(DataTree dt, Map<Long, Integer> sessions, InputArchive ia) throws IOException {
         FileHeader header = new FileHeader();
         header.deserialize(ia, "fileheader");
         if (header.getMagic() != SNAP_MAGIC) {
@@ -184,32 +182,13 @@ public class FileSnap implements SnapShot {
     }
 
     /**
-     * serialize the datatree and sessions
+     * 将数据树和会话持久化到持久性存储中
+     *
      * @param dt the datatree to be serialized
-     * @param sessions the sessions to be serialized
-     * @param oa the output archive to serialize into
-     * @param header the header of this snapshot
+     * @param sessions
      * @throws IOException
      */
-    protected void serialize(DataTree dt,Map<Long, Integer> sessions,
-            OutputArchive oa, FileHeader header) throws IOException {
-        // this is really a programmatic error and not something that can
-        // happen at runtime
-        if(header==null)
-            throw new IllegalStateException(
-                    "Snapshot's not open for writing: uninitialized header");
-        header.serialize(oa, "fileheader");
-        SerializeUtils.serializeSnapshot(dt,oa,sessions);
-    }
-
-    /**
-     * serialize the datatree and session into the file snapshot
-     * @param dt the datatree to be serialized
-     * @param sessions the sessions to be serialized
-     * @param snapShot the file to store snapshot into
-     */
-    public synchronized void serialize(DataTree dt, Map<Long, Integer> sessions, File snapShot)
-            throws IOException {
+    public synchronized void serialize(DataTree dt, Map<Long, Integer> sessions, File snapShot) throws IOException {
         if (!close) {
             try (OutputStream sessOS = new BufferedOutputStream(new FileOutputStream(snapShot));
                  CheckedOutputStream crcOut = new CheckedOutputStream(sessOS, new Adler32())) {
@@ -223,6 +202,23 @@ public class FileSnap implements SnapShot {
                 sessOS.flush();
             }
         }
+    }
+    /**
+     * serialize the datatree and sessions
+     * @param dt the datatree to be serialized
+     * @param sessions the sessions to be serialized
+     * @param oa the output archive to serialize into
+     * @param header the header of this snapshot
+     * @throws IOException
+     */
+    protected void serialize(DataTree dt,Map<Long, Integer> sessions, OutputArchive oa, FileHeader header) throws IOException {
+        // this is really a programmatic error and not something that can
+        // happen at runtime
+        if(header==null)
+            throw new IllegalStateException(
+                    "Snapshot's not open for writing: uninitialized header");
+        header.serialize(oa, "fileheader");
+        SerializeUtils.serializeSnapshot(dt,oa,sessions);
     }
 
     /**

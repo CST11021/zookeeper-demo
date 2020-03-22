@@ -168,9 +168,11 @@ public class QuorumPeerMain {
 
             // 创建一个QuorumPeer实例，并设置相关配置
             quorumPeer = getQuorumPeer();
+            // 初始化事务日志组件和快照日志组件
             quorumPeer.setTxnFactory(new FileTxnSnapLog(config.getDataLogDir(), config.getDataDir()));
             quorumPeer.enableLocalSessions(config.areLocalSessionsEnabled());
             quorumPeer.enableLocalSessionsUpgrading(config.isLocalSessionsUpgradingEnabled());
+            // 设置leader选举算法
             quorumPeer.setElectionType(config.getElectionAlg());
             quorumPeer.setMyid(config.getServerId());
             quorumPeer.setTickTime(config.getTickTime());

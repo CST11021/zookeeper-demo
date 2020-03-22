@@ -1245,7 +1245,12 @@ public class ZooKeeper implements AutoCloseable {
         getConfig(watch ? watchManager.defaultWatcher : null, cb, ctx);
     }
 
+
+    // 重置zk的服务集群节点
+
     /**
+     * 重新配置zk集群，该方法目前已经废弃，并将方法迁移至{@link org.apache.zookeeper.admin.ZooKeeperAdmin}
+     *
      * @deprecated instead use the reconfigure() methods instead in {@link org.apache.zookeeper.admin.ZooKeeperAdmin}
      */
     @Deprecated
@@ -1273,7 +1278,97 @@ public class ZooKeeper implements AutoCloseable {
     public void reconfig(List<String> joiningServers, List<String> leavingServers, List<String> newMembers, long fromConfig, DataCallback cb, Object ctx) {
         internalReconfig(joiningServers, leavingServers, newMembers, fromConfig, cb, ctx);
     }
+    /**
+     * 重新配置zk集群(同步的方式)
+     *
+     * @param joiningServers
+     * @param leavingServers
+     * @param newMembers
+     * @param fromConfig
+     * @param stat
+     * @return
+     * @throws KeeperException
+     * @throws InterruptedException
+     */
+    protected byte[] internalReconfig(String joiningServers, String leavingServers, String newMembers, long fromConfig, Stat stat) throws KeeperException, InterruptedException {
+        // 设置请求头
+        RequestHeader h = new RequestHeader();
+        h.setType(ZooDefs.OpCode.reconfig);
 
+        // 设置请求体
+        ReconfigRequest request = new ReconfigRequest(joiningServers, leavingServers, newMembers, fromConfig);
+
+        // 设置响应体
+        GetDataResponse response = new GetDataResponse();
+
+        // 提交请求
+        ReplyHeader r = cnxn.submitRequest(h, request, response, null);
+        if (r.getErr() != 0) {
+            throw KeeperException.create(KeeperException.Code.get(r.getErr()), "");
+        }
+
+        if (stat != null) {
+            DataTree.copyStat(response.getStat(), stat);
+        }
+        return response.getData();
+    }
+    /**
+     * 重新配置zk集群(同步的方式)
+     *
+     * @param joiningServers
+     * @param leavingServers
+     * @param newMembers
+     * @param fromConfig
+     * @param stat
+     * @return
+     * @throws KeeperException
+     * @throws InterruptedException
+     */
+    protected byte[] internalReconfig(List<String> joiningServers, List<String> leavingServers, List<String> newMembers, long fromConfig, Stat stat) throws KeeperException, InterruptedException {
+        return internalReconfig(
+                StringUtils.joinStrings(joiningServers, ","),
+                StringUtils.joinStrings(leavingServers, ","),
+                StringUtils.joinStrings(newMembers, ","),
+                fromConfig,
+                stat);
+    }
+    /**
+     * 重新配置zk集群(异步的方式)
+     *
+     * @param joiningServers
+     * @param leavingServers
+     * @param newMembers
+     * @param fromConfig
+     * @param cb
+     * @param ctx
+     */
+    protected void internalReconfig(String joiningServers, String leavingServers, String newMembers, long fromConfig, DataCallback cb, Object ctx) {
+        RequestHeader h = new RequestHeader();
+        h.setType(ZooDefs.OpCode.reconfig);
+        ReconfigRequest request = new ReconfigRequest(joiningServers, leavingServers, newMembers, fromConfig);
+        GetDataResponse response = new GetDataResponse();
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
+                ZooDefs.CONFIG_NODE, ZooDefs.CONFIG_NODE, ctx, null);
+    }
+    /**
+     * 重新配置zk集群(异步的方式)
+     *
+     * @param joiningServers
+     * @param leavingServers
+     * @param newMembers
+     * @param fromConfig
+     * @param cb
+     * @param ctx
+     */
+    protected void internalReconfig(List<String> joiningServers, List<String> leavingServers, List<String> newMembers, long fromConfig, DataCallback cb, Object ctx) {
+        internalReconfig(
+                StringUtils.joinStrings(joiningServers, ","),
+                StringUtils.joinStrings(leavingServers, ","),
+                StringUtils.joinStrings(newMembers, ","),
+                fromConfig,
+                cb,
+                ctx);
+    }
 
 
     /**
@@ -2585,41 +2680,5 @@ public class ZooKeeper implements AutoCloseable {
         }
     }
 
-    protected byte[] internalReconfig(String joiningServers, String leavingServers, String newMembers, long fromConfig, Stat stat) throws KeeperException, InterruptedException {
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.reconfig);
-        ReconfigRequest request = new ReconfigRequest(joiningServers, leavingServers, newMembers, fromConfig);
-        GetDataResponse response = new GetDataResponse();
-        ReplyHeader r = cnxn.submitRequest(h, request, response, null);
-        if (r.getErr() != 0) {
-            throw KeeperException.create(KeeperException.Code.get(r.getErr()), "");
-        }
-        if (stat != null) {
-            DataTree.copyStat(response.getStat(), stat);
-        }
-        return response.getData();
-    }
 
-    protected byte[] internalReconfig(List<String> joiningServers, List<String> leavingServers, List<String> newMembers, long fromConfig, Stat stat) throws KeeperException, InterruptedException {
-        return internalReconfig(StringUtils.joinStrings(joiningServers, ","),
-                StringUtils.joinStrings(leavingServers, ","),
-                StringUtils.joinStrings(newMembers, ","),
-                fromConfig, stat);
-    }
-
-    protected void internalReconfig(String joiningServers, String leavingServers, String newMembers, long fromConfig, DataCallback cb, Object ctx) {
-        RequestHeader h = new RequestHeader();
-        h.setType(ZooDefs.OpCode.reconfig);
-        ReconfigRequest request = new ReconfigRequest(joiningServers, leavingServers, newMembers, fromConfig);
-        GetDataResponse response = new GetDataResponse();
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                ZooDefs.CONFIG_NODE, ZooDefs.CONFIG_NODE, ctx, null);
-    }
-
-    protected void internalReconfig(List<String> joiningServers, List<String> leavingServers, List<String> newMembers, long fromConfig, DataCallback cb, Object ctx) {
-        internalReconfig(StringUtils.joinStrings(joiningServers, ","),
-                StringUtils.joinStrings(leavingServers, ","),
-                StringUtils.joinStrings(newMembers, ","),
-                fromConfig, cb, ctx);
-    }
 }

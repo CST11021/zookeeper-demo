@@ -37,7 +37,7 @@ public interface TxnLog {
     void rollLog() throws IOException;
 
     /**
-     * 将请求追加到事务日志
+     * 将事务头和事务数据写到事务日志文件中
      *
      * @param hdr   事务头
      * @param r     事务本身

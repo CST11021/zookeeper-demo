@@ -112,6 +112,17 @@ public class ZooKeeperMain {
         }
     }
 
+    public ZooKeeperMain(ZooKeeper zk) {
+        this.zk = zk;
+    }
+
+    public ZooKeeperMain(String args[]) throws IOException, InterruptedException {
+        // 解析命令行，将解析的结果封装为一个MyCommandOptions实例
+        cl.parseOptions(args);
+        System.out.println("Connecting to " + cl.getOption("server"));
+        connectToZK(cl.getOption("server"));
+    }
+
     /**
      * zk命令行工具的启动入口，执行该方法后，便可通过例如：ls / 命令来查看zk节点
      *
@@ -123,17 +134,6 @@ public class ZooKeeperMain {
     public static void main(String args[]) throws CliException, IOException, InterruptedException {
         ZooKeeperMain main = new ZooKeeperMain(args);
         main.run();
-    }
-
-    public ZooKeeperMain(ZooKeeper zk) {
-        this.zk = zk;
-    }
-
-    public ZooKeeperMain(String args[]) throws IOException, InterruptedException {
-        // 解析命令行，将解析的结果封装为一个MyCommandOptions实例
-        cl.parseOptions(args);
-        System.out.println("Connecting to " + cl.getOption("server"));
-        connectToZK(cl.getOption("server"));
     }
 
     void run() throws CliException, IOException, InterruptedException {
