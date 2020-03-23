@@ -452,6 +452,15 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         touchCnxn(cnxn);
     }
 
+    /**
+     * 创建连接：客户端发起连接zk服务的请求后，服务端通过该方法创建一个NIOServerCnxn对象，表示一个TCP长连接
+     *
+     * @param sock
+     * @param sk
+     * @param selectorThread
+     * @return
+     * @throws IOException
+     */
     protected NIOServerCnxn createConnection(SocketChannel sock, SelectionKey sk, SelectorThread selectorThread) throws IOException {
         return new NIOServerCnxn(zkServer, sock, sk, this, selectorThread);
     }
@@ -918,7 +927,7 @@ public class NIOServerCnxnFactory extends ServerCnxnFactory {
         }
 
         /**
-         * Iterate over the queue of accepted connections that have been assigned to this thread but not yet placed on the selector.
+         * 遍历已分配给此线程但尚未放置在选择器上的已接受连接队列。
          */
         private void processAcceptedConnections() {
             SocketChannel accepted;
