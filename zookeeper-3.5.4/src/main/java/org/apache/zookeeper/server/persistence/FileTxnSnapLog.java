@@ -196,23 +196,22 @@ public class FileTxnSnapLog {
         // lastProcessedZxid+1从事务日志文件txnLog读取事务操作
         FileTxnLog txnLog = new FileTxnLog(dataDir);
         if (-1L == deserializeResult) {
-            /* this means that we couldn't find any snapshot, so we need to
-             * initialize an empty database (reported in ZOOKEEPER-2325) */
+            /* 这意味着我们无法找到任何快照，因此我们需要初始化一个空数据库(reported in ZOOKEEPER-2325) */
             if (txnLog.getLastLoggedZxid() != -1) {
                 throw new IOException("No snapshot found, but there are log entries. Something is broken!");
             }
-            /* TODO: (br33d) we should either put a ConcurrentHashMap on restore() or use Map on save() */
+
+            // 初始化一个空数据库：将数据树和会话保存到快照文件中
             save(dt, (ConcurrentHashMap<Long, Integer>) sessions);
-            /* return a zxid of zero, since we the database is empty */
+            // 返回一个零的zxid，因为我们的数据库是空的
             return 0;
         }
         return fastForwardFromEdits(dt, sessions, listener);
     }
 
     /**
-     * This function will fast forward the server database to have the latest
-     * transactions in it.  This is the same as restore, but only reads from
-     * the transaction logs and not restores from a snapshot.
+     * 此函数将快速转发服务器数据库，使其包含最新的事务。这与恢复相同，但仅从事务日志中读取，而不从快照中恢复。
+     *
      * @param dt the datatree to write transactions to.
      * @param sessions the sessions to be restored.
      * @param listener the playback listener to run on the
@@ -226,25 +225,25 @@ public class FileTxnSnapLog {
         TxnHeader hdr;
         try {
             while (true) {
-                // iterator points to
-                // the first valid txn when initialized
+                // 迭代器在初始化时指向第一个有效的txn
                 hdr = itr.getHeader();
                 if (hdr == null) {
                     //empty logs
                     return dt.lastProcessedZxid;
                 }
+
                 if (hdr.getZxid() < highestZxid && highestZxid != 0) {
-                    LOG.error("{}(highestZxid) > {}(next log) for type {}",
-                            highestZxid, hdr.getZxid(), hdr.getType());
+                    LOG.error("{}(highestZxid) > {}(next log) for type {}", highestZxid, hdr.getZxid(), hdr.getType());
                 } else {
                     highestZxid = hdr.getZxid();
                 }
+
                 try {
                     processTransaction(hdr, dt, sessions, itr.getTxn());
                 } catch (KeeperException.NoNodeException e) {
-                    throw new IOException("Failed to process transaction type: " +
-                            hdr.getType() + " error: " + e.getMessage(), e);
+                    throw new IOException("Failed to process transaction type: " + hdr.getType() + " error: " + e.getMessage(), e);
                 }
+
                 listener.onTxnLoaded(hdr, itr.getTxn());
                 if (!itr.next())
                     break;
@@ -285,6 +284,7 @@ public class FileTxnSnapLog {
 
     /**
      * process the transaction on the datatree
+     *
      * @param hdr the hdr of the transaction
      * @param dt the datatree to apply transaction to
      * @param sessions the sessions to be restored
@@ -294,24 +294,20 @@ public class FileTxnSnapLog {
         ProcessTxnResult rc;
         switch (hdr.getType()) {
             case OpCode.createSession:
-                sessions.put(hdr.getClientId(),
-                        ((CreateSessionTxn) txn).getTimeOut());
+                sessions.put(hdr.getClientId(), ((CreateSessionTxn) txn).getTimeOut());
+
                 if (LOG.isTraceEnabled()) {
-                    ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                            "playLog --- create session in log: 0x"
-                                    + Long.toHexString(hdr.getClientId())
-                                    + " with timeout: "
-                                    + ((CreateSessionTxn) txn).getTimeOut());
+                    ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK, "playLog --- create session in log: 0x"
+                            + Long.toHexString(hdr.getClientId()) + " with timeout: " + ((CreateSessionTxn) txn).getTimeOut());
                 }
-                // give dataTree a chance to sync its lastProcessedZxid
+
+                // 给dataTree一个机会来同步它的lastProcessedZxid
                 rc = dt.processTxn(hdr, txn);
                 break;
             case OpCode.closeSession:
                 sessions.remove(hdr.getClientId());
                 if (LOG.isTraceEnabled()) {
-                    ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                            "playLog --- close session in log: 0x"
-                                    + Long.toHexString(hdr.getClientId()));
+                    ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK, "playLog --- close session in log: 0x" + Long.toHexString(hdr.getClientId()));
                 }
                 rc = dt.processTxn(hdr, txn);
                 break;
@@ -326,9 +322,7 @@ public class FileTxnSnapLog {
          * errors could occur. It should be safe to ignore these.
          */
         if (rc.err != Code.OK.intValue()) {
-            LOG.debug(
-                    "Ignoring processTxn failure hdr: {}, error: {}, path: {}",
-                    hdr.getType(), rc.err, rc.path);
+            LOG.debug("Ignoring processTxn failure hdr: {}, error: {}, path: {}", hdr.getType(), rc.err, rc.path);
         }
     }
 
@@ -357,8 +351,8 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * truncate the transaction logs the zxid
-     * specified
+     * 截断指定的zxid的事务日志
+     *
      * @param zxid the zxid to truncate the logs to
      * @return true if able to truncate the log, false if not
      * @throws IOException
@@ -420,7 +414,8 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * append the request to the transaction logs
+     * 追加请求到事务日志中
+     *
      * @param si the request to be appended
      * returns true iff something appended, otw false
      * @throws IOException
@@ -430,7 +425,8 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * commit the transaction of logs
+     * 提交日志事务
+     *
      * @throws IOException
      */
     public void commit() throws IOException {
@@ -446,7 +442,8 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * roll the transaction logs
+     * 回滚日志事务
+     *
      * @throws IOException
      */
     public void rollLog() throws IOException {
@@ -475,7 +472,8 @@ public class FileTxnSnapLog {
 
 
     /**
-     * This listener helps the external apis calling restore to gather information while the data is being restored.
+     * 这个监听器帮助调用restore的外部api在数据恢复时收集信息。
+     * PlayBackListener监听器主要用来接收事务应用过程中的回调。在ZooKeeper数据恢复后期，会有一个事务订正的过程，在这个过程中，会回调PlayBackListener监听器来进行对应的数据订正。
      */
     public interface PlayBackListener {
         void onTxnLoaded(TxnHeader hdr, Record rec);

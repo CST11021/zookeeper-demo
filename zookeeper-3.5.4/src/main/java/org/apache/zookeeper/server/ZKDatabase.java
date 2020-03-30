@@ -59,35 +59,40 @@ public class ZKDatabase {
 
     private static final Logger LOG = LoggerFactory.getLogger(ZKDatabase.class);
 
+    /** 用于标记该ZKDatabase是否从事务日志重加载并初始化 */
+    volatile private boolean initialized = false;
+
+    public static final double DEFAULT_SNAPSHOT_SIZE_FACTOR = 0.33;
+    /** 如果txnlog大小超过快照大小的1/3，则默认值为使用快照 */
+    public static final String SNAPSHOT_SIZE_FACTOR = "zookeeper.snapshotSizeFactor";
+    /** 对应{@link #SNAPSHOT_SIZE_FACTOR}配置的值，或是{@link #DEFAULT_SNAPSHOT_SIZE_FACTOR}默认的常量值 */
+    private double snapshotSizeFactor;
+
     /** zk内存数据存储的核心，也是一个树形结构 */
     protected DataTree dataTree;
-
+    /** Map<会话ID，会话过期时间> */
     protected ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
+
 
     /** 事务日志文件和快照数据文件 */
     protected FileTxnSnapLog snapLog;
     protected long minCommittedLog, maxCommittedLog;
-
-    /**
-     * Default value is to use snapshot if txnlog size exceeds 1/3 the size of snapshot
-     */
-    public static final String SNAPSHOT_SIZE_FACTOR = "zookeeper.snapshotSizeFactor";
-    public static final double DEFAULT_SNAPSHOT_SIZE_FACTOR = 0.33;
-    private double snapshotSizeFactor;
-
     public static final int commitLogCount = 500;
     protected static int commitLogBuffer = 700;
     protected LinkedList<Proposal> committedLog = new LinkedList<Proposal>();
     protected ReentrantReadWriteLock logLock = new ReentrantReadWriteLock();
-    volatile private boolean initialized = false;
+    /**
+     * PlayBackListener监听器主要用来接收事务应用过程中的回调。在ZooKeeper数据恢复后期，会有一个事务订正的过程，在这个过程中，会回调PlayBackListener监听器来进行对应的数据订正。
+     */
     private final PlayBackListener commitProposalPlaybackListener = new PlayBackListener() {
         public void onTxnLoaded(TxnHeader hdr, Record txn){
+            //  添加一个事务请求
             addCommittedProposal(hdr, txn);
         }
     };
 
     /**
-     * 这个zk数据库映射到的filetxnsnaplog，filetxnsnaplog和zkdatabase之间存在一对一的关系
+     * 这个zk数据库对应一个FileTxnSnapLog，FileTxnSnapLog 和 ZKDatabase 之间存在一对一的关系
      *
      * @param snapLog ZKDatabase对应的
      */
@@ -121,27 +126,8 @@ public class ZKDatabase {
         return zxid;
     }
 
-    /**
-     * 清除zkdatabase。
-     * 开发人员请注意，清除方法清除了zkdatabase中的所有数据结构。
-     */
-    public void clear() {
-        minCommittedLog = 0;
-        maxCommittedLog = 0;
-        /* to be safe we just create a new
-         * datatree.
-         */
-        dataTree = new DataTree();
-        sessionsWithTimeouts.clear();
-        WriteLock lock = logLock.writeLock();
-        try {
-            lock.lock();
-            committedLog.clear();
-        } finally {
-            lock.unlock();
-        }
-        initialized = false;
-    }
+
+    // 事务日志相关操作
 
     public synchronized List<Proposal> getCommittedLog() {
         ReadLock rl = logLock.readLock();
@@ -156,57 +142,19 @@ public class ZKDatabase {
         }
         return this.committedLog;
     }
-
     /**
-     * get the last processed zxid from a datatree
-     * @return the last processed zxid of a datatree
-     */
-    public long getDataTreeLastProcessedZxid() {
-        return dataTree.lastProcessedZxid;
-    }
-
-    /**
-     * 返回dataTree中的所有session
+     * 添加一个事务请求
      *
-     * @return the data tree sessions
+     * @param hdr   事务头
+     * @param txn   请求提
      */
-    public Collection<Long> getSessions() {
-        return dataTree.getSessions();
-    }
-
-    /**
-     * get sessions with timeouts
-     * @return the hashmap of sessions with timeouts
-     */
-    public ConcurrentHashMap<Long, Integer> getSessionWithTimeOuts() {
-        return sessionsWithTimeouts;
-    }
-
-
-
-
-
-    /**
-     * 快进数据库，将事务从提交的日志添加到内存中。
-     *
-     * @return the last valid zxid.
-     * @throws IOException
-     */
-    public long fastForwardDataBase() throws IOException {
-        long zxid = snapLog.fastForwardFromEdits(dataTree, sessionsWithTimeouts, commitProposalPlaybackListener);
-        initialized = true;
-        return zxid;
-    }
-
     private void addCommittedProposal(TxnHeader hdr, Record txn) {
         Request r = new Request(0, hdr.getCxid(), hdr.getType(), hdr, txn, hdr.getZxid());
         addCommittedProposal(r);
     }
-
     /**
-     * maintains a list of last <i>committedLog</i>
-     *  or so committed requests. This is used for
-     * fast follower synchronization.
+     * 维护最近提交的日志或已提交请求的列表，这是用于follower同步。
+     *
      * @param request committed request
      */
     public void addCommittedProposal(Request request) {
@@ -233,18 +181,31 @@ public class ZKDatabase {
             wl.unlock();
         }
     }
-
+    /**
+     * 将事务从提交的日志添加到内存中。
+     *
+     * @return the last valid zxid.
+     * @throws IOException
+     */
+    public long fastForwardDataBase() throws IOException {
+        long zxid = snapLog.fastForwardFromEdits(dataTree, sessionsWithTimeouts, commitProposalPlaybackListener);
+        initialized = true;
+        return zxid;
+    }
+    /**
+     * snapshotSizeFactor >= 0时返回ture
+     *
+     * @return
+     */
     public boolean isTxnLogSyncEnabled() {
         boolean enabled = snapshotSizeFactor >= 0;
         if (enabled) {
-            LOG.info("On disk txn sync enabled with snapshotSizeFactor "
-                + snapshotSizeFactor);
+            LOG.info("On disk txn sync enabled with snapshotSizeFactor " + snapshotSizeFactor);
         } else {
             LOG.info("On disk txn sync disabled");
         }
         return enabled;
     }
-
     public long calculateTxnLogSizeLimit() {
         long snapSize = 0;
         try {
@@ -257,7 +218,6 @@ public class ZKDatabase {
         }
         return (long) (snapSize * snapshotSizeFactor);
     }
-
     /**
      * Get proposals from txnlog. Only packet part of proposal is populated.
      *
@@ -309,220 +269,38 @@ public class ZKDatabase {
         }
         return new TxnLogProposalIterator(itr);
     }
-
-    public List<ACL> aclForNode(DataNode n) {
-        return dataTree.getACL(n);
-    }
     /**
-     * remove a cnxn from the datatree
-     * @param cnxn the cnxn to remove from the datatree
-     */
-    public void removeCnxn(ServerCnxn cnxn) {
-        dataTree.removeCnxn(cnxn);
-    }
-
-    /**
-     * kill a given session in the datatree
-     * @param sessionId the session id to be killed
-     * @param zxid the zxid of kill session transaction
-     */
-    public void killSession(long sessionId, long zxid) {
-        dataTree.killSession(sessionId, zxid);
-    }
-
-    /**
-     * write a text dump of all the ephemerals in the datatree
-     * @param pwriter the output to write to
-     */
-    public void dumpEphemerals(PrintWriter pwriter) {
-        dataTree.dumpEphemerals(pwriter);
-    }
-
-    public Map<Long, Set<String>> getEphemerals() {
-        return dataTree.getEphemerals();
-    }
-
-    /**
-     * the node count of the datatree
-     * @return the node count of datatree
-     */
-    public int getNodeCount() {
-        return dataTree.getNodeCount();
-    }
-
-    /**
-     * the paths for  ephemeral session id
-     * @param sessionId the session id for which paths match to
-     * @return the paths for a session id
-     */
-    public Set<String> getEphemerals(long sessionId) {
-        return dataTree.getEphemerals(sessionId);
-    }
-
-    /**
-     * the last processed zxid in the datatree
-     * @param zxid the last processed zxid in the datatree
-     */
-    public void setlastProcessedZxid(long zxid) {
-        dataTree.lastProcessedZxid = zxid;
-    }
-
-    /**
-     * the process txn on the data
-     * @param hdr the txnheader for the txn
-     * @param txn the transaction that needs to be processed
-     * @return the result of processing the transaction on this
-     * datatree/zkdatabase
-     */
-    public ProcessTxnResult processTxn(TxnHeader hdr, Record txn) {
-        return dataTree.processTxn(hdr, txn);
-    }
-
-    /**
-     * stat the path
-     * @param path the path for which stat is to be done
-     * @param serverCnxn the servercnxn attached to this request
-     * @return the stat of this node
-     * @throws KeeperException.NoNodeException
-     */
-    public Stat statNode(String path, ServerCnxn serverCnxn) throws KeeperException.NoNodeException {
-        return dataTree.statNode(path, serverCnxn);
-    }
-
-    /**
-     * get the datanode for this path
-     * @param path the path to lookup
-     * @return the datanode for getting the path
-     */
-    public DataNode getNode(String path) {
-      return dataTree.getNode(path);
-    }
-
-    /**
-     * get data and stat for a path
-     * @param path the path being queried
-     * @param stat the stat for this path
-     * @param watcher the watcher function
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public byte[] getData(String path, Stat stat, Watcher watcher)
-    throws KeeperException.NoNodeException {
-        return dataTree.getData(path, stat, watcher);
-    }
-
-    /**
-     * set watches on the datatree
-     * @param relativeZxid the relative zxid that client has seen
-     * @param dataWatches the data watches the client wants to reset
-     * @param existWatches the exists watches the client wants to reset
-     * @param childWatches the child watches the client wants to reset
-     * @param watcher the watcher function
-     */
-    public void setWatches(long relativeZxid, List<String> dataWatches, List<String> existWatches, List<String> childWatches, Watcher watcher) {
-        dataTree.setWatches(relativeZxid, dataWatches, existWatches, childWatches, watcher);
-    }
-
-    /**
-     * get acl for a path
-     * @param path the path to query for acl
-     * @param stat the stat for the node
-     * @return the acl list for this path
-     * @throws NoNodeException
-     */
-    public List<ACL> getACL(String path, Stat stat) throws NoNodeException {
-        return dataTree.getACL(path, stat);
-    }
-
-    /**
-     * get children list for this path
-     * @param path the path of the node
-     * @param stat the stat of the node
-     * @param watcher the watcher function for this path
-     * @return the list of children for this path
-     * @throws KeeperException.NoNodeException
-     */
-    public List<String> getChildren(String path, Stat stat, Watcher watcher)
-    throws KeeperException.NoNodeException {
-        return dataTree.getChildren(path, stat, watcher);
-    }
-
-    /**
-     * check if the path is special or not
-     * @param path the input path
-     * @return true if path is special and false if not
-     */
-    public boolean isSpecialPath(String path) {
-        return dataTree.isSpecialPath(path);
-    }
-
-    /**
-     * get the acl size of the datatree
-     * @return the acl size of the datatree
-     */
-    public int getAclSize() {
-        return dataTree.aclCacheSize();
-    }
-
-    /**
-     * Truncate the ZKDatabase to the specified zxid
+     * 截断指定的zxid的事务日志
+     *
      * @param zxid the zxid to truncate zk database to
      * @return true if the truncate is successful and false if not
      * @throws IOException
      */
     public boolean truncateLog(long zxid) throws IOException {
         clear();
-
         // truncate the log
         boolean truncated = snapLog.truncateLog(zxid);
-
         if (!truncated) {
             return false;
         }
-
         loadDataBase();
         return true;
     }
-
     /**
-     * deserialize a snapshot from an input archive
+     * 追加请求到事务日志中
      *
-     * @param ia the input archive you want to deserialize from
-     * @throws IOException
-     */
-    public void deserializeSnapshot(InputArchive ia) throws IOException {
-        clear();
-        SerializeUtils.deserializeSnapshot(getDataTree(), ia, getSessionWithTimeOuts());
-        initialized = true;
-    }
-
-    /**
-     * serialize the snapshot
-     *
-     * @param oa the output archive to which the snapshot needs to be serialized
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    public void serializeSnapshot(OutputArchive oa) throws IOException, InterruptedException {
-        SerializeUtils.serializeSnapshot(getDataTree(), oa, getSessionWithTimeOuts());
-    }
-
-    /**
-     * append to the underlying transaction log
      * @param si the request to append
      * @return true if the append was succesfull and false if not
      */
     public boolean append(Request si) throws IOException {
         return this.snapLog.append(si);
     }
-
     /**
-     * roll the underlying log
+     * 回滚日志事务
      */
     public void rollLog() throws IOException {
         this.snapLog.rollLog();
     }
-
     /**
      * commit to the underlying transaction log
      * @throws IOException
@@ -530,7 +308,6 @@ public class ZKDatabase {
     public void commit() throws IOException {
         this.snapLog.commit();
     }
-
     /**
      * close this database. free the resources
      * @throws IOException
@@ -538,6 +315,31 @@ public class ZKDatabase {
     public void close() throws IOException {
         this.snapLog.close();
     }
+    /**
+     * 清除zkdatabase。
+     * 开发人员请注意，清除方法清除了zkdatabase中的所有数据结构。
+     */
+    public void clear() {
+        minCommittedLog = 0;
+        maxCommittedLog = 0;
+        /* to be safe we just create a new
+         * datatree.
+         */
+        dataTree = new DataTree();
+        sessionsWithTimeouts.clear();
+        WriteLock lock = logLock.writeLock();
+        try {
+            lock.lock();
+            committedLog.clear();
+        } finally {
+            lock.unlock();
+        }
+        initialized = false;
+    }
+
+
+
+    // 直接委托给dataTree的相关方法
 
     /**
      * 初始化dataTree中"/zookeeper/config"的节点信息
@@ -561,36 +363,221 @@ public class ZKDatabase {
     }
 
     /**
-     * Use for unit testing, so we can turn this feature on/off
-     * @param snapshotSizeFactor Set to minus value to turn this off.
-     */
-    public void setSnapshotSizeFactor(double snapshotSizeFactor) {
-        this.snapshotSizeFactor = snapshotSizeFactor;
-    }
-
-    /**
-     * Check whether the given watcher exists in datatree
+     * 将ia反序列化为DataTree
      *
-     * @param path
-     *            node to check watcher existence
-     * @param type
-     *            type of watcher
-     * @param watcher
-     *            watcher function
+     * @param ia the input archive you want to deserialize from
+     * @throws IOException
+     */
+    public void deserializeSnapshot(InputArchive ia) throws IOException {
+        clear();
+        SerializeUtils.deserializeSnapshot(getDataTree(), ia, getSessionWithTimeOuts());
+        initialized = true;
+    }
+    /**
+     * 将datatree序列化输出
+     *
+     * @param oa the output archive to which the snapshot needs to be serialized
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    public void serializeSnapshot(OutputArchive oa) throws IOException, InterruptedException {
+        SerializeUtils.serializeSnapshot(getDataTree(), oa, getSessionWithTimeOuts());
+    }
+    /**
+     * 从数据树获取最后一个处理过的事务ID
+     *
+     * @return the last processed zxid of a datatree
+     */
+    public long getDataTreeLastProcessedZxid() {
+        return dataTree.lastProcessedZxid;
+    }
+    /**
+     * 返回dataTree中的所有session
+     *
+     * @return the data tree sessions
+     */
+    public Collection<Long> getSessions() {
+        return dataTree.getSessions();
+    }
+    /**
+     * 获取节点的权限
+     *
+     * @param n
+     * @return
+     */
+    public List<ACL> aclForNode(DataNode n) {
+        return dataTree.getACL(n);
+    }
+    /**
+     * 从dataTree移除一个ServerCnxn的连接实例
+     *
+     * @param cnxn the cnxn to remove from the datatree
+     */
+    public void removeCnxn(ServerCnxn cnxn) {
+        dataTree.removeCnxn(cnxn);
+    }
+    /**
+     * kill一个session
+     *
+     * @param sessionId     会话ID
+     * @param zxid          kill该会话的事务ID
+     */
+    public void killSession(long sessionId, long zxid) {
+        dataTree.killSession(sessionId, zxid);
+    }
+    /**
+     * dump出DataTree中所有的临时节点
+     *
+     * write a text dump of all the ephemerals in the datatree
+     * @param pwriter the output to write to
+     */
+    public void dumpEphemerals(PrintWriter pwriter) {
+        dataTree.dumpEphemerals(pwriter);
+    }
+    /**
+     * 返回所有的临时节点Map<sesseionId, 临时节点集合>
+     *
+     * @return
+     */
+    public Map<Long, Set<String>> getEphemerals() {
+        return dataTree.getEphemerals();
+    }
+    /**
+     * 统计DataTree中的节点数量
+     *
+     * @return the node count of datatree
+     */
+    public int getNodeCount() {
+        return dataTree.getNodeCount();
+    }
+    /**
+     * 根据sessionId获取临时节点
+     *
+     * @param sessionId the session id for which paths match to
+     * @return the paths for a session id
+     */
+    public Set<String> getEphemerals(long sessionId) {
+        return dataTree.getEphemerals(sessionId);
+    }
+    /**
+     * 设置操作dataTree的最后一个事务ID
+     *
+     * @param zxid the last processed zxid in the datatree
+     */
+    public void setlastProcessedZxid(long zxid) {
+        dataTree.lastProcessedZxid = zxid;
+    }
+    /**
+     * 处理操作DataTree的请求，比如查询节点数据，添加/删除节点等操作
+     *
+     * @param hdr the txnheader for the txn
+     * @param txn the transaction that needs to be processed
+     * @return the result of processing the transaction on this
+     * datatree/zkdatabase
+     */
+    public ProcessTxnResult processTxn(TxnHeader hdr, Record txn) {
+        return dataTree.processTxn(hdr, txn);
+    }
+    /**
+     * 获取节点的Stat信息
+     *
+     * @param path the path for which stat is to be done
+     * @param serverCnxn the servercnxn attached to this request
+     * @return the stat of this node
+     * @throws KeeperException.NoNodeException
+     */
+    public Stat statNode(String path, ServerCnxn serverCnxn) throws KeeperException.NoNodeException {
+        return dataTree.statNode(path, serverCnxn);
+    }
+    /**
+     * 根据路径获取一个数据节点
+     *
+     * @param path the path to lookup
+     * @return the datanode for getting the path
+     */
+    public DataNode getNode(String path) {
+      return dataTree.getNode(path);
+    }
+    /**
+     * 获取指定节点的数据
+     *
+     * @param path the path being queried
+     * @param stat the stat for this path
+     * @param watcher the watcher function
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public byte[] getData(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
+        return dataTree.getData(path, stat, watcher);
+    }
+    /**
+     * 设置watcher监听
+     *
+     * @param relativeZxid the relative zxid that client has seen
+     * @param dataWatches the data watches the client wants to reset
+     * @param existWatches the exists watches the client wants to reset
+     * @param childWatches the child watches the client wants to reset
+     * @param watcher the watcher function
+     */
+    public void setWatches(long relativeZxid, List<String> dataWatches, List<String> existWatches, List<String> childWatches, Watcher watcher) {
+        dataTree.setWatches(relativeZxid, dataWatches, existWatches, childWatches, watcher);
+    }
+    /**
+     * 获取指定节点的权限
+     *
+     * @param path the path to query for acl
+     * @param stat the stat for the node
+     * @return the acl list for this path
+     * @throws NoNodeException
+     */
+    public List<ACL> getACL(String path, Stat stat) throws NoNodeException {
+        return dataTree.getACL(path, stat);
+    }
+    /**
+     * 获取孩子节点
+     *
+     * @param path the path of the node
+     * @param stat the stat of the node
+     * @param watcher the watcher function for this path
+     * @return the list of children for this path
+     * @throws KeeperException.NoNodeException
+     */
+    public List<String> getChildren(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
+        return dataTree.getChildren(path, stat, watcher);
+    }
+    /**
+     * 判断是否为zk管理员所拥有的特殊节点
+     *
+     * @param path the input path
+     * @return true if path is special and false if not
+     */
+    public boolean isSpecialPath(String path) {
+        return dataTree.isSpecialPath(path);
+    }
+    /**
+     * 获取有设置权限的节点数量
+     *
+     * @return the acl size of the datatree
+     */
+    public int getAclSize() {
+        return dataTree.aclCacheSize();
+    }
+    /**
+     * 判断节点的监听是否存在
+     *
+     * @param path      node to check watcher existence
+     * @param type      type of watcher
+     * @param watcher   watcher function
      */
     public boolean containsWatcher(String path, WatcherType type, Watcher watcher) {
         return dataTree.containsWatcher(path, type, watcher);
     }
-
     /**
-     * Remove watch from the datatree
+     * 移除监听
      *
-     * @param path
-     *            node to remove watches from
-     * @param type
-     *            type of watcher to remove
-     * @param watcher
-     *            watcher function to remove
+     * @param path node to remove watches from
+     * @param type type of watcher to remove
+     * @param watcher watcher function to remove
      */
     public boolean removeWatch(String path, WatcherType type, Watcher watcher) {
         return dataTree.removeWatch(path, type, watcher);
@@ -598,6 +585,7 @@ public class ZKDatabase {
 
 
 
+    // getter ...
 
     /**
      * checks to see if the zk database has been
@@ -638,7 +626,16 @@ public class ZKDatabase {
     public ReentrantReadWriteLock getLogLock() {
         return logLock;
     }
-
+    public ConcurrentHashMap<Long, Integer> getSessionWithTimeOuts() {
+        return sessionsWithTimeouts;
+    }
+    /**
+     * Use for unit testing, so we can turn this feature on/off
+     * @param snapshotSizeFactor Set to minus value to turn this off.
+     */
+    public void setSnapshotSizeFactor(double snapshotSizeFactor) {
+        this.snapshotSizeFactor = snapshotSizeFactor;
+    }
 
 
 }

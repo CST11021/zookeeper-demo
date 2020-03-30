@@ -297,6 +297,11 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
     }
 
+    /**
+     * 从ZKDatabase移除一个ServerCnxn的连接实例
+     *
+     * @param cnxn
+     */
     void removeCnxn(ServerCnxn cnxn) {
         zkDb.removeCnxn(cnxn);
     }

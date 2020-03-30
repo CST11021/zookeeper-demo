@@ -44,28 +44,19 @@ import java.util.concurrent.ConcurrentHashMap;
 public abstract class ServerCnxnFactory {
 
     private static final Logger LOG = LoggerFactory.getLogger(ServerCnxnFactory.class);
-
-    /**
-     * The buffer will cause the connection to be close when we do a send.
-     */
-    static final ByteBuffer closeConn = ByteBuffer.allocate(0);
-
     /** 表示一个配置项，用于配置zk使用的ServerCnxnFactory的实现类的全限定类名，没有配置默认使用NIOServerCnxnFactory */
     public static final String ZOOKEEPER_SERVER_CNXN_FACTORY = "zookeeper.serverCnxnFactory";
+    /** The buffer will cause the connection to be close when we do a send. */
+    static final ByteBuffer closeConn = ByteBuffer.allocate(0);
+
     public Login login;
     /** 告诉这个ServerCnxnFactory上是否启用了SSL */
     protected boolean secure;
-
-    protected SaslServerCallbackHandler saslServerCallbackHandler;
-
     /** 表示zk连接的zk服务器 */
     protected ZooKeeperServer zkServer;
-
-    /**
-     * 维护ServerCnxn实例对应的MBean
-     */
+    protected SaslServerCallbackHandler saslServerCallbackHandler;
+    /** 维护ServerCnxn实例对应的MBean */
     private final ConcurrentHashMap<ServerCnxn, ConnectionBean> connectionBeans = new ConcurrentHashMap<ServerCnxn, ConnectionBean>();
-
     /** 用于保存当前客户端连接的到zk服务的ServerCnxn实例 */
     protected final Set<ServerCnxn> cnxns = Collections.newSetFromMap(new ConcurrentHashMap<ServerCnxn, Boolean>());
 

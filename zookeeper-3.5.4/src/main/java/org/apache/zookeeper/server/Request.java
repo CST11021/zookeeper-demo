@@ -52,6 +52,7 @@ public class Request {
     /** 请求发送到服务端后，由ServerCnxn处理该请求，cnxn表示处理该请求的ServerCnxn实例 */
     public final ServerCnxn cnxn;
 
+    /** 表示请求对应的事务头 */
     private TxnHeader hdr;
 
     private Record txn;

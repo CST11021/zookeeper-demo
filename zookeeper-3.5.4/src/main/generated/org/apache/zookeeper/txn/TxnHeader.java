@@ -24,10 +24,16 @@ import org.apache.yetus.audience.InterfaceAudience;
 
 @InterfaceAudience.Public
 public class TxnHeader implements Record {
+
+    /** 对应{@link org.apache.zookeeper.server.Request#sessionId}, 表示客户端连接zk的session */
     private long clientId;
+    /** 对应{@link org.apache.zookeeper.server.Request#cxid}, xid用于记录客户端请求发起的先后序号，用来确保单个客户端请求的响应顺序 */
     private int cxid;
+    /** 表示服务端处理请求的事务id */
     private long zxid;
+    /** 创建时间 */
     private long time;
+    /** 请求的操作类型，对应{@link org.apache.zookeeper.ZooDefs.OpCode} */
     private int type;
 
     public TxnHeader() {

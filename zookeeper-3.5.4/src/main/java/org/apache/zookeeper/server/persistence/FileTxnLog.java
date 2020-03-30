@@ -34,7 +34,12 @@ import java.util.zip.Adler32;
 import java.util.zip.Checksum;
 
 /**
- * 该类用于读取zk事务日志文件
+ * 该类用于操作zk事务日志文件：
+ *
+ * 1、zk事务日志文件用来标记事务操作，每一个事务操作如添加，删除节点等等 都会在事务日志中记录一条记录，用来在zookeeper异常情况下恢复数据
+ * 2、事务日志指zookeeper系统在正常运行过程中，针对所有的更新操作，在返回客户端“更新成功”的响应前，zookeeper会保证已经将本次更新操作的事务日志已经写到磁盘上，只有这样，整个更新操作才会生效。
+ *
+ *
  *
  *
  * This class implements the TxnLog interface. It provides api's

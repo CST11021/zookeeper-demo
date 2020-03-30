@@ -87,6 +87,7 @@ public interface TxnLog {
     void commit() throws IOException;
 
     /**
+     * 事务日志的同步时间(以毫秒为单位)
      *
      * @return transaction log's elapsed sync time in milliseconds
      */

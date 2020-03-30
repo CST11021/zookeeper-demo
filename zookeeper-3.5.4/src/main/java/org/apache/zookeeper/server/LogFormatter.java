@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -18,6 +18,16 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.jute.BinaryInputArchive;
+import org.apache.jute.Record;
+import org.apache.yetus.audience.InterfaceAudience;
+import org.apache.zookeeper.server.persistence.FileHeader;
+import org.apache.zookeeper.server.persistence.FileTxnLog;
+import org.apache.zookeeper.server.util.SerializeUtils;
+import org.apache.zookeeper.txn.TxnHeader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -26,21 +36,17 @@ import java.util.Date;
 import java.util.zip.Adler32;
 import java.util.zip.Checksum;
 
-import org.apache.jute.BinaryInputArchive;
-import org.apache.jute.Record;
-import org.apache.yetus.audience.InterfaceAudience;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.zookeeper.server.persistence.FileHeader;
-import org.apache.zookeeper.server.persistence.FileTxnLog;
-import org.apache.zookeeper.server.util.SerializeUtils;
-import org.apache.zookeeper.txn.TxnHeader;
-
+/**
+ * 用于查看zk的事务日志
+ */
 @InterfaceAudience.Public
 public class LogFormatter {
+
     private static final Logger LOG = LoggerFactory.getLogger(LogFormatter.class);
 
     /**
+     * 入参是事务文件的路径
+     *
      * @param args
      */
     public static void main(String[] args) throws Exception {
@@ -48,6 +54,7 @@ public class LogFormatter {
             System.err.println("USAGE: LogFormatter log_file");
             System.exit(2);
         }
+
         FileInputStream fis = new FileInputStream(args[0]);
         BinaryInputArchive logStream = BinaryInputArchive.getArchive(fis);
         FileHeader fhdr = new FileHeader();
@@ -57,9 +64,7 @@ public class LogFormatter {
             System.err.println("Invalid magic number for " + args[0]);
             System.exit(2);
         }
-        System.out.println("ZooKeeper Transactional Log File with dbid "
-                + fhdr.getDbid() + " txnlog format version "
-                + fhdr.getVersion());
+        System.out.println("ZooKeeper Transactional Log File with dbid " + fhdr.getDbid() + " txnlog format version " + fhdr.getVersion());
 
         int count = 0;
         while (true) {
@@ -74,16 +79,14 @@ public class LogFormatter {
                 return;
             }
             if (bytes.length == 0) {
-                // Since we preallocate, we define EOF to be an
-                // empty transaction
+                // Since we preallocate, we define EOF to be an empty transaction
                 System.out.println("EOF reached after " + count + " txns.");
                 return;
             }
             Checksum crc = new Adler32();
             crc.update(bytes, 0, bytes.length);
             if (crcValue != crc.getValue()) {
-                throw new IOException("CRC doesn't match " + crcValue +
-                        " vs " + crc.getValue());
+                throw new IOException("CRC doesn't match " + crcValue + " vs " + crc.getValue());
             }
             TxnHeader hdr = new TxnHeader();
             Record txn = SerializeUtils.deserializeTxn(bytes, hdr);

@@ -821,7 +821,13 @@ public class DataTree {
     }
 
 
-
+    /**
+     * 处理操作DataTree的请求，比如查询节点数据，添加/删除节点等操作
+     *
+     * @param header
+     * @param txn
+     * @return
+     */
     public ProcessTxnResult processTxn(TxnHeader header, Record txn) {
         ProcessTxnResult rc = new ProcessTxnResult();
 
@@ -1330,7 +1336,8 @@ public class DataTree {
     }
 
     /**
-     * Write a text dump of all the ephemerals in the datatree.
+     * dump出DataTree中所有的临时节点
+     *
      * @param pwriter the output to write to
      */
     public void dumpEphemerals(PrintWriter pwriter) {

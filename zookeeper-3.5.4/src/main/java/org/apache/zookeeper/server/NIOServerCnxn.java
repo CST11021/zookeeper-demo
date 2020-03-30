@@ -93,6 +93,16 @@ public class NIOServerCnxn extends ServerCnxn {
 
     private final int outstandingLimit;
 
+    /**
+     *
+     *
+     * @param zk                表示与zk客户端建立连接的zk服务器
+     * @param sock              表示与zk客户端建立连接的SocketChannel（即TCP长连接）
+     * @param sk
+     * @param factory
+     * @param selectorThread    表示处理该连接的SelectorThread线程实例
+     * @throws IOException
+     */
     public NIOServerCnxn(ZooKeeperServer zk, SocketChannel sock, SelectionKey sk, NIOServerCnxnFactory factory, SelectorThread selectorThread) throws IOException {
         this.zkServer = zk;
         this.sock = sock;
@@ -175,10 +185,8 @@ public class NIOServerCnxn extends ServerCnxn {
             //从socketChannel读取至incomingBuffer
             int rc = sock.read(incomingBuffer);
             if (rc < 0) {
-                throw new EndOfStreamException(
-                        "Unable to read additional data from client sessionid 0x"
-                        + Long.toHexString(sessionId)
-                        + ", likely client has closed socket");
+                throw new EndOfStreamException("Unable to read additional data from client sessionid 0x"
+                        + Long.toHexString(sessionId) + ", likely client has closed socket");
             }
         }
 
@@ -346,10 +354,8 @@ public class NIOServerCnxn extends ServerCnxn {
                 // 初始化时incomingBuffer即时lengthBuffer,只分配了4个字节,供用户读取一个int(此int值就是此次请求报文的总长度)
                 int rc = sock.read(incomingBuffer);
                 if (rc < 0) {
-                    throw new EndOfStreamException(
-                            "Unable to read additional data from client sessionid 0x"
-                            + Long.toHexString(sessionId)
-                            + ", likely client has closed socket");
+                    throw new EndOfStreamException("Unable to read additional data from client sessionid 0x"
+                            + Long.toHexString(sessionId) + ", likely client has closed socket");
                 }
 
                 /*
@@ -390,6 +396,7 @@ public class NIOServerCnxn extends ServerCnxn {
             }
 
 
+            // 处理写操作
             if (k.isWritable()) {
                 handleWrite(k);
 
@@ -593,8 +600,8 @@ public class NIOServerCnxn extends ServerCnxn {
         }
     }
 
-    /** Reads the first 4 bytes of lenBuffer, which could be true length or
-     *  four letter word.
+    /**
+     * Reads the first 4 bytes of lenBuffer, which could be true length or four letter word.
      *
      * @param k selection key
      * @return true if length read, otw false (wasn't really the length)
