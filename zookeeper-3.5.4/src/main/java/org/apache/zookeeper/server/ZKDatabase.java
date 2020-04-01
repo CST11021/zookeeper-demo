@@ -73,13 +73,16 @@ public class ZKDatabase {
     /** Map<会话ID，会话过期时间> */
     protected ConcurrentHashMap<Long, Integer> sessionsWithTimeouts;
 
-
     /** 事务日志文件和快照数据文件 */
     protected FileTxnSnapLog snapLog;
+    /** Leader中缓存队列commitedLog中最小Proposal的ZXID、maxCommittedLog：表示Leader缓存队列commitedLog中Proposal的最大ZXID */
     protected long minCommittedLog, maxCommittedLog;
+    /** 对于committedLog中的提案的数量限制，当提案大于500时，会移除最小的一个提案 */
     public static final int commitLogCount = 500;
     protected static int commitLogBuffer = 700;
+    /** 每次DataTree做一次操作后(添加、更新、删除节点等操作)，提交一个Proposal保存到该集合中，用于后续同步给follower节点 */
     protected LinkedList<Proposal> committedLog = new LinkedList<Proposal>();
+    /** 用于控制{@link #committedLog}的读写锁，读操作的锁叫共享锁，写操作的锁叫排他锁。就是遇见写锁就需互斥。那么以此可得出读读共享，写写互斥，读写互斥，写读互斥 */
     protected ReentrantReadWriteLock logLock = new ReentrantReadWriteLock();
     /**
      * PlayBackListener监听器主要用来接收事务应用过程中的回调。在ZooKeeper数据恢复后期，会有一个事务订正的过程，在这个过程中，会回调PlayBackListener监听器来进行对应的数据订正。
@@ -129,9 +132,15 @@ public class ZKDatabase {
 
     // 事务日志相关操作
 
+    /**
+     * 每次DataTree做一次操作后(添加、更新、删除节点等操作)，提交一个Proposal保存到{@link #committedLog}集合中，
+     * 后续同步给follower节点时，会调用该方法，获取相关的操作
+     *
+     * @return
+     */
     public synchronized List<Proposal> getCommittedLog() {
         ReadLock rl = logLock.readLock();
-        // only make a copy if this thread isn't already holding a lock
+        // 如果这个线程还没有锁，就复制一个committedLog，getReadHoldCount()方法：查询当前线程在此锁上保持的重入读取锁数量
         if(logLock.getReadHoldCount() <=0) {
             try {
                 rl.lock();
@@ -143,7 +152,7 @@ public class ZKDatabase {
         return this.committedLog;
     }
     /**
-     * 添加一个事务请求
+     * DataTree做一次操作后(添加、更新、删除节点等操作)，都会调用该方法，提交一个Proposal，用于后续同步给follower节点
      *
      * @param hdr   事务头
      * @param txn   请求提
@@ -153,38 +162,43 @@ public class ZKDatabase {
         addCommittedProposal(r);
     }
     /**
-     * 维护最近提交的日志或已提交请求的列表，这是用于follower同步。
+     * DataTree做一次操作后(添加、更新、删除节点等操作)，都会调用该方法，提交一个Proposal，用于后续同步给follower节点
      *
      * @param request committed request
      */
     public void addCommittedProposal(Request request) {
+        // 获取一些写锁，防止并发写操作
         WriteLock wl = logLock.writeLock();
         try {
             wl.lock();
+            // 当Proposal数量 > 500时，移除第一个提案，并记录内存中最小的事务ID
             if (committedLog.size() > commitLogCount) {
                 committedLog.removeFirst();
                 minCommittedLog = committedLog.getFirst().packet.getZxid();
             }
+
             if (committedLog.isEmpty()) {
                 minCommittedLog = request.zxid;
                 maxCommittedLog = request.zxid;
             }
 
+            // 往committedLog添加一个Proposal
             byte[] data = SerializeUtils.serializeRequest(request);
             QuorumPacket pp = new QuorumPacket(Leader.PROPOSAL, request.zxid, data, null);
             Proposal p = new Proposal();
             p.packet = pp;
             p.request = request;
             committedLog.add(p);
+
             maxCommittedLog = p.packet.getZxid();
         } finally {
             wl.unlock();
         }
     }
     /**
-     * 将事务从提交的日志添加到内存中。
+     * 将事务日志恢复到内存中
      *
-     * @return the last valid zxid.
+     * @return 返回事务日志中，最后一个有效的zxid（即最大一个事务ID）
      * @throws IOException
      */
     public long fastForwardDataBase() throws IOException {
@@ -206,9 +220,15 @@ public class ZKDatabase {
         }
         return enabled;
     }
+
+    /**
+     * 计算最新的快照文件大小
+     * @return
+     */
     public long calculateTxnLogSizeLimit() {
         long snapSize = 0;
         try {
+            // 快照目录中的最新快照
             File snapFile = snapLog.findMostRecentSnapshot();
             if (snapFile != null) {
                 snapSize = snapFile.length();
@@ -222,8 +242,7 @@ public class ZKDatabase {
      * Get proposals from txnlog. Only packet part of proposal is populated.
      *
      * @param startZxid the starting zxid of the proposal
-     * @param sizeLimit maximum on-disk size of txnlog to fetch
-     *                  0 is unlimited, negative value means disable.
+     * @param sizeLimit maximum on-disk size of txnlog to fetch 0 is unlimited, negative value means disable.
      * @return list of proposal (request part of each proposal is null)
      */
     public Iterator<Proposal> getProposalsFromTxnLog(long startZxid, long sizeLimit) {
@@ -235,14 +254,12 @@ public class ZKDatabase {
         TxnIterator itr = null;
         try {
 
+            // 开始从给定的zxid读取之后的所有事务
             itr = snapLog.readTxnLog(startZxid, false);
 
-            // If we cannot guarantee that this is strictly the starting txn
-            // after a given zxid, we should fail.
-            if ((itr.getHeader() != null)
-                    && (itr.getHeader().getZxid() > startZxid)) {
-                LOG.warn("Unable to find proposals from txnlog for zxid: "
-                        + startZxid);
+            // If we cannot guarantee that this is strictly the starting txn after a given zxid, we should fail.
+            if ((itr.getHeader() != null) && (itr.getHeader().getZxid() > startZxid)) {
+                LOG.warn("Unable to find proposals from txnlog for zxid: " + startZxid);
                 itr.close();
                 return TxnLogProposalIterator.EMPTY_ITERATOR;
             }
@@ -250,8 +267,7 @@ public class ZKDatabase {
             if (sizeLimit > 0) {
                 long txnSize = itr.getStorageSize();
                 if (txnSize > sizeLimit) {
-                    LOG.info("Txnlog size: " + txnSize + " exceeds sizeLimit: "
-                            + sizeLimit);
+                    LOG.info("Txnlog size: " + txnSize + " exceeds sizeLimit: " + sizeLimit);
                     itr.close();
                     return TxnLogProposalIterator.EMPTY_ITERATOR;
                 }
@@ -270,10 +286,10 @@ public class ZKDatabase {
         return new TxnLogProposalIterator(itr);
     }
     /**
-     * 截断指定的zxid的事务日志
+     * 截断该事务ID之后的事务日志，即将大于该zxid的事务日志都删除掉
      *
      * @param zxid the zxid to truncate zk database to
-     * @return true if the truncate is successful and false if not
+     * @return 如果能够截断日志，则返回true，否则false
      * @throws IOException
      */
     public boolean truncateLog(long zxid) throws IOException {

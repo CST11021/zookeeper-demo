@@ -210,16 +210,16 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * 此函数将快速转发服务器数据库，使其包含最新的事务。这与恢复相同，但仅从事务日志中读取，而不从快照中恢复。
+     * 获取datatree中最大的事务ID，然后从事务日志中恢复该日志中>该事务ID之后的事务操作
      *
-     * @param dt the datatree to write transactions to.
-     * @param sessions the sessions to be restored.
-     * @param listener the playback listener to run on the
-     * database transactions.
-     * @return the highest zxid restored.
+     * @param dt        将事务日志文件中操作日志恢复到对应的DataTree
+     * @param sessions  保存恢复的session
+     * @param listener  the playback listener to run on the database transactions.
+     * @return 返回事务日志中，最后一个有效的zxid（即最大一个事务ID）
      * @throws IOException
      */
     public long fastForwardFromEdits(DataTree dt, Map<Long, Integer> sessions, PlayBackListener listener) throws IOException {
+        // 从内存树获取最新的事务ID
         TxnIterator itr = txnLog.read(dt.lastProcessedZxid + 1);
         long highestZxid = dt.lastProcessedZxid;
         TxnHeader hdr;
@@ -228,10 +228,11 @@ public class FileTxnSnapLog {
                 // 迭代器在初始化时指向第一个有效的txn
                 hdr = itr.getHeader();
                 if (hdr == null) {
-                    //empty logs
+                    // 如果日志是空的话，就会返回当前内存树最大的事务ID
                     return dt.lastProcessedZxid;
                 }
 
+                // 正常情况下，zk的事务日志会比内存树的最大事务ID大
                 if (hdr.getZxid() < highestZxid && highestZxid != 0) {
                     LOG.error("{}(highestZxid) > {}(next log) for type {}", highestZxid, hdr.getZxid(), hdr.getType());
                 } else {
@@ -257,7 +258,7 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * Get TxnIterator for iterating through txnlog starting at a given zxid
+     * 开始从给定的zxid读取之后的所有事务
      *
      * @param zxid starting zxid
      * @return TxnIterator
@@ -268,7 +269,7 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * Get TxnIterator for iterating through txnlog starting at a given zxid
+     * 开始从给定的zxid读取之后的所有事务
      *
      * @param zxid starting zxid
      * @param fastForward true if the iterator should be fast forwarded to point
@@ -283,12 +284,12 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * process the transaction on the datatree
+     * 恢复事务事务日志里的一个事务操作
      *
-     * @param hdr the hdr of the transaction
-     * @param dt the datatree to apply transaction to
-     * @param sessions the sessions to be restored
-     * @param txn the transaction to be applied
+     * @param hdr       要回恢复操作的事务头
+     * @param dt        恢复到对应的DataTree
+     * @param sessions  用于保存恢复的会话
+     * @param txn       要恢复的事务体
      */
     public void processTransaction(TxnHeader hdr, DataTree dt, Map<Long, Integer> sessions, Record txn) throws KeeperException.NoNodeException {
         ProcessTxnResult rc;
@@ -351,10 +352,10 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * 截断指定的zxid的事务日志
+     * 截断该事务ID之后的事务日志，即将大于该zxid的事务日志都删除掉
      *
      * @param zxid the zxid to truncate the logs to
-     * @return true if able to truncate the log, false if not
+     * @return 如果能够截断日志，则返回true，否则false
      * @throws IOException
      */
     public boolean truncateLog(long zxid) throws IOException {
@@ -377,8 +378,8 @@ public class FileTxnSnapLog {
     }
 
     /**
-     * the most recent snapshot in the snapshot
-     * directory
+     * 快照目录中的最新快照
+     *
      * @return the file that contains the most
      * recent snapshot
      * @throws IOException

@@ -385,7 +385,7 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
-     * start reading all the transactions from the given zxid.
+     * 开始从给定的zxid读取之后的所有事务
      *
      * @param zxid the zxid to start reading transactions from
      * @param fastForward true if the iterator should be fast forwarded to point
@@ -398,7 +398,7 @@ public class FileTxnLog implements TxnLog {
     }
 
     /**
-     * truncate the current transaction logs
+     * 截断该事务ID之后的事务日志，即将大于该zxid的事务日志都删除掉
      *
      * @param zxid the zxid to truncate the logs to
      * @return true if successful false if not
