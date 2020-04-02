@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,12 +16,6 @@
  * limitations under the License.
  */
 package org.apache.zookeeper.server.quorum;
-
-import java.io.PrintWriter;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentMap;
 
 import org.apache.zookeeper.KeeperException.SessionExpiredException;
 import org.apache.zookeeper.KeeperException.SessionMovedException;
@@ -31,13 +25,22 @@ import org.apache.zookeeper.server.ZooKeeperServerListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.PrintWriter;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.concurrent.ConcurrentMap;
+
 /**
- * The leader session tracker tracks local and global sessions on the leader.
+ * 该跟踪器用于跟踪本地和全局的leader会话。
  */
 public class LeaderSessionTracker extends UpgradeableSessionTracker {
+
     private static final Logger LOG = LoggerFactory.getLogger(LeaderSessionTracker.class);
 
     private final boolean localSessionsEnabled;
+
+    /** 全局会话管理器 */
     private final SessionTrackerImpl globalSessionTracker;
 
     /**
@@ -45,13 +48,10 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
      */
     private final long serverId;
 
-    public LeaderSessionTracker(SessionExpirer expirer,
-            ConcurrentMap<Long, Integer> sessionsWithTimeouts,
-            int tickTime, long id, boolean localSessionsEnabled,
-            ZooKeeperServerListener listener) {
+    public LeaderSessionTracker(SessionExpirer expirer, ConcurrentMap<Long, Integer> sessionsWithTimeouts, int tickTime, long id, boolean localSessionsEnabled, ZooKeeperServerListener listener) {
 
         this.globalSessionTracker = new SessionTrackerImpl(
-            expirer, sessionsWithTimeouts, tickTime, id, listener);
+                expirer, sessionsWithTimeouts, tickTime, id, listener);
 
         this.localSessionsEnabled = localSessionsEnabled;
         if (this.localSessionsEnabled) {
@@ -85,9 +85,15 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
         return globalSessionTracker.isTrackingSession(sessionId);
     }
 
+    /**
+     * 添加一个全局会话
+     *
+     * @param sessionId
+     * @param sessionTimeout
+     * @return
+     */
     public boolean addGlobalSession(long sessionId, int sessionTimeout) {
-        boolean added =
-            globalSessionTracker.addSession(sessionId, sessionTimeout);
+        boolean added = globalSessionTracker.addSession(sessionId, sessionTimeout);
         if (localSessionsEnabled && added) {
             // Only do extra logging so we know what kind of session this is
             // if we're supporting both kinds of sessions
@@ -105,7 +111,7 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
                 added = false;
                 localSessionTracker.removeSession(sessionId);
             } else if (added) {
-              LOG.info("Adding local session 0x" + Long.toHexString(sessionId));
+                LOG.info("Adding local session 0x" + Long.toHexString(sessionId));
             }
         } else {
             added = addGlobalSession(sessionId, sessionTimeout);
@@ -115,7 +121,7 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
 
     public boolean touchSession(long sessionId, int sessionTimeout) {
         if (localSessionTracker != null &&
-            localSessionTracker.touchSession(sessionId, sessionTimeout)) {
+                localSessionTracker.touchSession(sessionId, sessionTimeout)) {
             return true;
         }
         return globalSessionTracker.touchSession(sessionId, sessionTimeout);
@@ -133,9 +139,7 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
         return sessionId >> 56;
     }
 
-    public void checkSession(long sessionId, Object owner)
-            throws SessionExpiredException, SessionMovedException,
-            UnknownSessionException {
+    public void checkSession(long sessionId, Object owner) throws SessionExpiredException, SessionMovedException, UnknownSessionException {
         if (localSessionTracker != null) {
             try {
                 localSessionTracker.checkSession(sessionId, owner);
@@ -144,7 +148,7 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
                 if (!isGlobalSession(sessionId)) {
                     return;
                 }
-            } catch(UnknownSessionException e) {
+            } catch (UnknownSessionException e) {
                 // Ignore. We'll check instead whether it's a global session
             }
         }
@@ -166,8 +170,15 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
         }
     }
 
-    public void checkGlobalSession(long sessionId, Object owner)
-            throws SessionExpiredException, SessionMovedException {
+    /**
+     * 严格检查给定的会话是否是全局会话，如果该sessionId对应的会话实例的owner是空的，则将owner赋值给它，如果不为空，检查owner是否一样
+     *
+     * @param sessionId
+     * @param owner
+     * @throws SessionExpiredException
+     * @throws SessionMovedException
+     */
+    public void checkGlobalSession(long sessionId, Object owner) throws SessionExpiredException, SessionMovedException {
         try {
             globalSessionTracker.checkSession(sessionId, owner);
         } catch (UnknownSessionException e) {
@@ -176,13 +187,19 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
         }
     }
 
-    public void setOwner(long sessionId, Object owner)
-            throws SessionExpiredException {
+    /**
+     * 给会话设置owner
+     *
+     * @param sessionId
+     * @param owner
+     * @throws SessionExpiredException
+     */
+    public void setOwner(long sessionId, Object owner) throws SessionExpiredException {
         if (localSessionTracker != null) {
             try {
                 localSessionTracker.setOwner(sessionId, owner);
                 return;
-            } catch(SessionExpiredException e) {
+            } catch (SessionExpiredException e) {
                 // Ignore. We'll check instead whether it's a global session
             }
         }
@@ -190,12 +207,12 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
     }
 
     public void dumpSessions(PrintWriter pwriter) {
-      if (localSessionTracker != null) {
-          pwriter.print("Local ");
-          localSessionTracker.dumpSessions(pwriter);
-          pwriter.print("Global ");
-      }
-      globalSessionTracker.dumpSessions(pwriter);
+        if (localSessionTracker != null) {
+            pwriter.print("Local ");
+            localSessionTracker.dumpSessions(pwriter);
+            pwriter.print("Global ");
+        }
+        globalSessionTracker.dumpSessions(pwriter);
     }
 
     public void setSessionClosing(long sessionId) {

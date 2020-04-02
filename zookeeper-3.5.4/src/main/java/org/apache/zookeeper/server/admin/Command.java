@@ -18,29 +18,27 @@
 
 package org.apache.zookeeper.server.admin;
 
+import org.apache.zookeeper.server.ZooKeeperServer;
+
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.zookeeper.server.ZooKeeperServer;
-
 /**
- * Interface implemented by all commands runnable by JettyAdminServer.
+ * JettyAdminServer相关的命令都继承该接口
  *
  * @see CommandBase
  * @see Commands
  * @see JettyAdminServer
  */
 public interface Command {
+
     /**
-     * The set of all names that can be used to refer to this command (e.g.,
-     * "configuration", "config", and "conf").
+     * 可以用来引用此命令的所有名称的集合(例如，“configuration”、“config”和“conf”)。
      */
     Set<String> getNames();
 
     /**
-     * The name that is returned with the command response and that appears in
-     * the list of all commands. This should be a member of the set returned by
-     * getNames().
+     * The name that is returned with the command response and that appears in the list of all commands. This should be a member of the set returned by getNames().
      */
     String getPrimaryName();
 

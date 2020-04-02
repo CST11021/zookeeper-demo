@@ -18,32 +18,35 @@
 
 package org.apache.zookeeper.server;
 
+import org.apache.zookeeper.common.Time;
+
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.zookeeper.common.Time;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * ExpiryQueue tracks elements in time sorted fixed duration buckets.
- * It's used by SessionTrackerImpl to expire sessions and NIOServerCnxnFactory
- * to expire connections.
+ * ExpiryQueue在时间排序的固定持续时间桶中跟踪元素。
+ * 它被SessionTrackerImpl用来终止会话，被NIOServerCnxnFactory用来终止连接。
+ *
+ *
+ * 参考：https://blog.csdn.net/mystory110/article/details/77533376
+ * ExpiryQueue根据expirationInterval将时间分段，将每段区间的时间放入对应的一个集合进行管理。如图二所示，时间段在1503556830000-1503556860000中的数据将会放到1503556860000对应的集合中，1503556860000-1503556890000中的数据将会放到1503556890000的集合中，以此类推。
+ * 在ExpiryQueue的数据结构中，图二中的集合由ConcurrentHashMap进行管理，其中的Key值为到期时间。
+ * 数据分段使用公式为:（当前时间(毫秒)/ expirationInterval + 1）* expirationInterval。该公式表示将当前时间按照expirationInterval间隔算份数，算完后再加一个份额，最后再乘以expirationInterval间隔，就得出了下一个到期时间。
+ *
  */
 public class ExpiryQueue<E> {
-    private final ConcurrentHashMap<E, Long> elemMap =
-        new ConcurrentHashMap<E, Long>();
+
+    /** Map<SessionImpl, timeout> */
+    private final ConcurrentHashMap<E, Long> elemMap = new ConcurrentHashMap<E, Long>();
     /**
-     * The maximum number of buckets is equal to max timeout/expirationInterval,
-     * so the expirationInterval should not be too small compared to the
-     * max timeout that this expiry queue needs to maintain.
+     * 每个时间区间对应的过期sessionId
      */
-    private final ConcurrentHashMap<Long, Set<E>> expiryMap =
-        new ConcurrentHashMap<Long, Set<E>>();
+    private final ConcurrentHashMap<Long, Set<E>> expiryMap = new ConcurrentHashMap<Long, Set<E>>();
 
     private final AtomicLong nextExpirationTime = new AtomicLong();
     private final int expirationInterval;
@@ -58,10 +61,10 @@ public class ExpiryQueue<E> {
     }
 
     /**
-     * Removes element from the queue.
+     * 将session从队列中移除
+     *
      * @param elem  element to remove
-     * @return      time at which the element was set to expire, or null if
-     *              it wasn't present
+     * @return      time at which the element was set to expire, or null if it wasn't present
      */
     public Long remove(E elem) {
         Long expiryTime = elemMap.remove(elem);
@@ -77,16 +80,19 @@ public class ExpiryQueue<E> {
     }
 
     /**
-     * Adds or updates expiration time for element in queue, rounding the
-     * timeout to the expiry interval bucketed used by this queue.
+     * 添加或更新队列中元素的过期时间，将超时舍入到此队列使用的过期间隔。
+     *
      * @param elem     element to add/update
      * @param timeout  timout in milliseconds
      * @return         time at which the element is now set to expire if
      *                 changed, or null if unchanged
      */
     public Long update(E elem, int timeout) {
+
+        // 获取session的过期时间
         Long prevExpiryTime = elemMap.get(elem);
         long now = Time.currentElapsedTime();
+        // 计算新的过期时间
         Long newExpiryTime = roundToNextInterval(now + timeout);
 
         if (newExpiryTime.equals(prevExpiryTime)) {
@@ -98,10 +104,8 @@ public class ExpiryQueue<E> {
         Set<E> set = expiryMap.get(newExpiryTime);
         if (set == null) {
             // Construct a ConcurrentHashSet using a ConcurrentHashMap
-            set = Collections.newSetFromMap(
-                new ConcurrentHashMap<E, Boolean>());
-            // Put the new set in the map, but only if another thread
-            // hasn't beaten us to it
+            set = Collections.newSetFromMap(new ConcurrentHashMap<E, Boolean>());
+            // Put the new set in the map, but only if another thread hasn't beaten us to it
             Set<E> existingSet = expiryMap.putIfAbsent(newExpiryTime, set);
             if (existingSet != null) {
                 set = existingSet;
@@ -109,8 +113,7 @@ public class ExpiryQueue<E> {
         }
         set.add(elem);
 
-        // Map the elem to the new expiry time. If a different previous
-        // mapping was present, clean up the previous expiry bucket.
+        // Map the elem to the new expiry time. If a different previous mapping was present, clean up the previous expiry bucket.
         prevExpiryTime = elemMap.put(elem, newExpiryTime);
         if (prevExpiryTime != null && !newExpiryTime.equals(prevExpiryTime)) {
             Set<E> prevSet = expiryMap.get(prevExpiryTime);
@@ -135,8 +138,7 @@ public class ExpiryQueue<E> {
      * to be called frequently enough by checking getWaitTime(), otherwise there
      * will be a backlog of empty sets queued up in expiryMap.
      *
-     * @return next set of expired elements, or an empty set if none are
-     *         ready
+     * @return next set of expired elements, or an empty set if none are ready
      */
     public Set<E> poll() {
         long now = Time.currentElapsedTime();
@@ -147,8 +149,7 @@ public class ExpiryQueue<E> {
 
         Set<E> set = null;
         long newExpirationTime = expirationTime + expirationInterval;
-        if (nextExpirationTime.compareAndSet(
-              expirationTime, newExpirationTime)) {
+        if (nextExpirationTime.compareAndSet(expirationTime, newExpirationTime)) {
             set = expiryMap.remove(expirationTime);
         }
         if (set == null) {

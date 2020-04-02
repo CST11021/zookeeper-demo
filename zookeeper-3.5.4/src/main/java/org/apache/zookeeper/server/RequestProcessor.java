@@ -31,10 +31,10 @@ package org.apache.zookeeper.server;
  *
  * Leader和Follower有各自的RequestProcessor处理链；
  *
- * LeaderZooKeeperServer：	LeaderRequestProcessor -> PrepRequestProcessor -> ProposalRequestProcessor（SyncRequestProcessor->AckRequestProcessor）-> CommitProcessor -> Leader.ToBeAppliedRequestProcessor -> FinalRequestProcessor
- * FollowerZooKeeperServer：	FollowerRequestProcessor-> CommitProcessor->FinalRequestProcessor；SyncRequestProcessor->SendAckRequestProcessor
- * ObserverZooKeeperServer：	ObserverRequestProcessor-> CommitProcessor->FinalRequestProcessor；SyncRequestProcessor
- * ReadOnlyZooKeeperServer：	ReadOnlyRequestProcessor-> PrepRequestProcessor->FinalRequestProcessor
+ * LeaderZooKeeperServer：	LeaderRequestProcessor-> PrepRequestProcessor -> ProposalRequestProcessor（SyncRequestProcessor->AckRequestProcessor）-> CommitProcessor -> Leader.ToBeAppliedRequestProcessor -> FinalRequestProcessor
+ * FollowerZooKeeperServer：	FollowerRequestProcessor-> CommitProcessor-> FinalRequestProcessor；SyncRequestProcessor->SendAckRequestProcessor
+ * ObserverZooKeeperServer：	ObserverRequestProcessor-> CommitProcessor-> FinalRequestProcessor；SyncRequestProcessor
+ * ReadOnlyZooKeeperServer：	ReadOnlyRequestProcessor-> PrepRequestProcessor-> FinalRequestProcessor
  *
  */
 public interface RequestProcessor {

@@ -57,6 +57,7 @@ public class Request {
 
     private Record txn;
 
+    /** 全局的事务ID */
     public long zxid = -1;
 
     /** 授权用户信息，比如创建节点时，如果父节点设置了用户权限认证，则需要先认证后才能创建节点，该信息表示创建的节点的用户信息 */

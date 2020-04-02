@@ -41,48 +41,25 @@ import java.util.concurrent.atomic.AtomicLong;
  * 它按时间间隔分组跟踪会话。
  * 它总是将时间间隔四舍五入以提供一种宽限期。
  * 因此，会话是由在给定间隔内到期的会话组成的批过期的。
+ *
+ * SessionTrackerImpl作为一个单独的线程专门处理过期session，
  */
 public class SessionTrackerImpl extends ZooKeeperCriticalThread implements SessionTracker {
 
     private static final Logger LOG = LoggerFactory.getLogger(SessionTrackerImpl.class);
 
-    /** 保存sessionId及对应的session */
+    /** 保存sessionId及对应的session实例 */
     protected final ConcurrentHashMap<Long, SessionImpl> sessionsById = new ConcurrentHashMap<Long, SessionImpl>();
     private final ExpiryQueue<SessionImpl> sessionExpiryQueue;
+    /** 保存会话id及回应的会话过期时间，Map<sessionId, timeout> */
     private final ConcurrentMap<Long, Integer> sessionsWithTimeout;
+    /** 表示下一个sessionId的值，一旦有新的连接（session）产生，就会nextSessionId++ */
     private final AtomicLong nextSessionId = new AtomicLong();
     private final SessionExpirer expirer;
     volatile boolean running = true;
 
-    public static class SessionImpl implements Session {
-        SessionImpl(long sessionId, int timeout) {
-            this.sessionId = sessionId;
-            this.timeout = timeout;
-            isClosing = false;
-        }
 
-        final long sessionId;
-        final int timeout;
-        boolean isClosing;
 
-        Object owner;
-
-        public long getSessionId() {
-            return sessionId;
-        }
-
-        public int getTimeout() {
-            return timeout;
-        }
-
-        public boolean isClosing() {
-            return isClosing;
-        }
-
-        public String toString() {
-            return "0x" + Long.toHexString(sessionId);
-        }
-    }
 
     public SessionTrackerImpl(SessionExpirer expirer, ConcurrentMap<Long, Integer> sessionsWithTimeout, int tickTime, long serverId, ZooKeeperServerListener listener) {
         super("SessionTracker", listener);
@@ -99,8 +76,11 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
 
 
     /**
-     * Generates an initial sessionId. High order byte is serverId, next 5
-     * 5 bytes are from timestamp, and low order 2 bytes are 0s.
+     * 生成初始sessionId，高阶字节是serverId，接下来的5个字节来自时间戳，低阶的2个字节是0。
+     * 产生的值会存入nextSessionId属性，以后一旦有新的连接（session）产生，就会nextSessionId++
+     *
+     * @param id
+     * @return
      */
     public static long initializeNextSession(long id) {
         long nextSid;
@@ -110,38 +90,6 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
             ++nextSid;  // this is an unlikely edge case, but check it just in case
         }
         return nextSid;
-    }
-
-    public void dumpSessions(PrintWriter pwriter) {
-        pwriter.print("Session ");
-        sessionExpiryQueue.dump(pwriter);
-    }
-
-    /**
-     * Returns a mapping from time to session IDs of sessions expiring at that time.
-     */
-    synchronized public Map<Long, Set<Long>> getSessionExpiryMap() {
-        // Convert time -> sessions map to time -> session IDs map
-        Map<Long, Set<SessionImpl>> expiryMap = sessionExpiryQueue.getExpiryMap();
-        Map<Long, Set<Long>> sessionExpiryMap = new TreeMap<Long, Set<Long>>();
-        for (Entry<Long, Set<SessionImpl>> e : expiryMap.entrySet()) {
-            Set<Long> ids = new HashSet<Long>();
-            sessionExpiryMap.put(e.getKey(), ids);
-            for (SessionImpl s : e.getValue()) {
-                ids.add(s.sessionId);
-            }
-        }
-        return sessionExpiryMap;
-    }
-
-    @Override
-    public String toString() {
-        StringWriter sw = new StringWriter();
-        PrintWriter pwriter = new PrintWriter(sw);
-        dumpSessions(pwriter);
-        pwriter.flush();
-        pwriter.close();
-        return sw.toString();
     }
 
     @Override
@@ -163,6 +111,30 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
             handleException(this.getName(), e);
         }
         LOG.info("SessionTrackerImpl exited loop!");
+    }
+
+
+    public void dumpSessions(PrintWriter pwriter) {
+        pwriter.print("Session ");
+        sessionExpiryQueue.dump(pwriter);
+    }
+
+    /**
+     * 返回从时间到当时到期的会话的会话id的映射。
+     */
+    synchronized public Map<Long, Set<Long>> getSessionExpiryMap() {
+        // Convert time -> sessions map to time -> session IDs map
+        Map<Long, Set<SessionImpl>> expiryMap = sessionExpiryQueue.getExpiryMap();
+
+        Map<Long, Set<Long>> sessionExpiryMap = new TreeMap<Long, Set<Long>>();
+        for (Entry<Long, Set<SessionImpl>> e : expiryMap.entrySet()) {
+            Set<Long> ids = new HashSet<Long>();
+            sessionExpiryMap.put(e.getKey(), ids);
+            for (SessionImpl s : e.getValue()) {
+                ids.add(s.sessionId);
+            }
+        }
+        return sessionExpiryMap;
     }
 
     /**
@@ -205,8 +177,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         if (!LOG.isTraceEnabled())
             return;
 
-        String msg = MessageFormat.format(
-                "SessionTrackerImpl --- Touch {0}session: 0x{1} with timeout {2}",
+        String msg = MessageFormat.format("SessionTrackerImpl --- Touch {0}session: 0x{1} with timeout {2}",
                 sessionStatus, Long.toHexString(sessionId), Integer.toString(timeout));
 
         ZooTrace.logTraceMessage(LOG, ZooTrace.CLIENT_PING_TRACE_MASK, msg);
@@ -259,6 +230,12 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         }
     }
 
+    /**
+     * 根据超时时间创建一个会话
+     *
+     * @param sessionTimeout
+     * @return
+     */
     public long createSession(int sessionTimeout) {
         long sessionId = nextSessionId.getAndIncrement();
         addSession(sessionId, sessionTimeout);
@@ -269,7 +246,15 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         return addSession(id, sessionTimeout);
     }
 
+    /**
+     * 添加一个会话
+     *
+     * @param id sessionId
+     * @param sessionTimeout
+     * @return
+     */
     public synchronized boolean addSession(long id, int sessionTimeout) {
+        // 保存会话及对应的过期时间
         sessionsWithTimeout.put(id, sessionTimeout);
 
         boolean added = false;
@@ -279,8 +264,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
             session = new SessionImpl(id, sessionTimeout);
         }
 
-        // findbugs2.0.3 complains about get after put.
-        // long term strategy would be use computeIfAbsent after JDK 1.8
+        // findbugs2.0.3 complains about get after put. long term strategy would be use computeIfAbsent after JDK 1.8
         SessionImpl existedSession = sessionsById.putIfAbsent(id, session);
 
         if (existedSession != null) {
@@ -292,9 +276,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
 
         if (LOG.isTraceEnabled()) {
             String actionStr = added ? "Adding" : "Existing";
-            ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                    "SessionTrackerImpl --- " + actionStr + " session 0x"
-                            + Long.toHexString(id) + " " + sessionTimeout);
+            ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK, "SessionTrackerImpl --- " + actionStr + " session 0x" + Long.toHexString(id) + " " + sessionTimeout);
         }
 
         updateSessionExpiry(session, sessionTimeout);
@@ -339,4 +321,46 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
             throw new KeeperException.SessionExpiredException();
         }
     }
+
+
+    @Override
+    public String toString() {
+        StringWriter sw = new StringWriter();
+        PrintWriter pwriter = new PrintWriter(sw);
+        dumpSessions(pwriter);
+        pwriter.flush();
+        pwriter.close();
+        return sw.toString();
+    }
+
+    public static class SessionImpl implements Session {
+        SessionImpl(long sessionId, int timeout) {
+            this.sessionId = sessionId;
+            this.timeout = timeout;
+            isClosing = false;
+        }
+
+        final long sessionId;
+        final int timeout;
+        boolean isClosing;
+
+        Object owner;
+
+        public long getSessionId() {
+            return sessionId;
+        }
+
+        public int getTimeout() {
+            return timeout;
+        }
+
+        public boolean isClosing() {
+            return isClosing;
+        }
+
+        public String toString() {
+            return "0x" + Long.toHexString(sessionId);
+        }
+    }
+
 }

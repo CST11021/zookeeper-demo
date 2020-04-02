@@ -23,7 +23,11 @@ import java.util.List;
 import java.util.Set;
 
 public abstract class CommandBase implements Command {
+
+    /** 默认第一个别名作为主命令名 */
     private final String primaryName;
+
+    /** 命令的别名 */
     private final Set<String> names;
     private final String doc;
 
@@ -44,12 +48,10 @@ public abstract class CommandBase implements Command {
     public String getPrimaryName() {
         return primaryName;
     }
-
     @Override
     public Set<String> getNames() {
         return names;
     }
-
     @Override
     public String getDoc() {
         return doc;

@@ -101,6 +101,13 @@ public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
                 getZooKeeperServerListener());
     }
 
+    /**
+     * 判断sessionId是否合法，并且是否有过期
+     *
+     * @param sess
+     * @param to
+     * @return
+     */
     public boolean touch(long sess, int to) {
         return sessionTracker.touchSession(sess, to);
     }
@@ -135,9 +142,11 @@ public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
         prepRequestProcessor.processRequest(request);
     }
 
+    /**
+     * 将DataTree和ZooKeeperServer注册到JMX
+     */
     @Override
     protected void registerJMX() {
-        // register with JMX
         try {
             jmxDataTreeBean = new DataTreeBean(getZKDatabase().getDataTree());
             MBeanRegistry.getInstance().register(jmxDataTreeBean, jmxServerBean);
@@ -148,7 +157,6 @@ public class LeaderZooKeeperServer extends QuorumZooKeeperServer {
     }
 
     public void registerJMX(LeaderBean leaderBean, LocalPeerBean localPeerBean) {
-        // register with JMX
         if (self.jmxLeaderElectionBean != null) {
             try {
                 MBeanRegistry.getInstance().unregister(self.jmxLeaderElectionBean);

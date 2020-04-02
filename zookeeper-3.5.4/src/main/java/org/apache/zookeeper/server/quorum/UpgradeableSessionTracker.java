@@ -27,40 +27,49 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * A session tracker that supports upgradeable local sessions.
+ * 可将本地session升级为全局session的session管理器
  */
 public abstract class UpgradeableSessionTracker implements SessionTracker {
+
     private static final Logger LOG = LoggerFactory.getLogger(UpgradeableSessionTracker.class);
 
+    /** 保存会话及对应的超时时间 */
     private ConcurrentMap<Long, Integer> localSessionsWithTimeouts;
+
     protected LocalSessionTracker localSessionTracker;
 
     public void start() {
     }
 
     public void createLocalSessionTracker(SessionExpirer expirer, int tickTime, long id, ZooKeeperServerListener listener) {
-        this.localSessionsWithTimeouts =
-                new ConcurrentHashMap<Long, Integer>();
-        this.localSessionTracker = new LocalSessionTracker(
-                expirer, this.localSessionsWithTimeouts, tickTime, id, listener);
+        this.localSessionsWithTimeouts = new ConcurrentHashMap<Long, Integer>();
+        this.localSessionTracker = new LocalSessionTracker(expirer, this.localSessionsWithTimeouts, tickTime, id, listener);
     }
 
+    /**
+     * 返回SessionTracker是否知道这个会话
+     *
+     * @param sessionId
+     * @return
+     */
     public boolean isTrackingSession(long sessionId) {
         return isLocalSession(sessionId) || isGlobalSession(sessionId);
     }
 
+    /**
+     * 判断sessionId是否为本地会话
+     *
+     * @param sessionId
+     * @return
+     */
     public boolean isLocalSession(long sessionId) {
-        return localSessionTracker != null &&
-                localSessionTracker.isTrackingSession(sessionId);
+        return localSessionTracker != null && localSessionTracker.isTrackingSession(sessionId);
     }
 
     abstract public boolean isGlobalSession(long sessionId);
 
     /**
-     * Upgrades the session to a global session.
-     * This simply removes the session from the local tracker and marks
-     * it as global.  It is up to the caller to actually
-     * queue up a transaction for the session.
+     * 将会话升级为全局会话，该方法只是从本地跟踪器中删除会话并将其标记为全局的，这是由调用者实际排队的会话事务。
      *
      * @param sessionId
      * @return session timeout (-1 if not a local session)
@@ -69,8 +78,8 @@ public abstract class UpgradeableSessionTracker implements SessionTracker {
         if (localSessionsWithTimeouts == null) {
             return -1;
         }
-        // We won't race another upgrade attempt because only one thread
-        // will get the timeout from the map
+
+        // 移除本地会话，添加一个全局会话
         Integer timeout = localSessionsWithTimeouts.remove(sessionId);
         if (timeout != null) {
             LOG.info("Upgrading session 0x" + Long.toHexString(sessionId));

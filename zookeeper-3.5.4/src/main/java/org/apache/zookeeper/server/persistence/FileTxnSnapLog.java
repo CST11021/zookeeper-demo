@@ -435,6 +435,7 @@ public class FileTxnSnapLog {
     }
 
     /**
+     * 事务日志的同步时间(以毫秒为单位)
      *
      * @return elapsed sync time of transaction log commit in milliseconds
      */

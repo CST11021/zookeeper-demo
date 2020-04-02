@@ -32,8 +32,69 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Class containing static methods for registering and running Commands, as well
- * as default Command definitions.
+ * Class containing static methods for registering and running Commands, as well as default Command definitions.
+ *
+ *
+ *
+ * zk中有一系列的命令可以查看服务器的运行状态，它们的长度通常都是4个英文字母，因此又被称之为“四字命令”。
+ *
+ * 四字命令的使用方式非常简单，通常有两种方式：
+ *
+ * 第一种是通过Telnet方式，使用Telnet客户端登录 ZooKeeper的对外服务端口，然后直接输入四字命令即可；
+ *
+ * 第二种则是使用nc方式，使用方式： `echo {command} | nc localhost 2181`
+ *
+ * * **conf**
+ *
+ * conf命令用于输出ZooKeeper服务器运行时使用的基本配置信息，包括clientPort、dataDir和tickTime等。
+ * * **cons**
+ *
+ * cons命令用于输出当前这台服务器上所有客户端连接的详细信息，包括每个客户端的客户端IP、会话ID和最后一次与服务器交互的操作类型等。
+ *
+ * * **crst**
+ *
+ * crst命令是一个功能性命令，用于重置所有的客户端连接统计信息。
+ *
+ * * **dump**
+ *
+ * dump命令用于输出当前集群的所有会话信息，包括这些会话的会话ID，以及每个会话创建的临时节点等信息。
+ *
+ * * **envi**
+ *
+ * envi命令用于输出ZooKeeper所在服务器运行时的环境信息，包括os.version、java.version和user.home等。
+ *
+ * * **ruok**
+ *
+ * ruok命令用于输出当前ZooKeeper服务器是否正在运行。该命令的名字非常有趣，其谐音正好是“Are you ok”。执行该命令后，如果当前ZooKeeper服务器正在运行，那么返回“imok”，否则没有任何响应输出。
+ * 请注意，ruok命令的输出仅仅只能表明当前服务器是否正在运行，准确地讲，只能说明2181端口打开着，同时四字命令执行流程正常，但是不能代表ZooKeeper服务器是否运行正常。在很多时候，如果当前服务器无法正常处理客户端的读写请求，甚至已经无法和集群中的其他机器进行通信，ruok命令依然返回“imok”。
+ *
+ * * **stat**
+ *
+ * stat命令用于获取ZooKeeper服务器的运行时状态信息，包括基本的ZooKeeper版本、打包信息、运行时角色、集群数据节点个数等信息。
+ *
+ * * **srvr**
+ *
+ * srvr命令和stat命令的功能一致，唯一的区别是srvr不会将客户端的连接情况输出，仅仅输出服务器的自身信息
+ *
+ * * **srst**
+ *
+ * srst命令是一个功能行命令，用于重置所有服务器的统计信息。
+ *
+ * * **wchs**
+ *
+ * wchs命令用于输出当前服务器上管理的Watcher的概要信息。
+ *
+ * * **wchc**
+ *
+ * wchc命令用于输出当前服务器上管理的Watcher的详细信息，以会话为单位进行归组，同时列出被该会话注册了Watcher的节点路径。
+ *
+ * * **wchp**
+ *
+ * wchp命令和wchc命令非常类似，也是用于输出当前服务器上管理的Watcher的详细信息，不同点在于wchp命令的输出信息以节点路径为单位进行归组。
+ *
+ * * **mntr**
+ *
+ * mntr命令用于输出比stat命令更为详尽的服务器统计信息，包括请求处理的延迟情况、服务器内存数据库大小和集群的数据同步情况。
  *
  * @see Command
  * @see JettyAdminServer
@@ -49,8 +110,9 @@ public class Commands {
     private Commands() {}
 
     /**
-     * Registers the given command. Registered commands can be run by passing
-     * any of their names to runCommand.
+     * 注册命令
+     *
+     * @param command
      */
     public static void registerCommand(Command command) {
         for (String name : command.getNames()) {
@@ -122,7 +184,7 @@ public class Commands {
     }
 
     /**
-     * Reset all connection statistics.
+     * 重置所有的连接的命令
      */
     public static class CnxnStatResetCommand extends CommandBase {
         public CnxnStatResetCommand() {
@@ -139,7 +201,8 @@ public class Commands {
     }
 
     /**
-     * Server configuration parameters.
+     * 获取zk配置的命令
+     *
      * @see ZooKeeperServer#getConf()
      */
     public static class ConfCommand extends CommandBase {
@@ -191,6 +254,8 @@ public class Commands {
     }
 
     /**
+     * dump命令用于输出当前集群的所有会话信息，包括这些会话的会话ID，以及每个会话创建的临时节点等信息。
+     *
      * Information on session expirations and ephemerals. Returned map contains:
      *   - "expiry_time_to_session_ids": Map<Long, Set<Long>>
      *                                   time -> sessions IDs of sessions that expire at time
@@ -214,7 +279,7 @@ public class Commands {
     }
 
     /**
-     * All defined environment variables.
+     * envi命令用于输出ZooKeeper所在服务器运行时的环境信息，包括os.version、java.version和user.home等。
      */
     public static class EnvCommand extends CommandBase {
         public EnvCommand() {
@@ -336,7 +401,8 @@ public class Commands {
         }}
 
     /**
-     * No-op command, check if the server is running
+     * ruok命令用于输出当前ZooKeeper服务器是否正在运行。该命令的名字非常有趣，其谐音正好是“Are you ok”。执行该命令后，如果当前ZooKeeper服务器正在运行，那么返回“imok”，否则没有任何响应输出。
+     * 请注意，ruok命令的输出仅仅只能表明当前服务器是否正在运行，准确地讲，只能说明2181端口打开着，同时四字命令执行流程正常，但是不能代表ZooKeeper服务器是否运行正常。在很多时候，如果当前服务器无法正常处理客户端的读写请求，甚至已经无法和集群中的其他机器进行通信，ruok命令依然返回“imok”。
      */
     public static class RuokCommand extends CommandBase {
         public RuokCommand() {
@@ -383,6 +449,8 @@ public class Commands {
     }
 
     /**
+     * srvr命令和stat命令的功能一致，唯一的区别是srvr不会将客户端的连接情况输出，仅仅输出服务器的自身信息
+     *
      * Server information. Returned map contains:
      *   - "version": String
      *                version of server
@@ -415,6 +483,8 @@ public class Commands {
     }
 
     /**
+     * stat命令用于获取ZooKeeper服务器的运行时状态信息，包括基本的ZooKeeper版本、打包信息、运行时角色、集群数据节点个数等信息。
+     *
      * Same as SrvrCommand but has extra "connections" entry.
      */
     public static class StatCommand extends SrvrCommand {

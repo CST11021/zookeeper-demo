@@ -386,8 +386,7 @@ public class NIOServerCnxn extends ServerCnxn {
                         // 不是4字的情况
                         // 处理报文
                         readPayload();
-                    }
-                    else {
+                    } else {
                         // four letter words take care
                         // need not do anything else
                         return;

@@ -460,11 +460,11 @@ public abstract class ServerCnxn implements Stats, Watcher {
     /**
      * response后，调用该方法更新状态
      *
-     * @param cxid
-     * @param zxid
-     * @param op
-     * @param start
-     * @param end
+     * @param cxid      对应{@link Request#cxid}
+     * @param zxid      对应{@link Request#zxid}
+     * @param op        请求类型
+     * @param start     请求的创建时间
+     * @param end       zk处理请求的时间
      */
     protected synchronized void updateStatsForResponse(long cxid, long zxid, String op, long start, long end) {
         // don't overwrite with "special" xids - we're interested in the clients last real operation

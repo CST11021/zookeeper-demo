@@ -18,17 +18,26 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.Flushable;
-import java.io.IOException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.zookeeper.ZooDefs.OpCode;
 import org.apache.zookeeper.server.Request;
 import org.apache.zookeeper.server.RequestProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.Flushable;
+import java.io.IOException;
+
+/**
+ * SendAckRequestProcessor是Follower端的处理器：负责在SyncRequestProcessor完成事务日志记录后，向Proposal的投票收集器发送ACK反馈，以通知投票收集器当前服务器已经完成了对该Proposal的事务日志记录。
+ *
+ *
+ * 在SyncRequestProcessor完成日志记录之后，不同角色服务器需要告知ACK代表是否日志记录完成
+ * 在leader端，该处理器就是AckRequestProcessor
+ * 在Follower端，该处理器就是SendAckRequestProcessor
+ * 在observer端，由于observer并没有投票权，不需要对应的处理器
+ */
 public class SendAckRequestProcessor implements RequestProcessor, Flushable {
+
     private static final Logger LOG = LoggerFactory.getLogger(SendAckRequestProcessor.class);
 
     Learner learner;
@@ -39,8 +48,7 @@ public class SendAckRequestProcessor implements RequestProcessor, Flushable {
 
     public void processRequest(Request si) {
         if(si.type != OpCode.sync){
-            QuorumPacket qp = new QuorumPacket(Leader.ACK, si.getHdr().getZxid(), null,
-                null);
+            QuorumPacket qp = new QuorumPacket(Leader.ACK, si.getHdr().getZxid(), null, null);
             try {
                 learner.writePacket(qp, false);
             } catch (IOException e) {

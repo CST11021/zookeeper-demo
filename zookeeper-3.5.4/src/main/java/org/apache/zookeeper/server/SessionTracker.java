@@ -30,6 +30,7 @@ import java.util.Set;
  */
 public interface SessionTracker {
 
+
     /**
      * 用于查看session信息的接口
      */
@@ -54,7 +55,6 @@ public interface SessionTracker {
          */
         boolean isClosing();
     }
-
     /**
      * 使session过期的接口
      */
@@ -74,6 +74,8 @@ public interface SessionTracker {
         long getServerId();
     }
 
+
+
     /**
      * 根据超时时间创建一个session
      *
@@ -83,11 +85,11 @@ public interface SessionTracker {
     long createSession(int sessionTimeout);
 
     /**
-     * 向被跟踪的对象添加一个全局会话
+     * 添加一个全局会话
      *
      * @param id sessionId
      * @param to session超时时间
-     * @return whether the session was newly added (if false, already existed)
+     * @return 是否添加成功
      */
     boolean addGlobalSession(long id, int to);
 
@@ -96,7 +98,7 @@ public interface SessionTracker {
      *
      * @param id sessionId
      * @param to session超时时间
-     * @return whether the session was newly added (if false, already existed)
+     * @return 是否添加成功
      */
     boolean addSession(long id, int to);
 
@@ -110,7 +112,7 @@ public interface SessionTracker {
     boolean touchSession(long sessionId, int sessionTimeout);
 
     /**
-     * 标记session正在结束
+     * 标记session正在关闭
      *
      * @param sessionId
      */

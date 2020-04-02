@@ -44,12 +44,18 @@ public class LeaderRequestProcessor implements RequestProcessor {
         this.nextProcessor = nextProcessor;
     }
 
+    /**
+     * 处理来自客户端的请求，判断该请求是否需要升级为全局会话，如果需要则，添加一个创建session的请求到队列中
+     *
+     * @param request
+     * @throws RequestProcessorException
+     */
     @Override
     public void processRequest(Request request) throws RequestProcessorException {
-        // Check if this is a local session and we are trying to create
-        // an ephemeral node, in which case we upgrade the session
+        // 检查这是否是一个本地会话，并且我们试图创建一个临时节点，在这种情况下，我们升级会话
         Request upgradeRequest = null;
         try {
+            // 如果需要升级会话，则返回一个创建session的请求
             upgradeRequest = lzks.checkUpgradeSession(request);
         } catch (KeeperException ke) {
             if (request.getHdr() != null) {

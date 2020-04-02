@@ -17,18 +17,17 @@
  */
 package org.apache.zookeeper.server.quorum;
 
-import java.util.concurrent.ConcurrentMap;
-
 import org.apache.zookeeper.server.SessionTrackerImpl;
 import org.apache.zookeeper.server.ZooKeeperServerListener;
+
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Local session tracker.
  */
 public class LocalSessionTracker extends SessionTrackerImpl {
-    public LocalSessionTracker(SessionExpirer expirer,
-            ConcurrentMap<Long, Integer> sessionsWithTimeouts,
-            int tickTime, long id, ZooKeeperServerListener listener) {
+
+    public LocalSessionTracker(SessionExpirer expirer, ConcurrentMap<Long, Integer> sessionsWithTimeouts, int tickTime, long id, ZooKeeperServerListener listener) {
         super(expirer, sessionsWithTimeouts, tickTime, id, listener);
     }
 
@@ -40,6 +39,13 @@ public class LocalSessionTracker extends SessionTrackerImpl {
         return false;
     }
 
+    /**
+     * 本地会话管理器不支持添加全局会话
+     *
+     * @param sessionId
+     * @param sessionTimeout
+     * @return
+     */
     public boolean addGlobalSession(long sessionId, int sessionTimeout) {
         throw new UnsupportedOperationException();
     }

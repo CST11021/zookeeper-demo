@@ -44,21 +44,20 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
     private final LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
     private final RequestProcessor nextProcessor;
 
+    /** 该线程用于将数据树和会话保存到快照文件中 */
     private Thread snapInProcess = null;
+    /** 用于标记{@link #run()}方法是否正在执行 */
     volatile private boolean running;
 
     /**
-     * Transactions that have been written and are waiting to be flushed to
-     * disk. Basically this is the list of SyncItems whose callbacks will be
-     * invoked after flush returns successfully.
+     * Transactions that have been written and are waiting to be flushed to disk.
+     * Basically this is the list of SyncItems whose callbacks will be invoked after flush returns successfully.
      */
     private final LinkedList<Request> toFlush = new LinkedList<Request>();
     private final Random r = new Random(System.nanoTime());
-    /**
-     * The number of log entries to log before starting a snapshot
-     */
+    /** 表示事务日志文件的日志条数 */
     private static int snapCount = ZooKeeperServer.getSnapCount();
-
+    /** 标记服务器停止的请求 */
     private final Request requestOfDeath = Request.requestOfDeath;
 
     public SyncRequestProcessor(ZooKeeperServer zks, RequestProcessor nextProcessor) {
@@ -69,49 +68,41 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
         running = true;
     }
 
-    /**
-     * used by tests to check for changing
-     * snapcounts
-     * @param count
-     */
-    public static void setSnapCount(int count) {
-        snapCount = count;
-    }
-
-    /**
-     * used by tests to get the snapcount
-     * @return the snapcount
-     */
-    public static int getSnapCount() {
-        return snapCount;
-    }
-
     @Override
     public void run() {
         try {
             int logCount = 0;
 
-            // we do this in an attempt to ensure that not all of the servers
-            // in the ensemble take a snapshot at the same time
+            // we do this in an attempt to ensure that not all of the servers in the ensemble take a snapshot at the same time
             int randRoll = r.nextInt(snapCount / 2);
             while (true) {
                 Request si = null;
                 if (toFlush.isEmpty()) {
+                    // take如果没有则线程一直wait
                     si = queuedRequests.take();
                 } else {
+                    // poll如果没有则世界返回null
                     si = queuedRequests.poll();
                     if (si == null) {
                         flush(toFlush);
                         continue;
                     }
                 }
+
                 if (si == requestOfDeath) {
                     break;
                 }
+
                 if (si != null) {
-                    // track the number of records written to the log
+                    // 追加请求到事务日志中
                     if (zks.getZKDatabase().append(si)) {
                         logCount++;
+
+                        // snapCount(系统属性：zookeeper.snapCount) //默认为100000，在新增log（txn log）条数达到snapCount/2 + Random.nextInt(snapCount/2)时，
+                        // 将会对zkDatabase(内存数据库)进行snapshot，将内存中DataTree反序为snapshot文件数据，同时log计数置为0，以此循环。
+                        // snapshot过程中，同时也伴随txn log的新文件创建（这也是snapCount与preAllocSize参数的互相协调原因）。
+                        // snapshot时使用随机数的原因：让每个server snapshot的时机具有随即且可控，避免所有的server同时snapshot（snapshot过程中将阻塞请求）。
+
                         if (logCount > (snapCount / 2 + randRoll)) {
                             randRoll = r.nextInt(snapCount / 2);
                             // roll the log
@@ -120,6 +111,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
                             if (snapInProcess != null && snapInProcess.isAlive()) {
                                 LOG.warn("Too busy to snap, skipping");
                             } else {
+                                // 将数据树和会话保存到快照文件中
                                 snapInProcess = new ZooKeeperThread("Snapshot Thread") {
                                     public void run() {
                                         try {
@@ -134,10 +126,7 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
                             logCount = 0;
                         }
                     } else if (toFlush.isEmpty()) {
-                        // optimization for read heavy workloads
-                        // iff this is a read, and there are no pending
-                        // flushes (writes), then just pass this to the next
-                        // processor
+                        // optimization for read heavy workloads iff this is a read, and there are no pending flushes (writes), then just pass this to the next processor
                         if (nextProcessor != null) {
                             nextProcessor.processRequest(si);
                             if (nextProcessor instanceof Flushable) {
@@ -158,6 +147,28 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
             running = false;
         }
         LOG.info("SyncRequestProcessor exited!");
+    }
+
+    public void processRequest(Request request) {
+        // request.addRQRec(">sync");
+        queuedRequests.add(request);
+    }
+
+    /**
+     * used by tests to check for changing
+     * snapcounts
+     * @param count
+     */
+    public static void setSnapCount(int count) {
+        snapCount = count;
+    }
+
+    /**
+     * used by tests to get the snapcount
+     * @return the snapcount
+     */
+    public static int getSnapCount() {
+        return snapCount;
     }
 
     private void flush(LinkedList<Request> toFlush) throws IOException, RequestProcessorException {
@@ -198,9 +209,6 @@ public class SyncRequestProcessor extends ZooKeeperCriticalThread implements Req
         }
     }
 
-    public void processRequest(Request request) {
-        // request.addRQRec(">sync");
-        queuedRequests.add(request);
-    }
+
 
 }

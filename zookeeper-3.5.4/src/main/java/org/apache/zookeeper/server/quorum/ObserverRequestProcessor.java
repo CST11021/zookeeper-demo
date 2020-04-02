@@ -18,36 +18,35 @@
 
 package org.apache.zookeeper.server.quorum;
 
-import java.io.IOException;
-import java.util.concurrent.LinkedBlockingQueue;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs.OpCode;
-import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.Request;
+import org.apache.zookeeper.server.RequestProcessor;
 import org.apache.zookeeper.server.ZooKeeperCriticalThread;
 import org.apache.zookeeper.server.ZooTrace;
 import org.apache.zookeeper.txn.ErrorTxn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * This RequestProcessor forwards any requests that modify the state of the
- * system to the Leader.
+ * 此RequestProcessor将修改系统状态的任何请求转发给Leader。
  */
-public class ObserverRequestProcessor extends ZooKeeperCriticalThread implements
-        RequestProcessor {
+public class ObserverRequestProcessor extends ZooKeeperCriticalThread implements RequestProcessor {
+
     private static final Logger LOG = LoggerFactory.getLogger(ObserverRequestProcessor.class);
 
+    /** 表示observer的zk实例 */
     ObserverZooKeeperServer zks;
-
+    /** 表示下一个处理器 */
     RequestProcessor nextProcessor;
 
-    // We keep a queue of requests. As requests get submitted they are
-    // stored here. The queue is drained in the run() method.
+    /** We keep a queue of requests. As requests get submitted they are stored here. The queue is drained in the run() method. */
     LinkedBlockingQueue<Request> queuedRequests = new LinkedBlockingQueue<Request>();
 
+    /** 为true表示处理器不可用 */
     boolean finished = false;
 
     /**
@@ -56,8 +55,7 @@ public class ObserverRequestProcessor extends ZooKeeperCriticalThread implements
      * @param zks
      * @param nextProcessor
      */
-    public ObserverRequestProcessor(ObserverZooKeeperServer zks,
-            RequestProcessor nextProcessor) {
+    public ObserverRequestProcessor(ObserverZooKeeperServer zks, RequestProcessor nextProcessor) {
         super("ObserverRequestProcessor:" + zks.getServerId(), zks
                 .getZooKeeperServerListener());
         this.zks = zks;
@@ -137,6 +135,7 @@ public class ObserverRequestProcessor extends ZooKeeperCriticalThread implements
             } catch (IOException ie) {
                 LOG.error("Unexpected error in upgrade", ie);
             }
+
             if (upgradeRequest != null) {
                 queuedRequests.add(upgradeRequest);
             }

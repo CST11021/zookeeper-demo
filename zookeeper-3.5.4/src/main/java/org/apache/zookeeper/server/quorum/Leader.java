@@ -823,18 +823,11 @@ public class Leader {
             this.next = next;
         }
 
-        /*
-         * (non-Javadoc)
-         *
-         * @see org.apache.zookeeper.server.RequestProcessor#processRequest(org.apache.zookeeper.server.Request)
-         */
         public void processRequest(Request request) throws RequestProcessorException {
             next.processRequest(request);
 
-            // The only requests that should be on toBeApplied are write
-            // requests, for which we will have a hdr. We can't simply use
-            // request.zxid here because that is set on read requests to equal
-            // the zxid of the last write op.
+            // The only requests that should be on toBeApplied are write requests, for which we will have a hdr.
+            // We can't simply use request.zxid here because that is set on read requests to equal the zxid of the last write op.
             if (request.getHdr() != null) {
                 long zxid = request.getHdr().getZxid();
                 Iterator<Proposal> iter = leader.toBeApplied.iterator();
@@ -845,16 +838,10 @@ public class Leader {
                         return;
                     }
                 }
-                LOG.error("Committed request not found on toBeApplied: "
-                        + request);
+                LOG.error("Committed request not found on toBeApplied: " + request);
             }
         }
 
-        /*
-         * (non-Javadoc)
-         *
-         * @see org.apache.zookeeper.server.RequestProcessor#shutdown()
-         */
         public void shutdown() {
             LOG.info("Shutting down");
             next.shutdown();

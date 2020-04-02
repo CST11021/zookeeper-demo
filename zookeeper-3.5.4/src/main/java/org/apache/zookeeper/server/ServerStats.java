@@ -158,14 +158,24 @@ public class ServerStats {
         sb.append("Mode: " + getServerState() + "\n");
         return sb.toString();
     }
-    // mutators
+
+    /**
+     * 每次zk处理请求时，会调用该方法，记录延时相关的统计信息
+     *
+     * @param requestCreateTime 表示请求的创建时间
+     */
     synchronized void updateLatency(long requestCreateTime) {
+        // 计算请求创建的时间当前时间的时间差
         long latency = Time.currentElapsedTime() - requestCreateTime;
         totalLatency += latency;
         count++;
+
+        // 记录最小延时
         if (latency < minLatency) {
             minLatency = latency;
         }
+
+        // 记录最大延时
         if (latency > maxLatency) {
             maxLatency = latency;
         }
