@@ -36,29 +36,24 @@ import java.util.List;
  */
 public class Request {
 
-    /**
-     * 请求时携带的sessionId，客户端连接zk的session
-     */
+    /** 请求时携带的sessionId，客户端连接zk的session */
     public final long sessionId;
-
     /** xid用于记录客户端请求发起的先后序号，用来确保单个客户端请求的响应顺序 */
     public final int cxid;
+    /** 全局的事务ID */
+    public long zxid = -1;
 
-    /** 表示请求的类型，对应{@link org.apache.zookeeper.ZooDefs.OpCode}，除了“会话创建”请求，其他所有客户端请求中都会带上请求头 */
-    public final int type;
-
-    public final ByteBuffer request;
-
-    /** 请求发送到服务端后，由ServerCnxn处理该请求，cnxn表示处理该请求的ServerCnxn实例 */
-    public final ServerCnxn cnxn;
 
     /** 表示请求对应的事务头 */
     private TxnHeader hdr;
-
+    /** 表示请求的类型，对应{@link org.apache.zookeeper.ZooDefs.OpCode}，除了“会话创建”请求，其他所有客户端请求中都会带上请求头 */
+    public final int type;
+    /** 请求的数据报文信息 */
+    public final ByteBuffer request;
+    /** 对应{@link #request}反序列化后的对象 */
     private Record txn;
-
-    /** 全局的事务ID */
-    public long zxid = -1;
+    /** 请求发送到服务端后，由ServerCnxn处理该请求，cnxn表示处理该请求对应的ServerCnxn实例 */
+    public final ServerCnxn cnxn;
 
     /** 授权用户信息，比如创建节点时，如果父节点设置了用户权限认证，则需要先认证后才能创建节点，该信息表示创建的节点的用户信息 */
     public final List<Id> authInfo;
@@ -72,9 +67,7 @@ public class Request {
 
     public QuorumVerifier qv = null;
 
-    /**
-     * If this is a create or close request for a local-only session.
-     */
+    /** 用于标记该请求是否为本地事务，如果是非本地事务（即全局事务）则，zk服务处理该请求时，为防止并发需要排队处理 */
     private boolean isLocalSession = false;
 
     /** 当关闭处理器之后，会将requestOfDeath的引用指向对应的请求对象 */

@@ -1155,6 +1155,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @param si
      */
     public void submitRequest(Request si) {
+
+        // 检查下firstProcessor，firstProcessor是不允许为null的
         if (firstProcessor == null) {
             synchronized (this) {
                 try {

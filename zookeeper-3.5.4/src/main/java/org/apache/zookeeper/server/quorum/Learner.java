@@ -42,13 +42,13 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * This class is the superclass of two of the three main actors in a ZK
- * ensemble: Followers and Observers. Both Followers and Observers share 
- * a good deal of code which is moved into Peer to avoid duplication. 
+ * 该类是Followers 和 Observers 的父类，关注者和观察者共享大量的代码，这些代码被移动到Peer以避免重复
  */
 public class Learner {
 
     protected static final Logger LOG = LoggerFactory.getLogger(Learner.class);
+
+    static final private boolean nodelay = System.getProperty("follower.nodelay", "true").equals("true");
 
     static class PacketInFlight {
         TxnHeader hdr;
@@ -57,25 +57,12 @@ public class Learner {
 
     QuorumPeer self;
     LearnerZooKeeperServer zk;
-
     protected BufferedOutputStream bufferedOutput;
-
     protected Socket sock;
-
-    /**
-     * Socket getter
-     * @return
-     */
-    public Socket getSocket() {
-        return sock;
-    }
-
     protected InputArchive leaderIs;
     protected OutputArchive leaderOs;
     /** the protocol version of the leader */
     protected int leaderProtocolVersion = 0x01;
-
-    static final private boolean nodelay = System.getProperty("follower.nodelay", "true").equals("true");
 
     static {
         LOG.info("TCP NoDelay set to: " + nodelay);
@@ -638,4 +625,18 @@ public class Learner {
     boolean isRunning() {
         return self.isRunning() && zk.isRunning();
     }
+
+
+
+    // getter ans setter ...
+
+    /**
+     * Socket getter
+     * @return
+     */
+    public Socket getSocket() {
+        return sock;
+    }
+
+
 }

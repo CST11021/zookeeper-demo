@@ -118,8 +118,7 @@ public class FollowerRequestProcessor extends ZooKeeperCriticalThread implements
      */
     public void processRequest(Request request) {
         if (!finished) {
-            // 在发送请求之前，检查请求是否需要全局会话，而我们拥有的是本地会话。如果是，就升级。
-            // 如果当前请求是事务请求，但是会话又是本地会话，此时需要升级会话为全局会话
+            // 如果当前请求是事务请求，但是session又是本地的，此时需要升级会话为全局会话
             Request upgradeRequest = null;
             try {
                 // 返回一个创建session的请求

@@ -27,6 +27,8 @@ import java.util.Set;
 
 /**
  * 这是zk用来跟踪会话的基本接口，由SessionTracker维护对session的操作，包括检测过期的session，调用SessionExpirer关闭session；
+ *
+ * Leader服务器的实现为：LeaderSessionTracker，Follower和Observer服务器的实现为LearnerSessionTracker
  */
 public interface SessionTracker {
 
@@ -119,11 +121,6 @@ public interface SessionTracker {
     void setSessionClosing(long sessionId);
 
     /**
-     * 关闭SessionTracker服务
-     */
-    void shutdown();
-
-    /**
      * 根据sessionId移除session
      *
      * @param sessionId
@@ -131,7 +128,7 @@ public interface SessionTracker {
     void removeSession(long sessionId);
 
     /**
-     * 返回SessionTracker是否知道这个会话
+     * 判断会话是否存在
      *
      * @param sessionId
      * @return SessionTracker是否知道这个会话
@@ -178,4 +175,9 @@ public interface SessionTracker {
      * 返回时间到届时到期的会话id的映射。
      */
     Map<Long, Set<Long>> getSessionExpiryMap();
+
+    /**
+     * 关闭SessionTracker服务
+     */
+    void shutdown();
 }

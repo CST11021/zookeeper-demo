@@ -213,6 +213,7 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
      */
     protected boolean needCommit(Request request) {
         switch (request.type) {
+            // 以下写相关的请求都需要事务
             case OpCode.create:
             case OpCode.create2:
             case OpCode.createTTL:
@@ -224,6 +225,8 @@ public class CommitProcessor extends ZooKeeperCriticalThread implements RequestP
             case OpCode.multi:
             case OpCode.setACL:
                 return true;
+
+            // 以下请求类型判断是否为本地事务
             case OpCode.sync:
                 return matchSyncs;
             case OpCode.createSession:

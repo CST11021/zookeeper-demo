@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  *
  * 参考：https://blog.csdn.net/mystory110/article/details/77533376
+ * 参考：https://www.jianshu.com/p/d0e394cc8f52
  * ExpiryQueue根据expirationInterval将时间分段，将每段区间的时间放入对应的一个集合进行管理。如图二所示，时间段在1503556830000-1503556860000中的数据将会放到1503556860000对应的集合中，1503556860000-1503556890000中的数据将会放到1503556890000的集合中，以此类推。
  * 在ExpiryQueue的数据结构中，图二中的集合由ConcurrentHashMap进行管理，其中的Key值为到期时间。
  * 数据分段使用公式为:（当前时间(毫秒)/ expirationInterval + 1）* expirationInterval。该公式表示将当前时间按照expirationInterval间隔算份数，算完后再加一个份额，最后再乘以expirationInterval间隔，就得出了下一个到期时间。
@@ -43,12 +44,11 @@ public class ExpiryQueue<E> {
 
     /** Map<SessionImpl, timeout> */
     private final ConcurrentHashMap<E, Long> elemMap = new ConcurrentHashMap<E, Long>();
-    /**
-     * 每个时间区间对应的过期sessionId
-     */
+    /** 每个时间区间对应的过期sessionId */
     private final ConcurrentHashMap<Long, Set<E>> expiryMap = new ConcurrentHashMap<Long, Set<E>>();
-
+    /** 表示下一次session过期的时间 */
     private final AtomicLong nextExpirationTime = new AtomicLong();
+    /** 过期时间区间之间的大小 */
     private final int expirationInterval;
 
     public ExpiryQueue(int expirationInterval) {

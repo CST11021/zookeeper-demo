@@ -31,10 +31,22 @@ public class LocalSessionTracker extends SessionTrackerImpl {
         super(expirer, sessionsWithTimeouts, tickTime, id, listener);
     }
 
+    /**
+     * 是否是本地是session
+     *
+     * @param sessionId
+     * @return
+     */
     public boolean isLocalSession(long sessionId) {
         return isTrackingSession(sessionId);
     }
 
+    /**
+     * 默认全部都是本地session
+     *
+     * @param sessionId
+     * @return
+     */
     public boolean isGlobalSession(long sessionId) {
         return false;
     }

@@ -52,10 +52,8 @@ public class FileTxnSnapLog {
     public final static int VERSION = 2;
 
     public final static String version = "version-";
-
     /** 表示是否自动创建dataDir目录，默认为true，否则zk启动前需要事先创建的事务日志文件目录，否则抛出{@link DatadirException}异常 */
     public static final String ZOOKEEPER_DATADIR_AUTOCREATE = "zookeeper.datadir.autocreate";
-
     /** 表示{@link #ZOOKEEPER_DATADIR_AUTOCREATE}的默认值 */
     public static final String ZOOKEEPER_DATADIR_AUTOCREATE_DEFAULT = "true";
 
@@ -63,7 +61,6 @@ public class FileTxnSnapLog {
     private final File dataDir;
     /** 包含快照目录的目录 */
     private final File snapDir;
-
     /** 表示zk事务日志文件，对应{@link #dataDir}目录 */
     private TxnLog txnLog;
     /** 表示zk服务器的内存储快照文件，对应{@link #snapDir}目录 */

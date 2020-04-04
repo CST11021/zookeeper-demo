@@ -50,8 +50,7 @@ public class LeaderSessionTracker extends UpgradeableSessionTracker {
 
     public LeaderSessionTracker(SessionExpirer expirer, ConcurrentMap<Long, Integer> sessionsWithTimeouts, int tickTime, long id, boolean localSessionsEnabled, ZooKeeperServerListener listener) {
 
-        this.globalSessionTracker = new SessionTrackerImpl(
-                expirer, sessionsWithTimeouts, tickTime, id, listener);
+        this.globalSessionTracker = new SessionTrackerImpl(expirer, sessionsWithTimeouts, tickTime, id, listener);
 
         this.localSessionsEnabled = localSessionsEnabled;
         if (this.localSessionsEnabled) {

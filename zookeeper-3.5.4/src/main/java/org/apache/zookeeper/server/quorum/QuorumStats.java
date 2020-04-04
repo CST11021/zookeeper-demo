@@ -18,6 +18,9 @@
 
 package org.apache.zookeeper.server.quorum;
 
+/**
+ * 表示选举成员的状态
+ */
 public class QuorumStats {
 
     private final Provider provider;
@@ -63,14 +66,43 @@ public class QuorumStats {
     }
 
     public interface Provider {
+        /**
+         * 表示位置的服务状态
+         */
         static public final String UNKNOWN_STATE = "unknown";
+        /**
+         * 对应{@link org.apache.zookeeper.server.quorum.QuorumPeer.ServerState#LOOKING}：
+         * 表示寻找Leader状态，当服务器处于该状态时，它会认为当前集群中没有Leader，因此需要进入Leader选举状态
+         */
         static public final String LOOKING_STATE = "leaderelection";
+        /**
+         * 对应{@link org.apache.zookeeper.server.quorum.QuorumPeer.ServerState#LEADING}：
+         * 领导者状态，表明当前服务器角色是Leader。
+         */
         static public final String LEADING_STATE = "leading";
+        /**
+         * 对应{@link org.apache.zookeeper.server.quorum.QuorumPeer.ServerState#FOLLOWING}：
+         * 跟随者状态，表明当前服务器角色是Follower。
+         */
         static public final String FOLLOWING_STATE = "following";
+        /**
+         * 对应{@link org.apache.zookeeper.server.quorum.QuorumPeer.ServerState#OBSERVING}：
+         * OBSERVING：观察者状态，表明当前服务器角色是Observer。
+         */
         static public final String OBSERVING_STATE = "observing";
 
+        /**
+         *
+         * @return
+         */
         public String[] getQuorumPeers();
 
+        /**
+         * 返回服务器状态，服务状态包括：leaderelection、leading、following和observing，
+         * 对应{@link org.apache.zookeeper.server.quorum.QuorumPeer.ServerState}
+         *
+         * @return
+         */
         public String getServerState();
     }
 }

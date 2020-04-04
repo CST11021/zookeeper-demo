@@ -34,7 +34,7 @@ import java.io.PrintWriter;
 import java.nio.ByteBuffer;
 
 /**
- * 参与仲裁的所有zookeeperserver的抽象基类。
+ * 参与选举的所有zookeeperserver的抽象基类。
  */
 public abstract class QuorumZooKeeperServer extends ZooKeeperServer {
 
@@ -66,7 +66,7 @@ public abstract class QuorumZooKeeperServer extends ZooKeeperServer {
      * @throws KeeperException
      */
     public Request checkUpgradeSession(Request request) throws IOException, KeeperException {
-        // 如果不是create、create2、multi 或者 已经是全局会话了则不需要升级
+        // 如果不是create、create2、multi 或者 已经是全局会话了，则不需要升级
         if ((request.type != OpCode.create && request.type != OpCode.create2 && request.type != OpCode.multi)
                 || !upgradeableSessionTracker.isLocalSession(request.sessionId)) {
             return null;
@@ -88,17 +88,21 @@ public abstract class QuorumZooKeeperServer extends ZooKeeperServer {
                     }
                 }
             }
+
+            // 如果这个请求不是要创建一个临时节点，则不需要升级，返回null
             if (!containsEphemeralCreate) {
                 return null;
             }
         } else {
             CreateRequest createRequest = new CreateRequest();
             request.request.rewind();
+            // 将字节反序列化为Record
             ByteBufferInputStream.byteBuffer2Record(request.request, createRequest);
             request.request.rewind();
+            // 节点的类型
             CreateMode createMode = CreateMode.fromFlag(createRequest.getFlags());
 
-            // 如果这个请求不是要创建一个临时节点，则返回null
+            // 如果这个请求不是要创建一个临时节点，则不需要升级，返回null
             if (!createMode.isEphemeral()) {
                 return null;
             }
@@ -114,7 +118,7 @@ public abstract class QuorumZooKeeperServer extends ZooKeeperServer {
     }
 
     /**
-     * 将session升级为全局的会话
+     * 将session升级为全局的会话，提交一个创建会话的请求
      *
      * @param sessionId
      */
@@ -155,11 +159,11 @@ public abstract class QuorumZooKeeperServer extends ZooKeeperServer {
      */
     @Override
     protected void setLocalSessionFlag(Request si) {
-        // We need to set isLocalSession to tree for these type of request so that the request processor can process them correctly.
+        // 我们需要将创建和关闭session类型的请求的isLocalSession设置为tree，以便请求处理器能够正确地处理它们。
         switch (si.type) {
             case OpCode.createSession:
                 if (self.areLocalSessionsEnabled()) {
-                    // All new sessions local by default.
+                    // 默认情况下，所有新会话都是本地的。
                     si.setLocalSession(true);
                 }
                 break;

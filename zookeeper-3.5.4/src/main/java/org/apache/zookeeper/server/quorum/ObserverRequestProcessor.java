@@ -124,6 +124,7 @@ public class ObserverRequestProcessor extends ZooKeeperCriticalThread implements
         if (!finished) {
             Request upgradeRequest = null;
             try {
+                // 如果当前请求是事务请求，但是session又是本地的，此时需要升级会话为全局会话
                 upgradeRequest = zks.checkUpgradeSession(request);
             } catch (KeeperException ke) {
                 if (request.getHdr() != null) {

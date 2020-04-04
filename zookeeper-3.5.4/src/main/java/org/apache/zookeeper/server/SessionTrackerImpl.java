@@ -48,19 +48,29 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
 
     private static final Logger LOG = LoggerFactory.getLogger(SessionTrackerImpl.class);
 
-    /** 保存sessionId及对应的session实例 */
-    protected final ConcurrentHashMap<Long, SessionImpl> sessionsById = new ConcurrentHashMap<Long, SessionImpl>();
-    private final ExpiryQueue<SessionImpl> sessionExpiryQueue;
-    /** 保存会话id及回应的会话过期时间，Map<sessionId, timeout> */
-    private final ConcurrentMap<Long, Integer> sessionsWithTimeout;
+    /** 用于控制run方法的执行状态 */
+    volatile boolean running = true;
     /** 表示下一个sessionId的值，一旦有新的连接（session）产生，就会nextSessionId++ */
     private final AtomicLong nextSessionId = new AtomicLong();
+    /** 保存会话id及回应的会话过期时间，Map<sessionId, timeout> */
+    private final ConcurrentMap<Long, Integer> sessionsWithTimeout;
+    /** 保存sessionId及对应的session实例，{@link #addSession(long, int)} */
+    protected final ConcurrentHashMap<Long, SessionImpl> sessionsById = new ConcurrentHashMap<Long, SessionImpl>();
+
+    /** 会话超时清理器 */
     private final SessionExpirer expirer;
-    volatile boolean running = true;
+    /** 将会话按照各自的过期时间（优化为心跳时间的整数倍）分桶存放，可快速用于会话的超时校验 */
+    private final ExpiryQueue<SessionImpl> sessionExpiryQueue;
 
 
-
-
+    /**
+     *
+     * @param expirer
+     * @param sessionsWithTimeout
+     * @param tickTime              对应{@link ExpiryQueue#expirationInterval}
+     * @param serverId
+     * @param listener
+     */
     public SessionTrackerImpl(SessionExpirer expirer, ConcurrentMap<Long, Integer> sessionsWithTimeout, int tickTime, long serverId, ZooKeeperServerListener listener) {
         super("SessionTracker", listener);
         this.expirer = expirer;
@@ -92,6 +102,9 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         return nextSid;
     }
 
+    /**
+     * 循环从session过期队列中获取过期的session，并清除
+     */
     @Override
     public void run() {
         try {
@@ -113,7 +126,11 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         LOG.info("SessionTrackerImpl exited loop!");
     }
 
-
+    /**
+     * dump session信息
+     *
+     * @param pwriter the output writer
+     */
     public void dumpSessions(PrintWriter pwriter) {
         pwriter.print("Session ");
         sessionExpiryQueue.dump(pwriter);
@@ -137,30 +154,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         return sessionExpiryMap;
     }
 
-    /**
-     * 判断sessionId是否合法，并且是否有过期
-     *
-     * @param sessionId
-     * @param timeout
-     * @return
-     */
-    synchronized public boolean touchSession(long sessionId, int timeout) {
-        SessionImpl s = sessionsById.get(sessionId);
 
-        if (s == null) {
-            logTraceTouchInvalidSession(sessionId, timeout);
-            return false;
-        }
-
-        if (s.isClosing()) {
-            logTraceTouchClosingSession(sessionId, timeout);
-            return false;
-        }
-
-        // 更新session设置过期时间
-        updateSessionExpiry(s, timeout);
-        return true;
-    }
 
     /**
      * 给session设置过期时间
@@ -173,6 +167,12 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         sessionExpiryQueue.update(s, timeout);
     }
 
+    private void logTraceTouchInvalidSession(long sessionId, int timeout) {
+        logTraceTouchSession(sessionId, timeout, "invalid ");
+    }
+    private void logTraceTouchClosingSession(long sessionId, int timeout) {
+        logTraceTouchSession(sessionId, timeout, "closing ");
+    }
     private void logTraceTouchSession(long sessionId, int timeout, String sessionStatus) {
         if (!LOG.isTraceEnabled())
             return;
@@ -183,18 +183,22 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         ZooTrace.logTraceMessage(LOG, ZooTrace.CLIENT_PING_TRACE_MASK, msg);
     }
 
-    private void logTraceTouchInvalidSession(long sessionId, int timeout) {
-        logTraceTouchSession(sessionId, timeout, "invalid ");
-    }
 
-    private void logTraceTouchClosingSession(long sessionId, int timeout) {
-        logTraceTouchSession(sessionId, timeout, "closing ");
-    }
-
+    /**
+     * 根据sessoinId获取session超时时间
+     *
+     * @param sessionId
+     * @return
+     */
     public int getSessionTimeout(long sessionId) {
         return sessionsWithTimeout.get(sessionId);
     }
 
+    /**
+     * 将session设置为关闭状态
+     *
+     * @param sessionId
+     */
     synchronized public void setSessionClosing(long sessionId) {
         if (LOG.isTraceEnabled()) {
             LOG.trace("Session closing: 0x" + Long.toHexString(sessionId));
@@ -206,27 +210,20 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         s.isClosing = true;
     }
 
+    /**
+     * 移除session
+     *
+     * @param sessionId
+     */
     synchronized public void removeSession(long sessionId) {
         LOG.debug("Removing session 0x" + Long.toHexString(sessionId));
         SessionImpl s = sessionsById.remove(sessionId);
         sessionsWithTimeout.remove(sessionId);
         if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK,
-                    "SessionTrackerImpl --- Removing session 0x"
-                            + Long.toHexString(sessionId));
+            ZooTrace.logTraceMessage(LOG, ZooTrace.SESSION_TRACE_MASK, "SessionTrackerImpl --- Removing session 0x" + Long.toHexString(sessionId));
         }
         if (s != null) {
             sessionExpiryQueue.remove(s);
-        }
-    }
-
-    public void shutdown() {
-        LOG.info("Shutting down");
-
-        running = false;
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.getTextTraceLevel(),
-                    "Shutdown SessionTrackerImpl!");
         }
     }
 
@@ -241,16 +238,21 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         addSession(sessionId, sessionTimeout);
         return sessionId;
     }
-
+    /**
+     * 根据sessionId和timeout添加一个会话
+     *
+     * @param id sessionId      会话ID
+     * @param sessionTimeout    会话超时时间
+     * @return
+     */
     public boolean addGlobalSession(long id, int sessionTimeout) {
         return addSession(id, sessionTimeout);
     }
-
     /**
-     * 添加一个会话
+     * 根据sessionId和timeout添加一个会话
      *
-     * @param id sessionId
-     * @param sessionTimeout
+     * @param id sessionId      会话ID
+     * @param sessionTimeout    会话超时时间
      * @return
      */
     public synchronized boolean addSession(long id, int sessionTimeout) {
@@ -283,10 +285,50 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         return added;
     }
 
+
+
+    /**
+     * 判断sessionId是否合法，并且是否有过期
+     *
+     * @param sessionId
+     * @param timeout
+     * @return
+     */
+    synchronized public boolean touchSession(long sessionId, int timeout) {
+        SessionImpl s = sessionsById.get(sessionId);
+
+        if (s == null) {
+            logTraceTouchInvalidSession(sessionId, timeout);
+            return false;
+        }
+
+        if (s.isClosing()) {
+            logTraceTouchClosingSession(sessionId, timeout);
+            return false;
+        }
+
+        // 更新session设置过期时间
+        updateSessionExpiry(s, timeout);
+        return true;
+    }
+    /**
+     * 判断会话是否存在
+     *
+     * @param sessionId
+     * @return
+     */
     public boolean isTrackingSession(long sessionId) {
         return sessionsById.containsKey(sessionId);
     }
-
+    /**
+     * 强校验会话是否存在，并且如果对应owner不存在，则设置owner
+     *
+     * @param sessionId
+     * @param owner
+     * @throws KeeperException.SessionExpiredException
+     * @throws KeeperException.SessionMovedException
+     * @throws KeeperException.UnknownSessionException
+     */
     public synchronized void checkSession(long sessionId, Object owner) throws KeeperException.SessionExpiredException, KeeperException.SessionMovedException, KeeperException.UnknownSessionException {
         LOG.debug("Checking session 0x" + Long.toHexString(sessionId));
         SessionImpl session = sessionsById.get(sessionId);
@@ -305,7 +347,31 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
             throw new KeeperException.SessionMovedException();
         }
     }
+    /**
+     * 严格检查给定的会话是否是全局会话
+     *
+     * @param sessionId     sessionId
+     * @param owner         session归属，通常为{@link Request#owner}
+     * @throws KeeperException.SessionExpiredException
+     * @throws KeeperException.SessionMovedException
+     */
+    public void checkGlobalSession(long sessionId, Object owner) throws KeeperException.SessionExpiredException, KeeperException.SessionMovedException {
+        try {
+            checkSession(sessionId, owner);
+        } catch (KeeperException.UnknownSessionException e) {
+            throw new KeeperException.SessionExpiredException();
+        }
+    }
 
+
+
+    /**
+     * 设置session对应的owner
+     *
+     * @param id
+     * @param owner
+     * @throws SessionExpiredException
+     */
     synchronized public void setOwner(long id, Object owner) throws SessionExpiredException {
         SessionImpl session = sessionsById.get(id);
         if (session == null || session.isClosing()) {
@@ -314,11 +380,14 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
         session.owner = owner;
     }
 
-    public void checkGlobalSession(long sessionId, Object owner) throws KeeperException.SessionExpiredException, KeeperException.SessionMovedException {
-        try {
-            checkSession(sessionId, owner);
-        } catch (KeeperException.UnknownSessionException e) {
-            throw new KeeperException.SessionExpiredException();
+
+    public void shutdown() {
+        LOG.info("Shutting down");
+
+        running = false;
+        if (LOG.isTraceEnabled()) {
+            ZooTrace.logTraceMessage(LOG, ZooTrace.getTextTraceLevel(),
+                    "Shutdown SessionTrackerImpl!");
         }
     }
 
