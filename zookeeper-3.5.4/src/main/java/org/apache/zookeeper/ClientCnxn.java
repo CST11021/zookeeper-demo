@@ -81,67 +81,33 @@ public class ClientCnxn {
      */
     private static final int SET_WATCHES_MAX_LENGTH = 128 * 1024;
 
-    private final CopyOnWriteArraySet<AuthData> authInfo = new CopyOnWriteArraySet<AuthData>();
 
-    /**
-     * Pending队列是为了存储那些已经从客户端发送到服务端的，但是需要等待服务端响应的Packet集合。
-     */
-    private final LinkedList<Packet> pendingQueue = new LinkedList<Packet>();
-
-    /**
-     * Outgoing队列是一个请求发送队列，专门用于存储那些需要发送到服务端的Packet集合
-     */
-    private final LinkedBlockingDeque<Packet> outgoingQueue = new LinkedBlockingDeque<Packet>();
-
-    private int connectTimeout;
-
-    /**
-     * The timeout in ms the client negotiated with the server. This is the
-     * "real" timeout, not the timeout request by the client (which may have
-     * been increased/decreased by the server which applies bounds to this
-     * value.
-     */
-    private volatile int negotiatedSessionTimeout;
-
-    private int readTimeout;
-
-    /** session超时时间 */
-    private final int sessionTimeout;
-
-    private final ZooKeeper zooKeeper;
-
-    /** 客户端的Watcher管理器 */
-    private final ClientWatchManager watcher;
-
-    /** ssesionId */
-    private long sessionId;
-
-    /** sessionPasswd */
-    private byte sessionPasswd[] = new byte[16];
-
-    /**
-     * 如果为真，则允许连接进入r-o模式。
-     * 除其他数据外，此字段的值在会话创建握手期间发送。
-     * 如果连接另一端的服务器被分区，它将只接受只读客户端。
-     */
-    private boolean readOnly;
-
-    /**
-     * 表示zk集群的根目录，例如，192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181/zk-book，这样就指定了该客户端连接上ZooKeeper服务器之后，
-     * 所有对ZooKeeper的操作，都会基于这个根目录。例如，客户端对/foo/bar的操作，都会指向节点的操作，都会基于这个根目录，例如，客户端对/foo/bar的操作，
-     * 都会指向节点/zk-book/foo/bar——这个目录也叫Chroot，即客户端隔离命名空间。
-     */
-    final String chrootPath;
+    // 核心组件
 
     /**
      * 客户端核心线程，其内部又包含两个线程，即SendThread和EventThread。前者是一个I/O线程，主要负责ZooKeeper客户端和服务器之间的网络I/O通信；后者是一个事件线程，主要负责服务端事件进行处理。
      */
     final SendThread sendThread;
-
     /**
      * 客户端核心线程，其内部又包含两个线程，即SendThread和EventThread。前者是一个I/O线程，主要负责ZooKeeper客户端和服务器之间的网络I/O通信；后者是一个事件线程，主要负责服务端事件进行处理。
      */
     final EventThread eventThread;
+    /** zk客户端 */
+    private final ZooKeeper zooKeeper;
+    /**
+     * A set of ZooKeeper hosts this client could connect to.
+     */
+    private final HostProvider hostProvider;
+
+
+    /** 认证的用户 */
+    private final CopyOnWriteArraySet<AuthData> authInfo = new CopyOnWriteArraySet<AuthData>();
+
+    /** Pending队列是为了存储那些已经从客户端发送到服务端的，但是需要等待服务端响应的Packet集合。*/
+    private final LinkedList<Packet> pendingQueue = new LinkedList<Packet>();
+    /** Outgoing队列是一个请求发送队列，专门用于存储那些需要发送到服务端的Packet集合 */
+    private final LinkedBlockingDeque<Packet> outgoingQueue = new LinkedBlockingDeque<Packet>();
+
 
     /**
      * Set to true when close is called. Latches the connection such that we
@@ -150,11 +116,42 @@ public class ClientCnxn {
      * operation)
      */
     private volatile boolean closing = false;
+    /** 表示当前客户端与zk服务连接状态 */
+    volatile States state = States.NOT_CONNECTED;
+
+    private int connectTimeout;
+    private int readTimeout;
+
+
+    /** 客户端的Watcher管理器 */
+    private final ClientWatchManager watcher;
+
+    // 会话
+
+    /** 表示与服务端建立连接后生成的sessionId，{@link SendThread#onConnected(int, long, byte[], boolean)} */
+    private long sessionId;
+    /** sessionPasswd */
+    private byte sessionPasswd[] = new byte[16];
+    /** session超时时间 */
+    private final int sessionTimeout;
+    /**
+     * The timeout in ms the client negotiated with the server.
+     * This is the "real" timeout, not the timeout request by the client (which may have been increased/decreased by the server which applies bounds to this value.
+     */
+    private volatile int negotiatedSessionTimeout;
 
     /**
-     * A set of ZooKeeper hosts this client could connect to.
+     * 如果为真，则允许连接进入r-o模式。
+     * 除其他数据外，此字段的值在会话创建握手期间发送。
+     * 如果连接另一端的服务器被分区，它将只接受只读客户端。
      */
-    private final HostProvider hostProvider;
+    private boolean readOnly;
+    /**
+     * 表示zk集群的根目录，例如，192.168.1.1:2181,192.168.1.2:2181,192.168.1.3:2181/zk-book，这样就指定了该客户端连接上ZooKeeper服务器之后，
+     * 所有对ZooKeeper的操作，都会基于这个根目录。例如，客户端对/foo/bar的操作，都会指向节点的操作，都会基于这个根目录，例如，客户端对/foo/bar的操作，
+     * 都会指向节点/zk-book/foo/bar——这个目录也叫Chroot，即客户端隔离命名空间。
+     */
+    final String chrootPath;
 
     /**
      * Is set to true when a connection to a r/w server is established for the
@@ -170,20 +167,15 @@ public class ClientCnxn {
      * then non-zero sessionId is fake, otherwise it is valid.
      */
     volatile boolean seenRwServerBefore = false;
-
     public ZooKeeperSaslClient zooKeeperSaslClient;
-
     /** zk客户端配置 */
     private final ZKClientConfig clientConfig;
-
     private Object eventOfDeath = new Object();
-
     private volatile long lastZxid;
-
+    /** 当数据包从outgoingQueue发送到服务器时，该xid++ */
     private int xid = 1;
 
-    /** 表示当前客户端与zk服务连接状态 */
-    volatile States state = States.NOT_CONNECTED;
+
 
 
     // 构造器
@@ -261,8 +253,8 @@ public class ClientCnxn {
     }
 
     /**
-     * Guard against creating "-EventThread-EventThread-EventThread-..." thread
-     * names when ZooKeeper object is being created from within a watcher.
+     * 设置线程名称的前缀标识：
+     * Guard against creating "-EventThread-EventThread-EventThread-..." thread names when ZooKeeper object is being created from within a watcher.
      * See ZOOKEEPER-795 for details.
      */
     private static String makeThreadName(String suffix) {
@@ -349,14 +341,6 @@ public class ClientCnxn {
         finishPacket(p);
     }
 
-    public long getLastZxid() {
-        return lastZxid;
-    }
-
-
-
-
-
     /**
      * Shutdown the send/event threads. This method should not be called
      * directly - rather it should be called as part of close operation. This
@@ -400,8 +384,6 @@ public class ClientCnxn {
         }
     }
 
-
-
     /**
      * 当数据包从outgoingQueue发送到服务器时，ClientCnxnNIO::doIO()在外部调用getXid()。因此，getXid()必须是公共的。
      */
@@ -412,28 +394,26 @@ public class ClientCnxn {
 
     // 提交请求
 
-
     /**
      * 提交一个客户端请求，并返回相应头
      *
-     * @param h             请求头
-     * @param request       请求对象
-     * @param response      相应对象
-     * @param watchRegistration
+     * @param h                     请求头
+     * @param request               请求体
+     * @param response              响应体
+     * @param watchRegistration     监听器和对应的节点路径
      * @return
      * @throws InterruptedException
      */
     public ReplyHeader submitRequest(RequestHeader h, Record request, Record response, WatchRegistration watchRegistration) throws InterruptedException {
         return submitRequest(h, request, response, watchRegistration, null);
     }
-
     /**
      * 提交一个客户端请求，并返回相应头
      *
-     * @param h
-     * @param request
-     * @param response
-     * @param watchRegistration
+     * @param h                     请求头
+     * @param request               请求体
+     * @param response              响应体
+     * @param watchRegistration     监听器和对应的节点路径
      * @param watchDeregistration
      * @return
      * @throws InterruptedException
@@ -454,6 +434,15 @@ public class ClientCnxn {
         sendThread.getClientCnxnSocket().saslCompleted();
     }
 
+    /**
+     * 发送请求包
+     *
+     * @param request
+     * @param response
+     * @param cb
+     * @param opCode
+     * @throws IOException
+     */
     public void sendPacket(Record request, Record response, AsyncCallback cb, int opCode) throws IOException {
         // 现在就生成Xid，因为它将被立即发送，方法是调用下面的sendThread.sendPacket()。
         int xid = getXid();
@@ -566,6 +555,9 @@ public class ClientCnxn {
     }
     States getState() {
         return state;
+    }
+    public long getLastZxid() {
+        return lastZxid;
     }
 
     @Override
@@ -783,15 +775,24 @@ public class ClientCnxn {
      */
     class SendThread extends ZooKeeperThread {
 
+        private final static int minPingRwTimeout = 100;
+        private final static int maxPingRwTimeout = 60000;
+        private static final String RETRY_CONN_MSG = ", closing socket connection and attempting reconnect";
+        /** 表示最后一次发送ping的时间 */
         private long lastPingSentNs;
+        /** 用于与zk服务端建立TCP长连接的socket，主要有NIO和Netty两个实现 */
         private final ClientCnxnSocket clientCnxnSocket;
         private Random r = new Random(System.nanoTime());
-
         /** 表示该线程是本次执行时，是否第一连接zk服务 */
         private boolean isFirstConnect = true;
+        private InetSocketAddress rwServerAddress = null;
+        private int pingRwTimeout = minPingRwTimeout;
+        /** 当且仅当ZooKeeperSaslClient的构造函数抛出LoginException时，将其设置为true:参见下面的startConnect()。*/
+        private boolean saslLoginFailed = false;
 
         SendThread(ClientCnxnSocket clientCnxnSocket) {
             super(makeThreadName("-SendThread()"));
+            // 线程的初始状态是连接中的状态
             state = States.CONNECTING;
             this.clientCnxnSocket = clientCnxnSocket;
             // 通过setDaemon(true)来设置线程为“守护线程”；将一个用户线程设置为守护线程的方式是在 线程对象创建 之前 用线程对象的setDaemon方法。
@@ -804,7 +805,7 @@ public class ClientCnxn {
             clientCnxnSocket.introduce(this, sessionId, outgoingQueue);
             // 设置请求时间
             clientCnxnSocket.updateNow();
-
+            // 更新lastSend和lastHeard为当前时间
             clientCnxnSocket.updateLastSendAndHeard();
 
             // 该值 = zk配置的connectTimeout - socket发起请求后到等待服务器响应的时间，如果是负数说明连接超时了
@@ -817,7 +818,7 @@ public class ClientCnxn {
             // 连接是否正常，连接失败或者连接认证失败
             while (state.isAlive()) {
                 try {
-                    // 处理客户单还没连接上zk服务的情况
+                    // 处理客户端还没连接上zk服务的情况
                     if (!clientCnxnSocket.isConnected()) {
                         // don't re-establish connection if we are closing
                         if (closing) {
@@ -828,12 +829,13 @@ public class ClientCnxn {
                             serverAddress = rwServerAddress;
                             rwServerAddress = null;
                         } else {
+                            // 从hostProvider随机获取一个zk服务地址
                             serverAddress = hostProvider.next(1000);
                         }
 
                         // 确定要连接的zk服务器后，开始连接zk服务
                         startConnect(serverAddress);
-                        // 更新连接的时间
+                        // 更新最后连接的时间和心跳时间
                         clientCnxnSocket.updateLastSendAndHeard();
                     }
 
@@ -869,29 +871,27 @@ public class ClientCnxn {
                                 eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, authState, null));
                             }
                         }
+
+                        // 计算超时时间
                         to = readTimeout - clientCnxnSocket.getIdleRecv();
                     } else {
                         to = connectTimeout - clientCnxnSocket.getIdleRecv();
                     }
 
+                    // 小于等于0说明超时了
                     if (to <= 0) {
                         String warnInfo;
                         warnInfo = "Client session timed out, have not heard from server in "
-                                + clientCnxnSocket.getIdleRecv()
-                                + "ms"
-                                + " for sessionid 0x"
-                                + Long.toHexString(sessionId);
+                                + clientCnxnSocket.getIdleRecv() + "ms" + " for sessionid 0x" + Long.toHexString(sessionId);
                         LOG.warn(warnInfo);
                         throw new SessionTimeoutException(warnInfo);
                     }
 
-
+                    // 处理连接上zk服务的情况
                     if (state.isConnected()) {
-                        //1000(1 second) is to prevent race condition missing to send the second ping
-                        //also make sure not to send too many pings when readTimeout is small
-                        int timeToNextPing = readTimeout / 2 - clientCnxnSocket.getIdleSend() -
-                                ((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
-                        //send a ping request either time is due or no packet sent out within MAX_SEND_PING_INTERVAL
+                        //1000(1秒)是为了防止丢失竞态条件而发送的第二个ping，也要确保在readTimeout很小的时候不要发送太多的ping
+                        int timeToNextPing = readTimeout / 2 - clientCnxnSocket.getIdleSend() - ((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
+                        // 在MAX_SEND_PING_INTERVAL内发送一个ping请求，要么是时间到期，要么是没有发送包
                         if (timeToNextPing <= 0 || clientCnxnSocket.getIdleSend() > MAX_SEND_PING_INTERVAL) {
                             sendPing();
                             clientCnxnSocket.updateLastSend();
@@ -922,8 +922,7 @@ public class ClientCnxn {
                         if (LOG.isDebugEnabled()) {
                             // closing so this is expected
                             LOG.debug("An exception was thrown while closing send thread for session 0x"
-                                    + Long.toHexString(getSessionId())
-                                    + " : " + e.getMessage());
+                                    + Long.toHexString(getSessionId()) + " : " + e.getMessage());
                         }
                         break;
                     } else {
@@ -939,11 +938,8 @@ public class ClientCnxn {
                         } else if (e instanceof SocketException) {
                             LOG.info("Socket error occurred: {}: {}", serverAddress, e.getMessage());
                         } else {
-                            LOG.warn("Session 0x{} for server {}, unexpected error{}",
-                                    Long.toHexString(getSessionId()),
-                                    serverAddress,
-                                    RETRY_CONN_MSG,
-                                    e);
+                            LOG.warn("Session 0x{} for server {}, unexpected error{}", Long.toHexString(getSessionId()),
+                                    serverAddress, RETRY_CONN_MSG, e);
                         }
 
                         // 指定到这里，可能仍然有新包追加到outgoingQueue。
@@ -958,22 +954,27 @@ public class ClientCnxn {
                 }
             }
 
-
+            // 1、socket不再监听事件; 2、给剩余的相应的包的响应头设置对应的错误编码，并将包清掉
             synchronized (state) {
-                // When it comes to this point, it guarantees that later queued
-                // packet to outgoingQueue will be notified of death.
+                // When it comes to this point, it guarantees that later queued packet to outgoingQueue will be notified of death.
                 cleanup();
             }
 
-
+            // 关闭sock监听
             clientCnxnSocket.close();
+
             if (state.isAlive()) {
                 eventThread.queueEvent(new WatchedEvent(Event.EventType.None, Event.KeeperState.Disconnected, null));
             }
-            ZooTrace.logTraceMessage(LOG, ZooTrace.getTextTraceLevel(),
-                    "SendThread exited loop for session: 0x" + Long.toHexString(getSessionId()));
+            ZooTrace.logTraceMessage(LOG, ZooTrace.getTextTraceLevel(), "SendThread exited loop for session: 0x" + Long.toHexString(getSessionId()));
         }
 
+        /**
+         * 读取服务端返回的数据
+         *
+         * @param incomingBuffer
+         * @throws IOException
+         */
         void readResponse(ByteBuffer incomingBuffer) throws IOException {
             ByteBufferInputStream bbis = new ByteBufferInputStream(incomingBuffer);
             BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
@@ -983,11 +984,8 @@ public class ClientCnxn {
             if (replyHdr.getXid() == -2) {
                 // -2 is the xid for pings
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Got ping response for sessionid: 0x"
-                            + Long.toHexString(sessionId)
-                            + " after "
-                            + ((System.nanoTime() - lastPingSentNs) / 1000000)
-                            + "ms");
+                    LOG.debug("Got ping response for sessionid: 0x" + Long.toHexString(sessionId)
+                            + " after " + ((System.nanoTime() - lastPingSentNs) / 1000000) + "ms");
                 }
                 return;
             }
@@ -995,20 +993,17 @@ public class ClientCnxn {
                 // -4 is the xid for AuthPacket
                 if (replyHdr.getErr() == KeeperException.Code.AUTHFAILED.intValue()) {
                     state = States.AUTH_FAILED;
-                    eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None,
-                            Watcher.Event.KeeperState.AuthFailed, null));
+                    eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, Watcher.Event.KeeperState.AuthFailed, null));
                 }
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Got auth sessionid:0x"
-                            + Long.toHexString(sessionId));
+                    LOG.debug("Got auth sessionid:0x" + Long.toHexString(sessionId));
                 }
                 return;
             }
             if (replyHdr.getXid() == -1) {
                 // -1 means notification
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Got notification sessionid:0x"
-                            + Long.toHexString(sessionId));
+                    LOG.debug("Got notification sessionid:0x" + Long.toHexString(sessionId));
                 }
                 WatcherEvent event = new WatcherEvent();
                 event.deserialize(bbia, "response");
@@ -1021,16 +1016,13 @@ public class ClientCnxn {
                     else if (serverPath.length() > chrootPath.length())
                         event.setPath(serverPath.substring(chrootPath.length()));
                     else {
-                        LOG.warn("Got server path " + event.getPath()
-                                + " which is too short for chroot path "
-                                + chrootPath);
+                        LOG.warn("Got server path " + event.getPath() + " which is too short for chroot path " + chrootPath);
                     }
                 }
 
                 WatchedEvent we = new WatchedEvent(event);
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Got " + we + " for sessionid 0x"
-                            + Long.toHexString(sessionId));
+                    LOG.debug("Got " + we + " for sessionid 0x" + Long.toHexString(sessionId));
                 }
 
                 eventThread.queueEvent(we);
@@ -1081,19 +1073,6 @@ public class ClientCnxn {
             } finally {
                 finishPacket(packet);
             }
-        }
-
-        /**
-         * Used by ClientCnxnSocket
-         *
-         * @return
-         */
-        ZooKeeper.States getZkState() {
-            return state;
-        }
-
-        ClientCnxnSocket getClientCnxnSocket() {
-            return clientCnxnSocket;
         }
 
         /**
@@ -1173,6 +1152,12 @@ public class ClientCnxn {
             }
         }
 
+        /**
+         * 给路径前缀追加chrootPath
+         *
+         * @param paths
+         * @return
+         */
         private List<String> prependChroot(List<String> paths) {
             if (chrootPath != null && !paths.isEmpty()) {
                 for (int i = 0; i < paths.size(); ++i) {
@@ -1190,22 +1175,14 @@ public class ClientCnxn {
             return paths;
         }
 
+        /**
+         * 发送一个ping请求
+         */
         private void sendPing() {
             lastPingSentNs = System.nanoTime();
             RequestHeader h = new RequestHeader(-2, OpCode.ping);
             queuePacket(h, null, null, null, null, null, null, null, null);
         }
-
-        private InetSocketAddress rwServerAddress = null;
-
-        private final static int minPingRwTimeout = 100;
-
-        private final static int maxPingRwTimeout = 60000;
-
-        private int pingRwTimeout = minPingRwTimeout;
-
-        /** 当且仅当ZooKeeperSaslClient的构造函数抛出LoginException时，将其设置为true:参见下面的startConnect()。*/
-        private boolean saslLoginFailed = false;
 
         /**
          * 开始连接指定地址的zk服务器
@@ -1217,7 +1194,7 @@ public class ClientCnxn {
             // initializing it for new connection
             saslLoginFailed = false;
 
-            // 如果不是首次连接，则暂停1秒在连接
+            // 如果不是首次连接，则暂停1秒再尝试连接
             if (!isFirstConnect) {
                 try {
                     Thread.sleep(r.nextInt(1000));
@@ -1243,8 +1220,7 @@ public class ClientCnxn {
                     // for Kerberos this means that the client failed to authenticate with the KDC.
                     // This is different from an authentication error that occurs during communication
                     // with the Zookeeper server, which is handled below.
-                    LOG.warn("SASL configuration failed: " + e + " Will continue connection to Zookeeper server without "
-                            + "SASL authentication, if Zookeeper server allows it.");
+                    LOG.warn("SASL configuration failed: " + e + " Will continue connection to Zookeeper server without " + "SASL authentication, if Zookeeper server allows it.");
                     // SASL认证失败，则发送一个时间
                     eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, Watcher.Event.KeeperState.AuthFailed, null));
                     saslLoginFailed = true;
@@ -1270,10 +1246,6 @@ public class ClientCnxn {
             }
             LOG.info(msg);
         }
-
-        private static final String RETRY_CONN_MSG = ", closing socket connection and attempting reconnect";
-
-
 
         private void pingRwServer() throws RWServerFoundException {
             String result = null;
@@ -1318,25 +1290,28 @@ public class ClientCnxn {
 
             if ("rw".equals(result)) {
                 pingRwTimeout = minPingRwTimeout;
-                // save the found address so that it's used during the next
-                // connection attempt
+                // 保存找到的地址，以便在下一次连接尝试时使用
                 rwServerAddress = addr;
-                throw new RWServerFoundException("Majority server found at "
-                        + addr.getHostString() + ":" + addr.getPort());
+                throw new RWServerFoundException("Majority server found at " + addr.getHostString() + ":" + addr.getPort());
             }
         }
 
+        /**
+         * 1、socket不再监听事件
+         * 2、给剩余的相应的包的响应头设置对应的错误编码，并将包清掉
+         */
         private void cleanup() {
+            // socket不再监听事件
             clientCnxnSocket.cleanup();
+            // 给剩余的相应的包的响应头设置对应的错误编码，并将包清掉
             synchronized (pendingQueue) {
                 for (Packet p : pendingQueue) {
                     conLossPacket(p);
                 }
                 pendingQueue.clear();
             }
-            // We can't call outgoingQueue.clear() here because
-            // between iterating and clear up there might be new
-            // packets added in queuePacket().
+
+            // We can't call outgoingQueue.clear() here because between iterating and clear up there might be new packets added in queuePacket().
             Iterator<Packet> iter = outgoingQueue.iterator();
             while (iter.hasNext()) {
                 Packet p = iter.next();
@@ -1346,8 +1321,9 @@ public class ClientCnxn {
         }
 
         /**
-         * Callback invoked by the ClientCnxnSocket once a connection has been
-         * established.
+         * 连接建立后，由ClientCnxnSocket调用的回调：
+         * 一方面需要通知SendThread线程，进一步对客户端进行会话参数的设置，包括readTimeout和connectTimeout等，并更新客户端状态；
+         * 另一方面，需要通知地址管理器HostProvider当前成功连接的服务器地址。
          *
          * @param _negotiatedSessionTimeout
          * @param _sessionId
@@ -1360,14 +1336,11 @@ public class ClientCnxn {
             if (negotiatedSessionTimeout <= 0) {
                 state = States.CLOSED;
 
-                eventThread.queueEvent(new WatchedEvent(
-                        Watcher.Event.EventType.None,
-                        Watcher.Event.KeeperState.Expired, null));
+                eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, Watcher.Event.KeeperState.Expired, null));
                 eventThread.queueEventOfDeath();
 
                 String warnInfo;
-                warnInfo = "Unable to reconnect to ZooKeeper service, session 0x"
-                        + Long.toHexString(sessionId) + " has expired";
+                warnInfo = "Unable to reconnect to ZooKeeper service, session 0x" + Long.toHexString(sessionId) + " has expired";
                 LOG.warn(warnInfo);
                 throw new SessionExpiredException(warnInfo);
             }
@@ -1377,21 +1350,16 @@ public class ClientCnxn {
             readTimeout = negotiatedSessionTimeout * 2 / 3;
             connectTimeout = negotiatedSessionTimeout / hostProvider.size();
             hostProvider.onConnected();
+            // 建立连接以后，设置sessionId
             sessionId = _sessionId;
             sessionPasswd = _sessionPasswd;
-            state = (isRO) ?
-                    States.CONNECTEDREADONLY : States.CONNECTED;
+            state = (isRO) ? States.CONNECTEDREADONLY : States.CONNECTED;
             seenRwServerBefore |= !isRO;
-            LOG.info("Session establishment complete on server "
-                    + clientCnxnSocket.getRemoteSocketAddress()
-                    + ", sessionid = 0x" + Long.toHexString(sessionId)
-                    + ", negotiated timeout = " + negotiatedSessionTimeout
-                    + (isRO ? " (READ-ONLY mode)" : ""));
-            KeeperState eventState = (isRO) ?
-                    KeeperState.ConnectedReadOnly : KeeperState.SyncConnected;
-            eventThread.queueEvent(new WatchedEvent(
-                    Watcher.Event.EventType.None,
-                    eventState, null));
+            LOG.info("Session establishment complete on server " + clientCnxnSocket.getRemoteSocketAddress()
+                    + ", sessionid = 0x" + Long.toHexString(sessionId) + ", negotiated timeout = " + negotiatedSessionTimeout + (isRO ? " (READ-ONLY mode)" : ""));
+            KeeperState eventState = (isRO) ? KeeperState.ConnectedReadOnly : KeeperState.SyncConnected;
+            // SyncConnected-None，为了能够让上层应用感知到会话的成功创建，SendThread会生成一个事件SyncConnected-None，代表客户端与服务器会话创建成功，并将该事件传递给EventThread线程。
+            eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, eventState, null));
         }
 
         void close() {
@@ -1424,8 +1392,23 @@ public class ClientCnxn {
             return zooKeeperSaslClient.clientTunneledAuthenticationInProgress();
         }
 
+        /**
+         * 将Packet包发送到服务端
+         *
+         * @param p
+         * @throws IOException
+         */
         public void sendPacket(Packet p) throws IOException {
             clientCnxnSocket.sendPacket(p);
+        }
+
+
+
+        ZooKeeper.States getZkState() {
+            return state;
+        }
+        ClientCnxnSocket getClientCnxnSocket() {
+            return clientCnxnSocket;
         }
     }
     /**

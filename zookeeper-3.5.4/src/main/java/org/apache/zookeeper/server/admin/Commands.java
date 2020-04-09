@@ -382,6 +382,7 @@ public class Commands {
 
             response.put("watch_count", zkdb.getDataTree().getWatchCount());
             response.put("ephemerals_count", zkdb.getDataTree().getEphemeralsCount());
+            // DataTree的数据大小
             response.put("approximate_data_size", zkdb.getDataTree().approximateDataSize());
 
             OSMXBean osMbean = new OSMXBean();

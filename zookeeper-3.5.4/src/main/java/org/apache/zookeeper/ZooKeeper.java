@@ -130,61 +130,21 @@ public class ZooKeeper implements AutoCloseable {
     // 两个核心构造器
 
     /**
-     * To create a ZooKeeper client object, the application needs to pass a
-     * connection string containing a comma separated list of host:port pairs,
-     * each corresponding to a ZooKeeper server.
-     * <p>
-     * Session establishment is asynchronous. This constructor will initiate
-     * connection to the server and return immediately - potentially (usually)
-     * before the session is fully established. The watcher argument specifies
-     * the watcher that will be notified of any changes in state. This
-     * notification can come at any point before or after the constructor call
-     * has returned.
-     * <p>
-     * The instantiated ZooKeeper client object will pick an arbitrary server
-     * from the connectString and attempt to connect to it. If establishment of
-     * the connection fails, another server in the connect string will be tried
-     * (the order is non-deterministic, as we random shuffle the list), until a
-     * connection is established. The client will continue attempts until the
-     * session is explicitly closed.
-     * <p>
-     * Added in 3.2.0: An optional "chroot" suffix may also be appended to the
-     * connection string. This will run the client commands while interpreting
-     * all paths relative to this root (similar to the unix chroot command).
-     * <p>
-     * For backward compatibility, there is another version
-     * {@link #ZooKeeper(String, int, Watcher, boolean)} which uses default
-     * {@link StaticHostProvider}
+     * 初始化阶段
+     *
+     * 1. 初始化ZooKeeper对象：通过调用ZooKeeper的构造方法来实例化一个ZooKeeper对象，在初始化过程中，会创建一个客户端Watcher管理器：ClientWatchManager。
+     * 2. 设置默认的Watcher：如果在构造方法中传入一个Watcher对象，那么客户端会将这个对象作为默认Watcher保存在ClientWatchManager中。
+     * 3. 构造ZooKeeper服务器地址列表管理器：HostProvider，对于构造方法中传入的服务器地址，客户端会将其存放在服务器地址列表管理器HostProvider中。
+     * 4. 创建并初始化客户端网络连接器：ClientCnxn，ZooKeeper客户端首先会创建一个网络连接器ClientCnxn，用来管理客户端与服务器的网络交互。另外客户端在创建ClientCnxn的同时，还会初始化客户端两个核心队列outgoingQueue和pendingQueue，分别作为客户端的请求发送队列和服务端响应的等待队列。
+     * 5. 初始化SendThread和EventThread：客户端会创建两个核心网络线程SendThread和EventThread，前者用于管理客户端和服务端之间的所有网络I/O，后者则用于进行客户端的事件处理。同时，客户端会将将ClientCnxnSocket分配给SendThread作为底层网络I/O处理器，并初始化EventThread的待处理事件队列waitingEvents，用于存放所有等待被客户端处理的事件。
      *
      * @param connectString
-     *            comma separated host:port pairs, each corresponding to a zk
-     *            server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002" If
-     *            the optional chroot suffix is used the example would look
-     *            like: "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002/app/a"
-     *            where the client would be rooted at "/app/a" and all paths
-     *            would be relative to this root - ie getting/setting/etc...
-     *            "/foo/bar" would result in operations being run on
-     *            "/app/a/foo/bar" (from the server perspective).
      * @param sessionTimeout
-     *            session timeout in milliseconds
-     * @param watcher zk默认的监听器，用于监听
+     * @param watcher
      * @param canBeReadOnly
-     *            (added in 3.4) whether the created client is allowed to go to
-     *            read-only mode in case of partitioning. Read-only mode
-     *            basically means that if the client can't find any majority
-     *            servers but there's partitioned server it could reach, it
-     *            connects to one in read-only mode, i.e. read requests are
-     *            allowed while write requests are not. It continues seeking for
-     *            majority in the background.
      * @param aHostProvider
-     *            use this as HostProvider to enable custom behaviour.
      * @param clientConfig
-     *            (added in 3.5.2) passing this conf object gives each client the flexibility of
-     *            configuring properties differently compared to other instances
      * @throws IOException
-     *             in cases of network failure
-     * @throws IllegalArgumentException
-     *             if an invalid chroot path is specified
      */
     public ZooKeeper(String connectString, int sessionTimeout, Watcher watcher, boolean canBeReadOnly, HostProvider aHostProvider, ZKClientConfig clientConfig) throws IOException {
         LOG.info("Initiating client connection, connectString=" + connectString + " sessionTimeout=" + sessionTimeout + " watcher=" + watcher);
@@ -205,69 +165,24 @@ public class ZooKeeper implements AutoCloseable {
         // 启动SendThread线程和EventThread线程
         cnxn.start();
     }
+
     /**
-     * To create a ZooKeeper client object, the application needs to pass a
-     * connection string containing a comma separated list of host:port pairs,
-     * each corresponding to a ZooKeeper server.
-     * <p>
-     * Session establishment is asynchronous. This constructor will initiate
-     * connection to the server and return immediately - potentially (usually)
-     * before the session is fully established. The watcher argument specifies
-     * the watcher that will be notified of any changes in state. This
-     * notification can come at any point before or after the constructor call
-     * has returned.
-     * <p>
-     * The instantiated ZooKeeper client object will pick an arbitrary server
-     * from the connectString and attempt to connect to it. If establishment of
-     * the connection fails, another server in the connect string will be tried
-     * (the order is non-deterministic, as we random shuffle the list), until a
-     * connection is established. The client will continue attempts until the
-     * session is explicitly closed (or the session is expired by the server).
-     * <p>
-     * Added in 3.2.0: An optional "chroot" suffix may also be appended to the
-     * connection string. This will run the client commands while interpreting
-     * all paths relative to this root (similar to the unix chroot command).
-     * <p>
-     * Use {@link #getSessionId} and {@link #getSessionPasswd} on an established
-     * client connection, these values must be passed as sessionId and
-     * sessionPasswd respectively if reconnecting. Otherwise, if not
-     * reconnecting, use the other constructor which does not require these
-     * parameters.
-     * <p>
-     * For backward compatibility, there is another version
-     * {@link #ZooKeeper(String, int, Watcher, long, byte[], boolean)} which uses
-     * default {@link StaticHostProvider}
+     * 初始化阶段
+     *
+     * 1. 初始化ZooKeeper对象：通过调用ZooKeeper的构造方法来实例化一个ZooKeeper对象，在初始化过程中，会创建一个客户端Watcher管理器：ClientWatchManager。
+     * 2. 设置默认的Watcher：如果在构造方法中传入一个Watcher对象，那么客户端会将这个对象作为默认Watcher保存在ClientWatchManager中。
+     * 3. 构造ZooKeeper服务器地址列表管理器：HostProvider，对于构造方法中传入的服务器地址，客户端会将其存放在服务器地址列表管理器HostProvider中。
+     * 4. 创建并初始化客户端网络连接器：ClientCnxn，ZooKeeper客户端首先会创建一个网络连接器ClientCnxn，用来管理客户端与服务器的网络交互。另外客户端在创建ClientCnxn的同时，还会初始化客户端两个核心队列outgoingQueue和pendingQueue，分别作为客户端的请求发送队列和服务端响应的等待队列。
+     * 5. 初始化SendThread和EventThread：客户端会创建两个核心网络线程SendThread和EventThread，前者用于管理客户端和服务端之间的所有网络I/O，后者则用于进行客户端的事件处理。同时，客户端会将将ClientCnxnSocket分配给SendThread作为底层网络I/O处理器，并初始化EventThread的待处理事件队列waitingEvents，用于存放所有等待被客户端处理的事件。
      *
      * @param connectString
-     *            comma separated host:port pairs, each corresponding to a zk
-     *            server. e.g. "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002"
-     *            If the optional chroot suffix is used the example would look
-     *            like: "127.0.0.1:3000,127.0.0.1:3001,127.0.0.1:3002/app/a"
-     *            where the client would be rooted at "/app/a" and all paths
-     *            would be relative to this root - ie getting/setting/etc...
-     *            "/foo/bar" would result in operations being run on
-     *            "/app/a/foo/bar" (from the server perspective).
      * @param sessionTimeout
-     *            session timeout in milliseconds
      * @param watcher
-     *            a watcher object which will be notified of state changes, may
-     *            also be notified for node events
      * @param sessionId
-     *            specific session id to use if reconnecting
      * @param sessionPasswd
-     *            password for this session
      * @param canBeReadOnly
-     *            (added in 3.4) whether the created client is allowed to go to
-     *            read-only mode in case of partitioning. Read-only mode
-     *            basically means that if the client can't find any majority
-     *            servers but there's partitioned server it could reach, it
-     *            connects to one in read-only mode, i.e. read requests are
-     *            allowed while write requests are not. It continues seeking for
-     *            majority in the background.
      * @param aHostProvider
-     *            use this as HostProvider to enable custom behaviour.
-     * @throws IOException in cases of network failure
-     * @throws IllegalArgumentException if an invalid chroot path is specified
+     * @throws IOException
      */
     public ZooKeeper(String connectString, int sessionTimeout, Watcher watcher, long sessionId, byte[] sessionPasswd, boolean canBeReadOnly, HostProvider aHostProvider) throws IOException {
         LOG.info("Initiating client connection, connectString=" + connectString
@@ -281,14 +196,14 @@ public class ZooKeeper implements AutoCloseable {
         watchManager = defaultWatchManager();
         watchManager.defaultWatcher = watcher;
 
-        ConnectStringParser connectStringParser = new ConnectStringParser(
-                connectString);
+        ConnectStringParser connectStringParser = new ConnectStringParser(connectString);
         hostProvider = aHostProvider;
 
         cnxn = new ClientCnxn(connectStringParser.getChrootPath(),
                 hostProvider, sessionTimeout, this, watchManager,
                 getClientCnxnSocket(), sessionId, sessionPasswd, canBeReadOnly);
-        cnxn.seenRwServerBefore = true; // since user has provided sessionId
+        // since user has provided sessionId
+        cnxn.seenRwServerBefore = true;
         cnxn.start();
     }
 
@@ -2662,6 +2577,12 @@ public class ZooKeeper implements AutoCloseable {
         return cnxn.sendThread.getClientCnxnSocket().getLocalSocketAddress();
     }
 
+    /**
+     * 通过反射创建一个ClientCnxnSocket实例，可以通过zookeeper.clientCnxnSocket配置，指定ClientCnxnSocket实现
+     *
+     * @return
+     * @throws IOException
+     */
     private ClientCnxnSocket getClientCnxnSocket() throws IOException {
         // 获取zookeeper.clientCnxnSocket配置
         String clientCnxnSocketName = getClientConfig().getProperty(ZKClientConfig.ZOOKEEPER_CLIENT_CNXN_SOCKET);

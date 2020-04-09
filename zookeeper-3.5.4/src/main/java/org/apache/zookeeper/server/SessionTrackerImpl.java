@@ -52,7 +52,7 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
     volatile boolean running = true;
     /** 表示下一个sessionId的值，一旦有新的连接（session）产生，就会nextSessionId++ */
     private final AtomicLong nextSessionId = new AtomicLong();
-    /** 保存会话id及回应的会话过期时间，Map<sessionId, timeout> */
+    /** 保存会话id及回应的会话过期时间，Map<sessionId, timeout>, 该数据结构和ZooKeeper内存数据库相连通，会被定期持久化到快照文件中去。 */
     private final ConcurrentMap<Long, Integer> sessionsWithTimeout;
     /** 保存sessionId及对应的session实例，{@link #addSession(long, int)} */
     protected final ConcurrentHashMap<Long, SessionImpl> sessionsById = new ConcurrentHashMap<Long, SessionImpl>();
@@ -103,7 +103,35 @@ public class SessionTrackerImpl extends ZooKeeperCriticalThread implements Sessi
     }
 
     /**
-     * 循环从session过期队列中获取过期的session，并清除
+     * 循环从session过期队列中获取过期的session，并清除：
+     * 当SessionTracker的会话超时检查线程整理出一些已经过期的会话后，那么就要开始进行会话清理了。会话清理的步骤大致可以分为以下七步。
+     *
+     * 1、标记会话状态为“已关闭”
+     *  为了保证在清理期间不再处理来自该客户端的新请求，SessionTracker会首先将该会话的isClosing属性标记为true。
+     *
+     * 2、发起“会话关闭”请求
+     *  为了使该会话的关闭操作在整个服务端集群中都生效，ZooKeeper使用了提交“会话关闭”请求的方式，并立即交付给PrepRequestProcessor处理器进行处理。
+     *
+     * 3、收集需要清理的临时节点
+     *  在ZooKeeper的内存数据库中，为每个会话都单独保存了一份由该会话维护的所有临时节点集合，因此在会话清理阶段，只需要根据当前即将关闭的会话的sessionID从内存数据库中获取到这份临时节点列表即可。
+     *
+     * 实际上，有如下细节需要处理：在ZooKeeper处理会话关闭请求之前，正好有以下请求到达了服务端并正在处理中：
+     *
+     * 节点删除请求，删除的目标节点正好是上述临时节点中的一个。
+     * 临时节点创建请求，创建的目标节点正好是上述临时节点中的一个。
+     * 假定我们当前获取的临时节点列表是ephemerals，那么针对第一类请求，我们需要将所有这些请求对应的数据节点路径从ephemerals中移除，以避免重复删除。针对第二类，我们需要将所有这些请求对应的数据节点路径添加到ephemerals中去，以删除这些即将会被创建但是尚未保存到内存数据库中去的临时节点。
+     *
+     * 4、添加“节点删除”事务变更
+     * 完成该会话相关的临时节点收集后，ZooKeeper会逐个将这些临时节点转换成“节点删除”请求，并放入事务变更队列outstandingChanges中去。
+     *
+     * 5、删除临时节点
+     * FinalRequestProcessor处理器会触发内存数据库，删除该会话对应的所有临时节点。
+     *
+     * 6、移除会话
+     * 完成节点删除后，需要将会话从SessionTracker中移除。主要就是从上面提到的三个数据结构(sessionById、sessionsWithTimeout和sessionSets)中将该会话移除掉。
+     *
+     * 7、关闭NIOServerCnxn
+     * 最后，从NIOServerCnxnFactory找到该会话对应的NIOServerCnxn，将其关闭。
      */
     @Override
     public void run() {

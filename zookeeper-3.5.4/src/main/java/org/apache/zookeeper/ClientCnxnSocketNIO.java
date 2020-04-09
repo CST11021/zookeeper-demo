@@ -67,7 +67,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     }
 
     /**
-     * @return true if a packet was received
+     * @return 如果成功接口到响应包，则返回true
      * @throws InterruptedException
      * @throws IOException
      */
@@ -76,26 +76,30 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         if (sock == null) {
             throw new IOException("Socket is null!");
         }
+
+        // sock处于可读状态：即接收来自服务端的响应包
         if (sockKey.isReadable()) {
+            // 获取响应数据，并缓存到incomingBuffer
             int rc = sock.read(incomingBuffer);
             if (rc < 0) {
-                throw new EndOfStreamException(
-                        "Unable to read additional data from server sessionid 0x"
-                                + Long.toHexString(sessionId)
-                                + ", likely server has closed socket");
+                throw new EndOfStreamException("Unable to read additional data from server sessionid 0x" + Long.toHexString(sessionId) + ", likely server has closed socket");
             }
+
+            // 如果缓存区还没填满，说明本次的请求分多个包接口，
             if (!incomingBuffer.hasRemaining()) {
                 incomingBuffer.flip();
                 if (incomingBuffer == lenBuffer) {
                     recvCount++;
+                    // 根据响应包大小，预分配incomingBuffer的缓存大小
                     readLength();
-                } else if (!initialized) {
+                }
+
+                // 接收服务端响应：ClientCnxnSocket接收到服务端的响应后，会首先判断当前的客户端状态是否是"已初始化"，如果尚未完成初始化，那么就认为该响应一定是会话创建请求的响应，直接交由readConnectResult方法来处理该响应。
+                else if (!initialized) {
                     readConnectResult();
                     enableRead();
-                    if (findSendablePacket(outgoingQueue,
-                            sendThread.tunnelAuthInProgress()) != null) {
-                        // Since SASL authentication has completed (if client is configured to do so),
-                        // outgoing packets waiting in the outgoingQueue can now be sent.
+                    if (findSendablePacket(outgoingQueue, sendThread.tunnelAuthInProgress()) != null) {
+                        // Since SASL authentication has completed (if client is configured to do so), outgoing packets waiting in the outgoingQueue can now be sent.
                         enableWrite();
                     }
                     lenBuffer.clear();
@@ -110,6 +114,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                 }
             }
         }
+
+        // sock处于可写状态：即发送响应包到服务端
         if (sockKey.isWritable()) {
             Packet p = findSendablePacket(outgoingQueue, sendThread.tunnelAuthInProgress());
 
@@ -268,7 +274,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     }
 
     /**
-     * register with the selection and connect
+     * 注册selection事件监听
+     *
      * @param sock the {@link SocketChannel} 
      * @param addr the address of remote host
      * @throws IOException
@@ -281,8 +288,15 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
     }
 
+    /**
+     * 连接到目标机器
+     *
+     * @param addr  目标机器地址
+     * @throws IOException
+     */
     @Override
     void connect(InetSocketAddress addr) throws IOException {
+        // 创建一个socket通道
         SocketChannel sock = createSock();
         try {
             registerAndConnect(sock, addr);
@@ -293,9 +307,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
         }
         initialized = false;
 
-        /*
-         * Reset incomingBuffer
-         */
+        // 重置保存来自服务端的响应包的缓冲区
         lenBuffer.clear();
         incomingBuffer = lenBuffer;
     }

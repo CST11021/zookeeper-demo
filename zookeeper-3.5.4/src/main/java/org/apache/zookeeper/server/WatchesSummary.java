@@ -21,13 +21,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * A summary of watch information. This class is immutable.
+ * 封装监听管理器的信息摘要，这个类是不可变的。
  */
 public class WatchesSummary {
 
     /**
-     * The key in the map returned by {@link #toMap()} for the number of
-     * connections.
+     * The key in the map returned by {@link #toMap()} for the number of connections.
      */
     public static final String KEY_NUM_CONNECTIONS = "num_connections";
     /**
@@ -35,8 +34,7 @@ public class WatchesSummary {
      */
     public static final String KEY_NUM_PATHS = "num_paths";
     /**
-     * The key in the map returned by {@link #toMap()} for the total number of
-     * watches.
+     * The key in the map returned by {@link #toMap()} for the total number of watches.
      */
     public static final String KEY_NUM_TOTAL_WATCHES = "num_total_watches";
 

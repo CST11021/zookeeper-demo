@@ -55,86 +55,64 @@ public class DataTree {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataTree.class);
 
+    // 配置相关
+
+    /** 表示zk根节点路径 */
+    private static final String rootZookeeper = "/";
+    /** the zookeeper nodes that acts as the management and status node **/
+    private static final String procZookeeper = Quotas.procZookeeper;
+    /** this will be the string thats stored as a child of root */
+    private static final String procChildZookeeper = procZookeeper.substring(1);
+    /** the zookeeper quota node that acts as the quota management node for zookeeper */
+    private static final String quotaZookeeper = Quotas.quotaZookeeper;
+    /** 表示/zookeeper下的子节点 */
+    private static final String quotaChildZookeeper = quotaZookeeper.substring(procZookeeper.length() + 1);
+    /** zk配置节点：/zookeeper/config */
+    private static final String configZookeeper = ZooDefs.CONFIG_NODE;
+    /** 表示/zookeeper的子元素的字符串 */
+    private static final String configChildZookeeper = configZookeeper.substring(procZookeeper.length() + 1);
+
+
+    /** the path trie that keeps track fo the quota nodes in this datatree */
+    private final PathTrie pTrie = new PathTrie();
+    /** 表示根节点 */
+    private DataNode root = new DataNode(new byte[0], -1L, new StatPersisted());
+    /** 创建一个/zookeeper文件系统，它是zookeeper的proc文件系统 */
+    private final DataNode procDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
+    /** create a /zookeeper/quota node for maintaining quota properties for zookeeper */
+    private final DataNode quotaDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
+
+
+    // 操作dataTree的最后一个事务ID
+
+    /** 表示操作dataTree的最后一个事务ID */
+    public volatile long lastProcessedZxid = 0;
+
+    // 节点监听器
+
     /** 节点Watcher监听管理器 */
     private final WatchManager dataWatches = new WatchManager();
     /** 管理哪些监听子节点的Watcher */
     private final WatchManager childWatches = new WatchManager();
 
+    // 缓存节点对应的ACL
+
     /** 用于缓存datatree中的节点权限 */
     private final ReferenceCountedACLCache aclCache = new ReferenceCountedACLCache();
 
+    // 节点相关的缓存
+
     /**
-     *
-     * DataNode类是zookeeper中数据存储的最小单元。在DataTree中，所有的数据节点都存在一个concurrentHashMap中，
-     * 对zk中所有的znode进行操作，其实底层就是对这个map进行操作。其中path是key，datanode是value。
+     * DataNode类是zookeeper中数据存储的最小单元；
+     * 在DataTree中，所有的数据节点都存在一个concurrentHashMap中，对zk中所有的znode进行操作，其实底层就是对这个map进行操作。其中path是key，datanode是value。
      */
     private final ConcurrentHashMap<String, DataNode> nodes = new ConcurrentHashMap<String, DataNode>();
-
-    /**
-     * 保存所有的临时节点，便于实时的访问和session结束后的集中清理。
-     */
+    /** 保存所有的临时节点，便于实时的访问和session结束后的集中清理。 */
     private final Map<Long, HashSet<String>> ephemerals = new ConcurrentHashMap<Long, HashSet<String>>();
-
-    /**
-     * 保存所有的ttl节点
-     */
+    /** 保存所有的ttl节点 */
     private final Set<String> ttls = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-
-    /**
-     * 保存所有的容器节点
-     */
+    /** 保存所有的容器节点 */
     private final Set<String> containers = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-
-    /** the root of zookeeper tree */
-    private static final String rootZookeeper = "/";
-
-    /** the zookeeper nodes that acts as the management and status node **/
-    private static final String procZookeeper = Quotas.procZookeeper;
-
-    /** this will be the string thats stored as a child of root */
-    private static final String procChildZookeeper = procZookeeper.substring(1);
-
-    /**
-     * the zookeeper quota node that acts as the quota management node for zookeeper
-     */
-    private static final String quotaZookeeper = Quotas.quotaZookeeper;
-
-    /** this will be the string thats stored as a child of /zookeeper */
-    private static final String quotaChildZookeeper = quotaZookeeper.substring(procZookeeper.length() + 1);
-
-    /**
-     * zk配置节点
-     *
-     * /zookeeper/config
-     */
-    private static final String configZookeeper = ZooDefs.CONFIG_NODE;
-
-    /** 表示/zookeeper的子元素的字符串 */
-    private static final String configChildZookeeper = configZookeeper.substring(procZookeeper.length() + 1);
-
-    /**
-     * the path trie that keeps track fo the quota nodes in this datatree
-     */
-    private final PathTrie pTrie = new PathTrie();
-
-    /** 表示根节点 */
-    private DataNode root = new DataNode(new byte[0], -1L, new StatPersisted());
-
-    /**
-     * 创建一个/zookeeper文件系统，它是zookeeper的proc文件系统
-     */
-    private final DataNode procDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
-
-    /**
-     * create a /zookeeper/quota node for maintaining quota properties for
-     * zookeeper
-     */
-    private final DataNode quotaDataNode = new DataNode(new byte[0], -1L, new StatPersisted());
-
-    /**
-     * 表示操作dataTree的最后一个事务ID
-     */
-    public volatile long lastProcessedZxid = 0;
 
     public DataTree() {
         /* Rather than fight it, let root have an alias */
@@ -152,674 +130,7 @@ public class DataTree {
     }
 
 
-
-
-    /**
-     * 根据sessionId获取临时节点
-     *
-     * @param sessionId
-     * @return
-     */
-    @SuppressWarnings("unchecked")
-    public Set<String> getEphemerals(long sessionId) {
-        HashSet<String> retv = ephemerals.get(sessionId);
-        if (retv == null) {
-            return new HashSet<String>();
-        }
-
-        HashSet<String> cloned = null;
-        synchronized (retv) {
-            cloned = (HashSet<String>) retv.clone();
-        }
-        return cloned;
-    }
-
-    /**
-     * 获取所有的容器节点
-     *
-     * @return
-     */
-    public Set<String> getContainers() {
-        return new HashSet<String>(containers);
-    }
-
-    /**
-     * 获取所有的ttl节点
-     *
-     * @return
-     */
-    public Set<String> getTtls() {
-        return new HashSet<String>(ttls);
-    }
-
-    /**
-     * 获取所有创建了临时节点的sessionId
-     * @return
-     */
-    public Collection<Long> getSessions() {
-        return ephemerals.keySet();
-    }
-
-    /**
-     * 根据路径获取一个数据节点
-     *
-     * @param path
-     * @return
-     */
-    public DataNode getNode(String path) {
-        return nodes.get(path);
-    }
-
-    /**
-     * 获取数据节点的个数
-     *
-     * @return
-     */
-    public int getNodeCount() {
-        return nodes.size();
-    }
-
-    /**
-     * 获取监听器的个数
-     *
-     * @return
-     */
-    public int getWatchCount() {
-        return dataWatches.size() + childWatches.size();
-    }
-
-    /**
-     * 获取临时节点的个数
-     *
-     * @return
-     */
-    public int getEphemeralsCount() {
-        int result = 0;
-        for (HashSet<String> set : ephemerals.values()) {
-            result += set.size();
-        }
-        return result;
-    }
-
-    /**
-     * 根据路径和数据长度获取节点的大小。
-     *
-     * @return size of the data
-     */
-    public long approximateDataSize() {
-        long result = 0;
-        for (Map.Entry<String, DataNode> entry : nodes.entrySet()) {
-            DataNode value = entry.getValue();
-            synchronized (value) {
-                result += entry.getKey().length();
-                result += value.getApproximateDataSize();
-            }
-        }
-        return result;
-    }
-
-    /**
-     * 创建一个/zookeeper/config节点来维护zookeeper的配置(membership and quorum system)信息
-     */
-    public void addConfigNode() {
-        DataNode zookeeperZnode = nodes.get(procZookeeper);
-        // should always be the case
-        if (zookeeperZnode != null) {
-            zookeeperZnode.addChild(configChildZookeeper);
-        } else {
-            assert false : "There's no /zookeeper znode - this should never happen.";
-        }
-
-        nodes.put(configZookeeper, new DataNode(new byte[0], -1L, new StatPersisted()));
-        try {
-            // Reconfig node is access controlled by default (ZOOKEEPER-2014).
-            setACL(configZookeeper, ZooDefs.Ids.READ_ACL_UNSAFE, -1);
-        } catch (KeeperException.NoNodeException e) {
-            assert false : "There's no " + configZookeeper +
-                    " znode - this should never happen.";
-        }
-    }
-
-    /**
-     * 判断是否为zk管理员所拥有的特殊节点
-     *
-     * @param path the path to be checked
-     * @return true if a special path. false if not.
-     */
-    boolean isSpecialPath(String path) {
-        if (rootZookeeper.equals(path) || procZookeeper.equals(path) || quotaZookeeper.equals(path) || configZookeeper.equals(path)) {
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * stat复制
-     *
-     * @param from
-     * @param to
-     */
-    static public void copyStatPersisted(StatPersisted from, StatPersisted to) {
-        to.setAversion(from.getAversion());
-        to.setCtime(from.getCtime());
-        to.setCversion(from.getCversion());
-        to.setCzxid(from.getCzxid());
-        to.setMtime(from.getMtime());
-        to.setMzxid(from.getMzxid());
-        to.setPzxid(from.getPzxid());
-        to.setVersion(from.getVersion());
-        to.setEphemeralOwner(from.getEphemeralOwner());
-    }
-
-    static public void copyStat(Stat from, Stat to) {
-        to.setAversion(from.getAversion());
-        to.setCtime(from.getCtime());
-        to.setCversion(from.getCversion());
-        to.setCzxid(from.getCzxid());
-        to.setMtime(from.getMtime());
-        to.setMzxid(from.getMzxid());
-        to.setPzxid(from.getPzxid());
-        to.setVersion(from.getVersion());
-        to.setEphemeralOwner(from.getEphemeralOwner());
-        to.setDataLength(from.getDataLength());
-        to.setNumChildren(from.getNumChildren());
-    }
-
-    /**
-     * update the count of this stat datanode
-     *
-     * @param lastPrefix the path of the node that is quotaed.
-     * @param diff the diff to be added to the count
-     */
-    public void updateCount(String lastPrefix, int diff) {
-        String statNode = Quotas.statPath(lastPrefix);
-        DataNode node = nodes.get(statNode);
-        StatsTrack updatedStat = null;
-        if (node == null) {
-            // should not happen
-            LOG.error("Missing count node for stat " + statNode);
-            return;
-        }
-        synchronized (node) {
-            updatedStat = new StatsTrack(new String(node.data));
-            updatedStat.setCount(updatedStat.getCount() + diff);
-            node.data = updatedStat.toString().getBytes();
-        }
-        // now check if the counts match the quota
-        String quotaNode = Quotas.quotaPath(lastPrefix);
-        node = nodes.get(quotaNode);
-        StatsTrack thisStats = null;
-        if (node == null) {
-            // should not happen
-            LOG.error("Missing count node for quota " + quotaNode);
-            return;
-        }
-        synchronized (node) {
-            thisStats = new StatsTrack(new String(node.data));
-        }
-        if (thisStats.getCount() > -1 && (thisStats.getCount() < updatedStat.getCount())) {
-            LOG
-                    .warn("Quota exceeded: " + lastPrefix + " count="
-                            + updatedStat.getCount() + " limit="
-                            + thisStats.getCount());
-        }
-    }
-
-    /**
-     * update the count of bytes of this stat datanode
-     *
-     * @param lastPrefix the path of the node that is quotaed
-     * @param diff the diff to added to number of bytes
-     * @throws IOException if path is not found
-     */
-    public void updateBytes(String lastPrefix, long diff) {
-        String statNode = Quotas.statPath(lastPrefix);
-        DataNode node = nodes.get(statNode);
-        if (node == null) {
-            // should never be null but just to make
-            // findbugs happy
-            LOG.error("Missing stat node for bytes " + statNode);
-            return;
-        }
-        StatsTrack updatedStat = null;
-        synchronized (node) {
-            updatedStat = new StatsTrack(new String(node.data));
-            updatedStat.setBytes(updatedStat.getBytes() + diff);
-            node.data = updatedStat.toString().getBytes();
-        }
-        // now check if the bytes match the quota
-        String quotaNode = Quotas.quotaPath(lastPrefix);
-        node = nodes.get(quotaNode);
-        if (node == null) {
-            // should never be null but just to make
-            // findbugs happy
-            LOG.error("Missing quota node for bytes " + quotaNode);
-            return;
-        }
-        StatsTrack thisStats = null;
-        synchronized (node) {
-            thisStats = new StatsTrack(new String(node.data));
-        }
-        if (thisStats.getBytes() > -1 && (thisStats.getBytes() < updatedStat.getBytes())) {
-            LOG.warn("Quota exceeded: " + lastPrefix + " bytes=" + updatedStat.getBytes() + " limit=" + thisStats.getBytes());
-        }
-    }
-
-    /**
-     * Add a new node to the DataTree.
-     * @param path Path for the new node.
-     * @param data Data to store in the node.
-     * @param acl Node acls
-     * @param ephemeralOwner the session id that owns this node. -1 indicates this is not an ephemeral node.
-     * @param zxid Transaction ID
-     * @param time
-     * @throws NodeExistsException
-     * @throws NoNodeException
-     * @throws KeeperException
-     */
-    public void createNode(final String path, byte data[], List<ACL> acl, long ephemeralOwner, int parentCVersion, long zxid, long time) throws NoNodeException, NodeExistsException {
-        createNode(path, data, acl, ephemeralOwner, parentCVersion, zxid, time, null);
-    }
-
-    /**
-     * Add a new node to the DataTree.
-     * @param path Path for the new node.
-     * @param data Data to store in the node.
-     * @param acl Node acls
-     * @param ephemeralOwner the session id that owns this node. -1 indicates this is not an ephemeral node.
-     * @param zxid Transaction ID
-     * @param time
-     * @param outputStat A Stat object to store Stat output results into.
-     * @throws NodeExistsException
-     * @throws NoNodeException
-     * @throws KeeperException
-     */
-    public void createNode(final String path, byte data[], List<ACL> acl, long ephemeralOwner, int parentCVersion, long zxid, long time, Stat outputStat) throws KeeperException.NoNodeException, KeeperException.NodeExistsException {
-        int lastSlash = path.lastIndexOf('/');
-        String parentName = path.substring(0, lastSlash);
-        String childName = path.substring(lastSlash + 1);
-        StatPersisted stat = new StatPersisted();
-        stat.setCtime(time);
-        stat.setMtime(time);
-        stat.setCzxid(zxid);
-        stat.setMzxid(zxid);
-        stat.setPzxid(zxid);
-        stat.setVersion(0);
-        stat.setAversion(0);
-        stat.setEphemeralOwner(ephemeralOwner);
-        DataNode parent = nodes.get(parentName);
-        if (parent == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (parent) {
-            Set<String> children = parent.getChildren();
-            if (children.contains(childName)) {
-                throw new KeeperException.NodeExistsException();
-            }
-
-            if (parentCVersion == -1) {
-                parentCVersion = parent.stat.getCversion();
-                parentCVersion++;
-            }
-            parent.stat.setCversion(parentCVersion);
-            parent.stat.setPzxid(zxid);
-            Long longval = aclCache.convertAcls(acl);
-            DataNode child = new DataNode(data, longval, stat);
-            parent.addChild(childName);
-            nodes.put(path, child);
-            EphemeralType ephemeralType = EphemeralType.get(ephemeralOwner);
-            if (ephemeralType == EphemeralType.CONTAINER) {
-                containers.add(path);
-            } else if (ephemeralType == EphemeralType.TTL) {
-                ttls.add(path);
-            } else if (ephemeralOwner != 0) {
-                HashSet<String> list = ephemerals.get(ephemeralOwner);
-                if (list == null) {
-                    list = new HashSet<String>();
-                    ephemerals.put(ephemeralOwner, list);
-                }
-                synchronized (list) {
-                    list.add(path);
-                }
-            }
-            if (outputStat != null) {
-                child.copyStat(outputStat);
-            }
-        }
-        // now check if its one of the zookeeper node child
-        if (parentName.startsWith(quotaZookeeper)) {
-            // now check if its the limit node
-            if (Quotas.limitNode.equals(childName)) {
-                // this is the limit node
-                // get the parent and add it to the trie
-                pTrie.addPath(parentName.substring(quotaZookeeper.length()));
-            }
-            if (Quotas.statNode.equals(childName)) {
-                updateQuotaForPath(parentName
-                        .substring(quotaZookeeper.length()));
-            }
-        }
-        // also check to update the quotas for this node
-        String lastPrefix = getMaxPrefixWithQuota(path);
-        if (lastPrefix != null) {
-            // ok we have some match and need to update
-            updateCount(lastPrefix, 1);
-            updateBytes(lastPrefix, data == null ? 0 : data.length);
-        }
-        dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
-        childWatches.triggerWatch(parentName.equals("") ? "/" : parentName,
-                Event.EventType.NodeChildrenChanged);
-    }
-
-    /**
-     * remove the path from the datatree
-     *
-     * @param path the path to of the node to be deleted
-     * @param zxid the current zxid
-     * @throws KeeperException.NoNodeException
-     */
-    public void deleteNode(String path, long zxid) throws KeeperException.NoNodeException {
-        int lastSlash = path.lastIndexOf('/');
-        String parentName = path.substring(0, lastSlash);
-        String childName = path.substring(lastSlash + 1);
-        DataNode node = nodes.get(path);
-        if (node == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        nodes.remove(path);
-        synchronized (node) {
-            aclCache.removeUsage(node.acl);
-        }
-        DataNode parent = nodes.get(parentName);
-        if (parent == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (parent) {
-            parent.removeChild(childName);
-            parent.stat.setPzxid(zxid);
-            long eowner = node.stat.getEphemeralOwner();
-            EphemeralType ephemeralType = EphemeralType.get(eowner);
-            if (ephemeralType == EphemeralType.CONTAINER) {
-                containers.remove(path);
-            } else if (ephemeralType == EphemeralType.TTL) {
-                ttls.remove(path);
-            } else if (eowner != 0) {
-                HashSet<String> nodes = ephemerals.get(eowner);
-                if (nodes != null) {
-                    synchronized (nodes) {
-                        nodes.remove(path);
-                    }
-                }
-            }
-        }
-        if (parentName.startsWith(procZookeeper) && Quotas.limitNode.equals(childName)) {
-            // delete the node in the trie.
-            // we need to update the trie as well
-            pTrie.deletePath(parentName.substring(quotaZookeeper.length()));
-        }
-
-        // also check to update the quotas for this node
-        String lastPrefix = getMaxPrefixWithQuota(path);
-        if (lastPrefix != null) {
-            // ok we have some match and need to update
-            updateCount(lastPrefix, -1);
-            int bytes = 0;
-            synchronized (node) {
-                bytes = (node.data == null ? 0 : -(node.data.length));
-            }
-            updateBytes(lastPrefix, bytes);
-        }
-        if (LOG.isTraceEnabled()) {
-            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
-                    "dataWatches.triggerWatch " + path);
-            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
-                    "childWatches.triggerWatch " + parentName);
-        }
-        Set<Watcher> processed = dataWatches.triggerWatch(path,
-                EventType.NodeDeleted);
-        childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
-        childWatches.triggerWatch("".equals(parentName) ? "/" : parentName,
-                EventType.NodeChildrenChanged);
-    }
-
-    /**
-     * 设置节点数据
-     *
-     * @param path
-     * @param data
-     * @param version
-     * @param zxid
-     * @param time
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public Stat setData(String path, byte data[], int version, long zxid, long time) throws KeeperException.NoNodeException {
-        Stat s = new Stat();
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        byte lastdata[] = null;
-        synchronized (n) {
-            lastdata = n.data;
-            n.data = data;
-            n.stat.setMtime(time);
-            n.stat.setMzxid(zxid);
-            n.stat.setVersion(version);
-            n.copyStat(s);
-        }
-        // now update if the path is in a quota subtree.
-        String lastPrefix = getMaxPrefixWithQuota(path);
-        if (lastPrefix != null) {
-            this.updateBytes(lastPrefix, (data == null ? 0 : data.length)
-                    - (lastdata == null ? 0 : lastdata.length));
-        }
-        dataWatches.triggerWatch(path, EventType.NodeDataChanged);
-        return s;
-    }
-
-    /**
-     * If there is a quota set, return the appropriate prefix for that quota Else return null
-     * @param path The ZK path to check for quota
-     * @return Max quota prefix, or null if none
-     */
-    public String getMaxPrefixWithQuota(String path) {
-        // do nothing for the root.
-        // we are not keeping a quota on the zookeeper
-        // root node for now.
-        String lastPrefix = pTrie.findMaxPrefix(path);
-
-        if (rootZookeeper.equals(lastPrefix) || "".equals(lastPrefix)) {
-            return null;
-        } else {
-            return lastPrefix;
-        }
-    }
-
-    /**
-     * 获取指定节点的数据
-     *
-     * @param path
-     * @param stat
-     * @param watcher
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public byte[] getData(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-
-        synchronized (n) {
-            n.copyStat(stat);
-            if (watcher != null) {
-                dataWatches.addWatch(path, watcher);
-            }
-            return n.data;
-        }
-    }
-
-    /**
-     * 获取节点的Stat信息
-     *
-     * @param path
-     * @param watcher
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public Stat statNode(String path, Watcher watcher) throws KeeperException.NoNodeException {
-        Stat stat = new Stat();
-        DataNode n = nodes.get(path);
-        if (watcher != null) {
-            dataWatches.addWatch(path, watcher);
-        }
-
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            n.copyStat(stat);
-            return stat;
-        }
-    }
-
-    /**
-     * 获取孩子节点
-     *
-     * @param path
-     * @param stat
-     * @param watcher
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public List<String> getChildren(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            if (stat != null) {
-                n.copyStat(stat);
-            }
-            List<String> children = new ArrayList<String>(n.getChildren());
-
-            if (watcher != null) {
-                childWatches.addWatch(path, watcher);
-            }
-            return children;
-        }
-    }
-
-    /**
-     * 设置节点的访问权限
-     *
-     * @param path
-     * @param acl
-     * @param version
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public Stat setACL(String path, List<ACL> acl, int version) throws KeeperException.NoNodeException {
-        Stat stat = new Stat();
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            aclCache.removeUsage(n.acl);
-            n.stat.setAversion(version);
-            n.acl = aclCache.convertAcls(acl);
-            n.copyStat(stat);
-            return stat;
-        }
-    }
-
-    /**
-     * 获取指定节点的权限
-     *
-     * @param path
-     * @param stat
-     * @return
-     * @throws KeeperException.NoNodeException
-     */
-    public List<ACL> getACL(String path, Stat stat) throws KeeperException.NoNodeException {
-        DataNode n = nodes.get(path);
-        if (n == null) {
-            throw new KeeperException.NoNodeException();
-        }
-        synchronized (n) {
-            n.copyStat(stat);
-            return new ArrayList<ACL>(aclCache.convertLong(n.acl));
-        }
-    }
-
-    /**
-     * 获取指定节点的权限
-     *
-     * @param node
-     * @return
-     */
-    public List<ACL> getACL(DataNode node) {
-        synchronized (node) {
-            return aclCache.convertLong(node.acl);
-        }
-    }
-
-    /**
-     * 获取有设置权限的节点数量
-     *
-     * @return
-     */
-    public int aclCacheSize() {
-        return aclCache.size();
-    }
-
-    static public class ProcessTxnResult {
-        public long clientId;
-
-        public int cxid;
-
-        public long zxid;
-
-        public int err;
-
-        public int type;
-
-        public String path;
-
-        public Stat stat;
-
-        public List<ProcessTxnResult> multiResult;
-
-        /**
-         * Equality is defined as the clientId and the cxid being the same. This
-         * allows us to use hash tables to track completion of transactions.
-         *
-         * @see java.lang.Object#equals(java.lang.Object)
-         */
-        @Override
-        public boolean equals(Object o) {
-            if (o instanceof ProcessTxnResult) {
-                ProcessTxnResult other = (ProcessTxnResult) o;
-                return other.clientId == clientId && other.cxid == cxid;
-            }
-            return false;
-        }
-
-        /**
-         * See equals() to find the rational for how this hashcode is generated.
-         *
-         * @see ProcessTxnResult#equals(Object)
-         * @see java.lang.Object#hashCode()
-         */
-        @Override
-        public int hashCode() {
-            return (int) ((clientId ^ cxid) % Integer.MAX_VALUE);
-        }
-
-    }
-
+    // 节点相关
 
     /**
      * 处理操作DataTree的请求，比如查询节点数据，添加/删除节点等操作
@@ -1053,6 +364,528 @@ public class DataTree {
         }
         return rc;
     }
+    /**
+     * 根据路径获取一个数据节点
+     *
+     * @param path
+     * @return
+     */
+    public DataNode getNode(String path) {
+        return nodes.get(path);
+    }
+    /**
+     * update the count of this stat datanode
+     *
+     * @param lastPrefix the path of the node that is quotaed.
+     * @param diff the diff to be added to the count
+     */
+    public void updateCount(String lastPrefix, int diff) {
+        String statNode = Quotas.statPath(lastPrefix);
+        DataNode node = nodes.get(statNode);
+        StatsTrack updatedStat = null;
+        if (node == null) {
+            // should not happen
+            LOG.error("Missing count node for stat " + statNode);
+            return;
+        }
+        synchronized (node) {
+            updatedStat = new StatsTrack(new String(node.data));
+            updatedStat.setCount(updatedStat.getCount() + diff);
+            node.data = updatedStat.toString().getBytes();
+        }
+        // now check if the counts match the quota
+        String quotaNode = Quotas.quotaPath(lastPrefix);
+        node = nodes.get(quotaNode);
+        StatsTrack thisStats = null;
+        if (node == null) {
+            // should not happen
+            LOG.error("Missing count node for quota " + quotaNode);
+            return;
+        }
+        synchronized (node) {
+            thisStats = new StatsTrack(new String(node.data));
+        }
+        if (thisStats.getCount() > -1 && (thisStats.getCount() < updatedStat.getCount())) {
+            LOG
+                    .warn("Quota exceeded: " + lastPrefix + " count="
+                            + updatedStat.getCount() + " limit="
+                            + thisStats.getCount());
+        }
+    }
+    /**
+     * update the count of bytes of this stat datanode
+     *
+     * @param lastPrefix the path of the node that is quotaed
+     * @param diff the diff to added to number of bytes
+     * @throws IOException if path is not found
+     */
+    public void updateBytes(String lastPrefix, long diff) {
+        String statNode = Quotas.statPath(lastPrefix);
+        DataNode node = nodes.get(statNode);
+        if (node == null) {
+            // should never be null but just to make
+            // findbugs happy
+            LOG.error("Missing stat node for bytes " + statNode);
+            return;
+        }
+        StatsTrack updatedStat = null;
+        synchronized (node) {
+            updatedStat = new StatsTrack(new String(node.data));
+            updatedStat.setBytes(updatedStat.getBytes() + diff);
+            node.data = updatedStat.toString().getBytes();
+        }
+        // now check if the bytes match the quota
+        String quotaNode = Quotas.quotaPath(lastPrefix);
+        node = nodes.get(quotaNode);
+        if (node == null) {
+            // should never be null but just to make
+            // findbugs happy
+            LOG.error("Missing quota node for bytes " + quotaNode);
+            return;
+        }
+        StatsTrack thisStats = null;
+        synchronized (node) {
+            thisStats = new StatsTrack(new String(node.data));
+        }
+        if (thisStats.getBytes() > -1 && (thisStats.getBytes() < updatedStat.getBytes())) {
+            LOG.warn("Quota exceeded: " + lastPrefix + " bytes=" + updatedStat.getBytes() + " limit=" + thisStats.getBytes());
+        }
+    }
+    /**
+     * Add a new node to the DataTree.
+     * @param path Path for the new node.
+     * @param data Data to store in the node.
+     * @param acl Node acls
+     * @param ephemeralOwner the session id that owns this node. -1 indicates this is not an ephemeral node.
+     * @param zxid Transaction ID
+     * @param time
+     * @throws NodeExistsException
+     * @throws NoNodeException
+     * @throws KeeperException
+     */
+    public void createNode(final String path, byte data[], List<ACL> acl, long ephemeralOwner, int parentCVersion, long zxid, long time) throws NoNodeException, NodeExistsException {
+        createNode(path, data, acl, ephemeralOwner, parentCVersion, zxid, time, null);
+    }
+    /**
+     * Add a new node to the DataTree.
+     * @param path Path for the new node.
+     * @param data Data to store in the node.
+     * @param acl Node acls
+     * @param ephemeralOwner the session id that owns this node. -1 indicates this is not an ephemeral node.
+     * @param zxid Transaction ID
+     * @param time
+     * @param outputStat A Stat object to store Stat output results into.
+     * @throws NodeExistsException
+     * @throws NoNodeException
+     * @throws KeeperException
+     */
+    public void createNode(final String path, byte data[], List<ACL> acl, long ephemeralOwner, int parentCVersion, long zxid, long time, Stat outputStat) throws KeeperException.NoNodeException, KeeperException.NodeExistsException {
+        int lastSlash = path.lastIndexOf('/');
+        String parentName = path.substring(0, lastSlash);
+        String childName = path.substring(lastSlash + 1);
+        StatPersisted stat = new StatPersisted();
+        stat.setCtime(time);
+        stat.setMtime(time);
+        stat.setCzxid(zxid);
+        stat.setMzxid(zxid);
+        stat.setPzxid(zxid);
+        stat.setVersion(0);
+        stat.setAversion(0);
+        stat.setEphemeralOwner(ephemeralOwner);
+        DataNode parent = nodes.get(parentName);
+        if (parent == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        synchronized (parent) {
+            Set<String> children = parent.getChildren();
+            if (children.contains(childName)) {
+                throw new KeeperException.NodeExistsException();
+            }
+
+            if (parentCVersion == -1) {
+                parentCVersion = parent.stat.getCversion();
+                parentCVersion++;
+            }
+            parent.stat.setCversion(parentCVersion);
+            parent.stat.setPzxid(zxid);
+            Long longval = aclCache.convertAcls(acl);
+            DataNode child = new DataNode(data, longval, stat);
+            parent.addChild(childName);
+            nodes.put(path, child);
+            EphemeralType ephemeralType = EphemeralType.get(ephemeralOwner);
+            if (ephemeralType == EphemeralType.CONTAINER) {
+                containers.add(path);
+            } else if (ephemeralType == EphemeralType.TTL) {
+                ttls.add(path);
+            } else if (ephemeralOwner != 0) {
+                HashSet<String> list = ephemerals.get(ephemeralOwner);
+                if (list == null) {
+                    list = new HashSet<String>();
+                    ephemerals.put(ephemeralOwner, list);
+                }
+                synchronized (list) {
+                    list.add(path);
+                }
+            }
+            if (outputStat != null) {
+                child.copyStat(outputStat);
+            }
+        }
+        // now check if its one of the zookeeper node child
+        if (parentName.startsWith(quotaZookeeper)) {
+            // now check if its the limit node
+            if (Quotas.limitNode.equals(childName)) {
+                // this is the limit node
+                // get the parent and add it to the trie
+                pTrie.addPath(parentName.substring(quotaZookeeper.length()));
+            }
+            if (Quotas.statNode.equals(childName)) {
+                updateQuotaForPath(parentName.substring(quotaZookeeper.length()));
+            }
+        }
+        // also check to update the quotas for this node
+        String lastPrefix = getMaxPrefixWithQuota(path);
+        if (lastPrefix != null) {
+            // ok we have some match and need to update
+            updateCount(lastPrefix, 1);
+            updateBytes(lastPrefix, data == null ? 0 : data.length);
+        }
+        dataWatches.triggerWatch(path, Event.EventType.NodeCreated);
+        childWatches.triggerWatch(parentName.equals("") ? "/" : parentName, Event.EventType.NodeChildrenChanged);
+    }
+    /**
+     * remove the path from the datatree
+     *
+     * @param path the path to of the node to be deleted
+     * @param zxid the current zxid
+     * @throws KeeperException.NoNodeException
+     */
+    public void deleteNode(String path, long zxid) throws KeeperException.NoNodeException {
+        int lastSlash = path.lastIndexOf('/');
+        String parentName = path.substring(0, lastSlash);
+        String childName = path.substring(lastSlash + 1);
+        DataNode node = nodes.get(path);
+        if (node == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        nodes.remove(path);
+        synchronized (node) {
+            aclCache.removeUsage(node.acl);
+        }
+        DataNode parent = nodes.get(parentName);
+        if (parent == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        synchronized (parent) {
+            parent.removeChild(childName);
+            parent.stat.setPzxid(zxid);
+            long eowner = node.stat.getEphemeralOwner();
+            EphemeralType ephemeralType = EphemeralType.get(eowner);
+            if (ephemeralType == EphemeralType.CONTAINER) {
+                containers.remove(path);
+            } else if (ephemeralType == EphemeralType.TTL) {
+                ttls.remove(path);
+            } else if (eowner != 0) {
+                HashSet<String> nodes = ephemerals.get(eowner);
+                if (nodes != null) {
+                    synchronized (nodes) {
+                        nodes.remove(path);
+                    }
+                }
+            }
+        }
+        if (parentName.startsWith(procZookeeper) && Quotas.limitNode.equals(childName)) {
+            // delete the node in the trie.
+            // we need to update the trie as well
+            pTrie.deletePath(parentName.substring(quotaZookeeper.length()));
+        }
+
+        // also check to update the quotas for this node
+        String lastPrefix = getMaxPrefixWithQuota(path);
+        if (lastPrefix != null) {
+            // ok we have some match and need to update
+            updateCount(lastPrefix, -1);
+            int bytes = 0;
+            synchronized (node) {
+                bytes = (node.data == null ? 0 : -(node.data.length));
+            }
+            updateBytes(lastPrefix, bytes);
+        }
+        if (LOG.isTraceEnabled()) {
+            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
+                    "dataWatches.triggerWatch " + path);
+            ZooTrace.logTraceMessage(LOG, ZooTrace.EVENT_DELIVERY_TRACE_MASK,
+                    "childWatches.triggerWatch " + parentName);
+        }
+        Set<Watcher> processed = dataWatches.triggerWatch(path,
+                EventType.NodeDeleted);
+        childWatches.triggerWatch(path, EventType.NodeDeleted, processed);
+        childWatches.triggerWatch("".equals(parentName) ? "/" : parentName,
+                EventType.NodeChildrenChanged);
+    }
+    /**
+     * 设置节点数据
+     *
+     * @param path
+     * @param data
+     * @param version
+     * @param zxid
+     * @param time
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public Stat setData(String path, byte data[], int version, long zxid, long time) throws KeeperException.NoNodeException {
+        Stat s = new Stat();
+        DataNode n = nodes.get(path);
+        if (n == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        byte lastdata[] = null;
+        synchronized (n) {
+            lastdata = n.data;
+            n.data = data;
+            n.stat.setMtime(time);
+            n.stat.setMzxid(zxid);
+            n.stat.setVersion(version);
+            n.copyStat(s);
+        }
+        // now update if the path is in a quota subtree.
+        String lastPrefix = getMaxPrefixWithQuota(path);
+        if (lastPrefix != null) {
+            this.updateBytes(lastPrefix, (data == null ? 0 : data.length)
+                    - (lastdata == null ? 0 : lastdata.length));
+        }
+        dataWatches.triggerWatch(path, EventType.NodeDataChanged);
+        return s;
+    }
+    /**
+     * 获取指定节点的数据
+     *
+     * @param path
+     * @param stat
+     * @param watcher
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public byte[] getData(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
+        DataNode n = nodes.get(path);
+        if (n == null) {
+            throw new KeeperException.NoNodeException();
+        }
+
+        synchronized (n) {
+            n.copyStat(stat);
+            if (watcher != null) {
+                dataWatches.addWatch(path, watcher);
+            }
+            return n.data;
+        }
+    }
+    /**
+     * 获取节点的Stat信息
+     *
+     * @param path
+     * @param watcher
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public Stat statNode(String path, Watcher watcher) throws KeeperException.NoNodeException {
+        Stat stat = new Stat();
+        DataNode n = nodes.get(path);
+        if (watcher != null) {
+            dataWatches.addWatch(path, watcher);
+        }
+
+        if (n == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        synchronized (n) {
+            n.copyStat(stat);
+            return stat;
+        }
+    }
+    /**
+     * 获取孩子节点
+     *
+     * @param path
+     * @param stat
+     * @param watcher
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public List<String> getChildren(String path, Stat stat, Watcher watcher) throws KeeperException.NoNodeException {
+        DataNode n = nodes.get(path);
+        if (n == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        synchronized (n) {
+            if (stat != null) {
+                n.copyStat(stat);
+            }
+            List<String> children = new ArrayList<String>(n.getChildren());
+
+            if (watcher != null) {
+                childWatches.addWatch(path, watcher);
+            }
+            return children;
+        }
+    }
+
+
+    /**
+     * 获取数据节点的个数
+     *
+     * @return
+     */
+    public int getNodeCount() {
+        return nodes.size();
+    }
+    /**
+     * 获取监听器的个数
+     *
+     * @return
+     */
+    public int getWatchCount() {
+        return dataWatches.size() + childWatches.size();
+    }
+    /**
+     * 获取临时节点的个数
+     *
+     * @return
+     */
+    public int getEphemeralsCount() {
+        int result = 0;
+        for (HashSet<String> set : ephemerals.values()) {
+            result += set.size();
+        }
+        return result;
+    }
+    /**
+     * 返回所有的临时节点Map<sesseionId, 临时节点集合>
+     *
+     * @return map of session ID to sets of ephemeral znodes
+     */
+    public Map<Long, Set<String>> getEphemerals() {
+        HashMap<Long, Set<String>> ephemeralsCopy = new HashMap<Long, Set<String>>();
+        for (Entry<Long, HashSet<String>> e : ephemerals.entrySet()) {
+            synchronized (e.getValue()) {
+                ephemeralsCopy.put(e.getKey(), new HashSet<String>(e.getValue()));
+            }
+        }
+        return ephemeralsCopy;
+    }
+    /**
+     * 根据sessionId获取临时节点
+     *
+     * @param sessionId
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    public Set<String> getEphemerals(long sessionId) {
+        HashSet<String> retv = ephemerals.get(sessionId);
+        if (retv == null) {
+            return new HashSet<String>();
+        }
+
+        HashSet<String> cloned = null;
+        synchronized (retv) {
+            cloned = (HashSet<String>) retv.clone();
+        }
+        return cloned;
+    }
+    /**
+     * 获取所有的容器节点
+     *
+     * @return
+     */
+    public Set<String> getContainers() {
+        return new HashSet<String>(containers);
+    }
+    /**
+     * 获取所有的ttl节点
+     *
+     * @return
+     */
+    public Set<String> getTtls() {
+        return new HashSet<String>(ttls);
+    }
+
+
+
+    // 权限相关
+
+    /**
+     * 获取有设置权限的节点数量
+     *
+     * @return
+     */
+    public int aclCacheSize() {
+        return aclCache.size();
+    }
+    /**
+     * 设置节点的访问权限
+     *
+     * @param path
+     * @param acl
+     * @param version
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public Stat setACL(String path, List<ACL> acl, int version) throws KeeperException.NoNodeException {
+        Stat stat = new Stat();
+        DataNode n = nodes.get(path);
+        if (n == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        synchronized (n) {
+            aclCache.removeUsage(n.acl);
+            n.stat.setAversion(version);
+            n.acl = aclCache.convertAcls(acl);
+            n.copyStat(stat);
+            return stat;
+        }
+    }
+    /**
+     * 获取指定节点的权限
+     *
+     * @param path
+     * @param stat
+     * @return
+     * @throws KeeperException.NoNodeException
+     */
+    public List<ACL> getACL(String path, Stat stat) throws KeeperException.NoNodeException {
+        DataNode n = nodes.get(path);
+        if (n == null) {
+            throw new KeeperException.NoNodeException();
+        }
+        synchronized (n) {
+            n.copyStat(stat);
+            return new ArrayList<ACL>(aclCache.convertLong(n.acl));
+        }
+    }
+    /**
+     * 获取指定节点的权限
+     *
+     * @param node
+     * @return
+     */
+    public List<ACL> getACL(DataNode node) {
+        synchronized (node) {
+            return aclCache.convertLong(node.acl);
+        }
+    }
+    /**
+     * 返回缓存datatree中的节点权限
+     *
+     * @return
+     */
+    public ReferenceCountedACLCache getReferenceCountedAclCache() {
+        return aclCache;
+    }
+
+
+
+    // session相关
 
     void killSession(long session, long zxid) {
         // the list is already removed from the ephemerals
@@ -1067,166 +900,230 @@ public class DataTree {
                 try {
                     deleteNode(path, zxid);
                     if (LOG.isDebugEnabled()) {
-                        LOG
-                                .debug("Deleting ephemeral node " + path
-                                        + " for session 0x"
-                                        + Long.toHexString(session));
+                        LOG.debug("Deleting ephemeral node " + path + " for session 0x" + Long.toHexString(session));
                     }
                 } catch (NoNodeException e) {
-                    LOG.warn("Ignoring NoNodeException for path " + path
-                            + " while removing ephemeral for dead session 0x"
-                            + Long.toHexString(session));
+                    LOG.warn("Ignoring NoNodeException for path " + path + " while removing ephemeral for dead session 0x" + Long.toHexString(session));
                 }
             }
         }
     }
-
     /**
-     * a encapsultaing class for return value
+     * 获取所有创建了临时节点的sessionId
+     * @return
      */
-    private static class Counts {
-        long bytes;
-        int count;
+    public Collection<Long> getSessions() {
+        return ephemerals.keySet();
     }
 
-    /**
-     * this method gets the count of nodes and the bytes under a subtree
-     *
-     * @param path
-     *            the path to be used
-     * @param counts
-     *            the int count
-     */
-    private void getCounts(String path, Counts counts) {
-        DataNode node = getNode(path);
-        if (node == null) {
-            return;
-        }
-        String[] children = null;
-        int len = 0;
-        synchronized (node) {
-            Set<String> childs = node.getChildren();
-            children = childs.toArray(new String[childs.size()]);
-            len = (node.data == null ? 0 : node.data.length);
-        }
-        // add itself
-        counts.count += 1;
-        counts.bytes += len;
-        for (String child : children) {
-            getCounts(path + "/" + child, counts);
-        }
-    }
+
+
+    // Watches相关
 
     /**
-     * update the quota for the given path
+     * 移除watcher监听
      *
-     * @param path
-     *            the path to be used
+     * @param watcher
      */
-    private void updateQuotaForPath(String path) {
-        Counts c = new Counts();
-        getCounts(path, c);
-        StatsTrack strack = new StatsTrack();
-        strack.setBytes(c.bytes);
-        strack.setCount(c.count);
-        String statPath = Quotas.quotaZookeeper + path + "/" + Quotas.statNode;
-        DataNode node = getNode(statPath);
-        // it should exist
-        if (node == null) {
-            LOG.warn("Missing quota stat node " + statPath);
-            return;
-        }
-        synchronized (node) {
-            node.data = strack.toString().getBytes();
-        }
+    public void removeCnxn(Watcher watcher) {
+        dataWatches.removeWatcher(watcher);
+        childWatches.removeWatcher(watcher);
     }
-
     /**
-     * this method traverses the quota path and update the path trie and sets
+     * 设置watcher监听
      *
-     * @param path
+     * @param relativeZxid
+     * @param dataWatches
+     * @param existWatches
+     * @param childWatches
+     * @param watcher
      */
-    private void traverseNode(String path) {
-        DataNode node = getNode(path);
-        String children[] = null;
-        synchronized (node) {
-            Set<String> childs = node.getChildren();
-            children = childs.toArray(new String[childs.size()]);
-        }
-        if (children.length == 0) {
-            // this node does not have a child
-            // is the leaf node
-            // check if its the leaf node
-            String endString = "/" + Quotas.limitNode;
-            if (path.endsWith(endString)) {
-                // ok this is the limit node
-                // get the real node and update
-                // the count and the bytes
-                String realPath = path.substring(Quotas.quotaZookeeper
-                        .length(), path.indexOf(endString));
-                updateQuotaForPath(realPath);
-                this.pTrie.addPath(realPath);
+    public void setWatches(long relativeZxid, List<String> dataWatches, List<String> existWatches, List<String> childWatches, Watcher watcher) {
+        for (String path : dataWatches) {
+            DataNode node = getNode(path);
+            WatchedEvent e = null;
+            if (node == null) {
+                watcher.process(new WatchedEvent(EventType.NodeDeleted, KeeperState.SyncConnected, path));
+            } else if (node.stat.getMzxid() > relativeZxid) {
+                watcher.process(new WatchedEvent(EventType.NodeDataChanged, KeeperState.SyncConnected, path));
+            } else {
+                this.dataWatches.addWatch(path, watcher);
             }
-            return;
         }
-        for (String child : children) {
-            traverseNode(path + "/" + child);
+        for (String path : existWatches) {
+            DataNode node = getNode(path);
+            if (node != null) {
+                watcher.process(new WatchedEvent(EventType.NodeCreated, KeeperState.SyncConnected, path));
+            } else {
+                this.dataWatches.addWatch(path, watcher);
+            }
+        }
+        for (String path : childWatches) {
+            DataNode node = getNode(path);
+            if (node == null) {
+                watcher.process(new WatchedEvent(EventType.NodeDeleted, KeeperState.SyncConnected, path));
+            } else if (node.stat.getPzxid() > relativeZxid) {
+                watcher.process(new WatchedEvent(EventType.NodeChildrenChanged, KeeperState.SyncConnected, path));
+            } else {
+                this.childWatches.addWatch(path, watcher);
+            }
         }
     }
-
     /**
-     * this method sets up the path trie and sets up stats for quota nodes
-     */
-    private void setupQuota() {
-        String quotaPath = Quotas.quotaZookeeper;
-        DataNode node = getNode(quotaPath);
-        if (node == null) {
-            return;
-        }
-        traverseNode(quotaPath);
-    }
-
-    /**
-     * this method uses a stringbuilder to create a new path for children. This
-     * is faster than string appends ( str1 + str2).
+     * 判断节点的监听是否存在
      *
-     * @param oa
-     *            OutputArchive to write to.
      * @param path
-     *            a string builder.
-     * @throws IOException
-     * @throws InterruptedException
+     * @param type
+     * @param watcher
+     * @return
      */
-    void serializeNode(OutputArchive oa, StringBuilder path) throws IOException {
-        String pathString = path.toString();
-        DataNode node = getNode(pathString);
-        if (node == null) {
-            return;
+    public boolean containsWatcher(String path, WatcherType type, Watcher watcher) {
+        boolean containsWatcher = false;
+        switch (type) {
+            case Children:
+                containsWatcher = this.childWatches.containsWatcher(path, watcher);
+                break;
+            case Data:
+                containsWatcher = this.dataWatches.containsWatcher(path, watcher);
+                break;
+            case Any:
+                if (this.childWatches.containsWatcher(path, watcher)) {
+                    containsWatcher = true;
+                }
+                if (this.dataWatches.containsWatcher(path, watcher)) {
+                    containsWatcher = true;
+                }
+                break;
         }
-        String children[] = null;
-        DataNode nodeCopy;
-        synchronized (node) {
-            StatPersisted statCopy = new StatPersisted();
-            copyStatPersisted(node.stat, statCopy);
-            //we do not need to make a copy of node.data because the contents
-            //are never changed
-            nodeCopy = new DataNode(node.data, node.acl, statCopy);
-            Set<String> childs = node.getChildren();
-            children = childs.toArray(new String[childs.size()]);
+        return containsWatcher;
+    }
+    /**
+     * 移除监听
+     *
+     * @param path
+     * @param type
+     * @param watcher
+     * @return
+     */
+    public boolean removeWatch(String path, WatcherType type, Watcher watcher) {
+        boolean removed = false;
+        switch (type) {
+            case Children:
+                removed = this.childWatches.removeWatcher(path, watcher);
+                break;
+            case Data:
+                removed = this.dataWatches.removeWatcher(path, watcher);
+                break;
+            case Any:
+                if (this.childWatches.removeWatcher(path, watcher)) {
+                    removed = true;
+                }
+                if (this.dataWatches.removeWatcher(path, watcher)) {
+                    removed = true;
+                }
+                break;
         }
-        oa.writeString(pathString, "path");
-        oa.writeRecord(nodeCopy, "node");
-        path.append('/');
-        int off = path.length();
-        for (String child : children) {
-            // since this is single buffer being resused
-            // we need
-            // to truncate the previous bytes of string.
-            path.delete(off, Integer.MAX_VALUE);
-            path.append(child);
-            serializeNode(oa, path);
+        return removed;
+    }
+    /**
+     * Returns a watch report.
+     *
+     * @return watch report
+     * @see WatchesReport
+     */
+    public synchronized WatchesReport getWatches() {
+        return dataWatches.getWatches();
+    }
+    /**
+     * Returns a watch report by path.
+     *
+     * @return watch report
+     * @see WatchesPathReport
+     */
+    public synchronized WatchesPathReport getWatchesByPath() {
+        return dataWatches.getWatchesByPath();
+    }
+    /**
+     * Returns a watch summary.
+     *
+     * @return watch summary
+     * @see WatchesSummary
+     */
+    public synchronized WatchesSummary getWatchesSummary() {
+        return dataWatches.getWatchesSummary();
+    }
+
+
+    // dump相关
+
+    /**
+     * dump出DataTree中所有的临时节点
+     *
+     * @param pwriter the output to write to
+     */
+    public void dumpEphemerals(PrintWriter pwriter) {
+        pwriter.println("Sessions with Ephemerals (" + ephemerals.keySet().size() + "):");
+        for (Entry<Long, HashSet<String>> entry : ephemerals.entrySet()) {
+            pwriter.print("0x" + Long.toHexString(entry.getKey()));
+            pwriter.println(":");
+            HashSet<String> tmp = entry.getValue();
+            if (tmp != null) {
+                synchronized (tmp) {
+                    for (String path : tmp) {
+                        pwriter.println("\t" + path);
+                    }
+                }
+            }
         }
     }
+    /**
+     * Summary of the watches on the datatree.
+     * @param pwriter the output to write to
+     */
+    public synchronized void dumpWatchesSummary(PrintWriter pwriter) {
+        pwriter.print(dataWatches.toString());
+    }
+    /**
+     * Write a text dump of all the watches on the datatree.
+     * Warning, this is expensive, use sparingly!
+     * @param pwriter the output to write to
+     */
+    public synchronized void dumpWatches(PrintWriter pwriter, boolean byPath) {
+        dataWatches.dumpWatches(pwriter, byPath);
+    }
+
+    /**
+     * This method sets the Cversion and Pzxid for the specified node to the
+     * values passed as arguments. The values are modified only if newCversion
+     * is greater than the current Cversion. A NoNodeException is thrown if
+     * a znode for the specified path is not found.
+     *
+     * @param path Full path to the znode whose Cversion needs to be modified. A "/" at the end of the path is ignored.
+     * @param newCversion Value to be assigned to Cversion
+     * @param zxid Value to be assigned to Pzxid
+     * @throws KeeperException.NoNodeException If znode not found.
+     **/
+    public void setCversionPzxid(String path, int newCversion, long zxid) throws KeeperException.NoNodeException {
+        if (path.endsWith("/")) {
+            path = path.substring(0, path.length() - 1);
+        }
+        DataNode node = nodes.get(path);
+        if (node == null) {
+            throw new KeeperException.NoNodeException(path);
+        }
+        synchronized (node) {
+            if (newCversion == -1) {
+                newCversion = node.stat.getCversion() + 1;
+            }
+            if (newCversion > node.stat.getCversion()) {
+                node.stat.setCversion(newCversion);
+                node.stat.setPzxid(zxid);
+            }
+        }
+    }
+
+
+    // 序列化和反序列化
 
     public void serialize(OutputArchive oa, String tag) throws IOException {
         aclCache.serialize(oa);
@@ -1237,7 +1134,6 @@ public class DataTree {
             oa.writeString("/", "path");
         }
     }
-
     public void deserialize(InputArchive ia, String tag) throws IOException {
         aclCache.deserialize(ia);
         nodes.clear();
@@ -1287,231 +1183,280 @@ public class DataTree {
 
         aclCache.purgeUnused();
     }
-
     /**
-     * Summary of the watches on the datatree.
-     * @param pwriter the output to write to
-     */
-    public synchronized void dumpWatchesSummary(PrintWriter pwriter) {
-        pwriter.print(dataWatches.toString());
-    }
-
-    /**
-     * Write a text dump of all the watches on the datatree.
-     * Warning, this is expensive, use sparingly!
-     * @param pwriter the output to write to
-     */
-    public synchronized void dumpWatches(PrintWriter pwriter, boolean byPath) {
-        dataWatches.dumpWatches(pwriter, byPath);
-    }
-
-    /**
-     * Returns a watch report.
+     * this method uses a stringbuilder to create a new path for children. This
+     * is faster than string appends ( str1 + str2).
      *
-     * @return watch report
-     * @see WatchesReport
+     * @param oa
+     *            OutputArchive to write to.
+     * @param path
+     *            a string builder.
+     * @throws IOException
+     * @throws InterruptedException
      */
-    public synchronized WatchesReport getWatches() {
-        return dataWatches.getWatches();
-    }
-
-    /**
-     * Returns a watch report by path.
-     *
-     * @return watch report
-     * @see WatchesPathReport
-     */
-    public synchronized WatchesPathReport getWatchesByPath() {
-        return dataWatches.getWatchesByPath();
-    }
-
-    /**
-     * Returns a watch summary.
-     *
-     * @return watch summary
-     * @see WatchesSummary
-     */
-    public synchronized WatchesSummary getWatchesSummary() {
-        return dataWatches.getWatchesSummary();
-    }
-
-    /**
-     * dump出DataTree中所有的临时节点
-     *
-     * @param pwriter the output to write to
-     */
-    public void dumpEphemerals(PrintWriter pwriter) {
-        pwriter.println("Sessions with Ephemerals (" + ephemerals.keySet().size() + "):");
-        for (Entry<Long, HashSet<String>> entry : ephemerals.entrySet()) {
-            pwriter.print("0x" + Long.toHexString(entry.getKey()));
-            pwriter.println(":");
-            HashSet<String> tmp = entry.getValue();
-            if (tmp != null) {
-                synchronized (tmp) {
-                    for (String path : tmp) {
-                        pwriter.println("\t" + path);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * 返回所有的临时节点Map<sesseionId, 临时节点集合>
-     *
-     * @return map of session ID to sets of ephemeral znodes
-     */
-    public Map<Long, Set<String>> getEphemerals() {
-        HashMap<Long, Set<String>> ephemeralsCopy = new HashMap<Long, Set<String>>();
-        for (Entry<Long, HashSet<String>> e : ephemerals.entrySet()) {
-            synchronized (e.getValue()) {
-                ephemeralsCopy.put(e.getKey(), new HashSet<String>(e.getValue()));
-            }
-        }
-        return ephemeralsCopy;
-    }
-
-    /**
-     * 移除watcher监听
-     *
-     * @param watcher
-     */
-    public void removeCnxn(Watcher watcher) {
-        dataWatches.removeWatcher(watcher);
-        childWatches.removeWatcher(watcher);
-    }
-
-    /**
-     * 设置watcher监听
-     *
-     * @param relativeZxid
-     * @param dataWatches
-     * @param existWatches
-     * @param childWatches
-     * @param watcher
-     */
-    public void setWatches(long relativeZxid, List<String> dataWatches, List<String> existWatches, List<String> childWatches, Watcher watcher) {
-        for (String path : dataWatches) {
-            DataNode node = getNode(path);
-            WatchedEvent e = null;
-            if (node == null) {
-                watcher.process(new WatchedEvent(EventType.NodeDeleted, KeeperState.SyncConnected, path));
-            } else if (node.stat.getMzxid() > relativeZxid) {
-                watcher.process(new WatchedEvent(EventType.NodeDataChanged, KeeperState.SyncConnected, path));
-            } else {
-                this.dataWatches.addWatch(path, watcher);
-            }
-        }
-        for (String path : existWatches) {
-            DataNode node = getNode(path);
-            if (node != null) {
-                watcher.process(new WatchedEvent(EventType.NodeCreated, KeeperState.SyncConnected, path));
-            } else {
-                this.dataWatches.addWatch(path, watcher);
-            }
-        }
-        for (String path : childWatches) {
-            DataNode node = getNode(path);
-            if (node == null) {
-                watcher.process(new WatchedEvent(EventType.NodeDeleted, KeeperState.SyncConnected, path));
-            } else if (node.stat.getPzxid() > relativeZxid) {
-                watcher.process(new WatchedEvent(EventType.NodeChildrenChanged, KeeperState.SyncConnected, path));
-            } else {
-                this.childWatches.addWatch(path, watcher);
-            }
-        }
-    }
-
-    /**
-     * This method sets the Cversion and Pzxid for the specified node to the
-     * values passed as arguments. The values are modified only if newCversion
-     * is greater than the current Cversion. A NoNodeException is thrown if
-     * a znode for the specified path is not found.
-     *
-     * @param path Full path to the znode whose Cversion needs to be modified. A "/" at the end of the path is ignored.
-     * @param newCversion Value to be assigned to Cversion
-     * @param zxid Value to be assigned to Pzxid
-     * @throws KeeperException.NoNodeException If znode not found.
-     **/
-    public void setCversionPzxid(String path, int newCversion, long zxid) throws KeeperException.NoNodeException {
-        if (path.endsWith("/")) {
-            path = path.substring(0, path.length() - 1);
-        }
-        DataNode node = nodes.get(path);
+    void serializeNode(OutputArchive oa, StringBuilder path) throws IOException {
+        String pathString = path.toString();
+        DataNode node = getNode(pathString);
         if (node == null) {
-            throw new KeeperException.NoNodeException(path);
+            return;
+        }
+        String children[] = null;
+        DataNode nodeCopy;
+        synchronized (node) {
+            StatPersisted statCopy = new StatPersisted();
+            copyStatPersisted(node.stat, statCopy);
+            //we do not need to make a copy of node.data because the contents
+            //are never changed
+            nodeCopy = new DataNode(node.data, node.acl, statCopy);
+            Set<String> childs = node.getChildren();
+            children = childs.toArray(new String[childs.size()]);
+        }
+        oa.writeString(pathString, "path");
+        oa.writeRecord(nodeCopy, "node");
+        path.append('/');
+        int off = path.length();
+        for (String child : children) {
+            // since this is single buffer being resused
+            // we need
+            // to truncate the previous bytes of string.
+            path.delete(off, Integer.MAX_VALUE);
+            path.append(child);
+            serializeNode(oa, path);
+        }
+    }
+
+    // copy stat
+
+    /**
+     * stat复制
+     *
+     * @param from
+     * @param to
+     */
+    static public void copyStatPersisted(StatPersisted from, StatPersisted to) {
+        to.setAversion(from.getAversion());
+        to.setCtime(from.getCtime());
+        to.setCversion(from.getCversion());
+        to.setCzxid(from.getCzxid());
+        to.setMtime(from.getMtime());
+        to.setMzxid(from.getMzxid());
+        to.setPzxid(from.getPzxid());
+        to.setVersion(from.getVersion());
+        to.setEphemeralOwner(from.getEphemeralOwner());
+    }
+    static public void copyStat(Stat from, Stat to) {
+        to.setAversion(from.getAversion());
+        to.setCtime(from.getCtime());
+        to.setCversion(from.getCversion());
+        to.setCzxid(from.getCzxid());
+        to.setMtime(from.getMtime());
+        to.setMzxid(from.getMzxid());
+        to.setPzxid(from.getPzxid());
+        to.setVersion(from.getVersion());
+        to.setEphemeralOwner(from.getEphemeralOwner());
+        to.setDataLength(from.getDataLength());
+        to.setNumChildren(from.getNumChildren());
+    }
+
+    // 其他
+
+    /**
+     * 所有节点的路径长度和数据大小之和，用于查看DataTree大小
+     *
+     * @return size of the data
+     */
+    public long approximateDataSize() {
+        long result = 0;
+        for (Map.Entry<String, DataNode> entry : nodes.entrySet()) {
+            DataNode value = entry.getValue();
+            synchronized (value) {
+                result += entry.getKey().length();
+                result += value.getApproximateDataSize();
+            }
+        }
+        return result;
+    }
+    /**
+     * 创建一个/zookeeper/config节点来维护zookeeper的配置(membership and quorum system)信息
+     */
+    public void addConfigNode() {
+        DataNode zookeeperZnode = nodes.get(procZookeeper);
+        // should always be the case
+        if (zookeeperZnode != null) {
+            zookeeperZnode.addChild(configChildZookeeper);
+        } else {
+            assert false : "There's no /zookeeper znode - this should never happen.";
+        }
+
+        nodes.put(configZookeeper, new DataNode(new byte[0], -1L, new StatPersisted()));
+        try {
+            // Reconfig node is access controlled by default (ZOOKEEPER-2014).
+            setACL(configZookeeper, ZooDefs.Ids.READ_ACL_UNSAFE, -1);
+        } catch (KeeperException.NoNodeException e) {
+            assert false : "There's no " + configZookeeper + " znode - this should never happen.";
+        }
+    }
+    /**
+     * 判断是否为zk管理员所拥有的特殊节点，特殊节点包括：/,/zookeeper,/zookeeper/quota和/zookeeper/config
+     *
+     * @param path the path to be checked
+     * @return true if a special path. false if not.
+     */
+    boolean isSpecialPath(String path) {
+        if (rootZookeeper.equals(path) || procZookeeper.equals(path) || quotaZookeeper.equals(path) || configZookeeper.equals(path)) {
+            return true;
+        }
+        return false;
+    }
+    /**
+     * If there is a quota set, return the appropriate prefix for that quota Else return null
+     * @param path The ZK path to check for quota
+     * @return Max quota prefix, or null if none
+     */
+    public String getMaxPrefixWithQuota(String path) {
+        // do nothing for the root.
+        // we are not keeping a quota on the zookeeper root node for now.
+        String lastPrefix = pTrie.findMaxPrefix(path);
+
+        if (rootZookeeper.equals(lastPrefix) || "".equals(lastPrefix)) {
+            return null;
+        } else {
+            return lastPrefix;
+        }
+    }
+    /**
+     * this method gets the count of nodes and the bytes under a subtree
+     *
+     * @param path      the path to be used
+     * @param counts    the int count
+     */
+    private void getCounts(String path, Counts counts) {
+        DataNode node = getNode(path);
+        if (node == null) {
+            return;
+        }
+        String[] children = null;
+        int len = 0;
+        synchronized (node) {
+            Set<String> childs = node.getChildren();
+            children = childs.toArray(new String[childs.size()]);
+            len = (node.data == null ? 0 : node.data.length);
+        }
+        // add itself
+        counts.count += 1;
+        counts.bytes += len;
+        for (String child : children) {
+            getCounts(path + "/" + child, counts);
+        }
+    }
+    /**
+     * update the quota for the given path
+     *
+     * @param path  the path to be used
+     */
+    private void updateQuotaForPath(String path) {
+        Counts c = new Counts();
+        getCounts(path, c);
+        StatsTrack strack = new StatsTrack();
+        strack.setBytes(c.bytes);
+        strack.setCount(c.count);
+        String statPath = Quotas.quotaZookeeper + path + "/" + Quotas.statNode;
+        DataNode node = getNode(statPath);
+        // it should exist
+        if (node == null) {
+            LOG.warn("Missing quota stat node " + statPath);
+            return;
         }
         synchronized (node) {
-            if (newCversion == -1) {
-                newCversion = node.stat.getCversion() + 1;
-            }
-            if (newCversion > node.stat.getCversion()) {
-                node.stat.setCversion(newCversion);
-                node.stat.setPzxid(zxid);
-            }
+            node.data = strack.toString().getBytes();
         }
     }
-
     /**
-     * 判断节点的监听是否存在
+     * this method traverses the quota path and update the path trie and sets
      *
      * @param path
-     * @param type
-     * @param watcher
-     * @return
      */
-    public boolean containsWatcher(String path, WatcherType type, Watcher watcher) {
-        boolean containsWatcher = false;
-        switch (type) {
-            case Children:
-                containsWatcher = this.childWatches.containsWatcher(path, watcher);
-                break;
-            case Data:
-                containsWatcher = this.dataWatches.containsWatcher(path, watcher);
-                break;
-            case Any:
-                if (this.childWatches.containsWatcher(path, watcher)) {
-                    containsWatcher = true;
-                }
-                if (this.dataWatches.containsWatcher(path, watcher)) {
-                    containsWatcher = true;
-                }
-                break;
+    private void traverseNode(String path) {
+        DataNode node = getNode(path);
+        String children[] = null;
+        synchronized (node) {
+            Set<String> childs = node.getChildren();
+            children = childs.toArray(new String[childs.size()]);
         }
-        return containsWatcher;
+        if (children.length == 0) {
+            // this node does not have a child is the leaf node check if its the leaf node
+            String endString = "/" + Quotas.limitNode;
+            if (path.endsWith(endString)) {
+                // ok this is the limit node
+                // get the real node and update
+                // the count and the bytes
+                String realPath = path.substring(Quotas.quotaZookeeper.length(), path.indexOf(endString));
+                updateQuotaForPath(realPath);
+                this.pTrie.addPath(realPath);
+            }
+            return;
+        }
+        for (String child : children) {
+            traverseNode(path + "/" + child);
+        }
     }
+    /**
+     * this method sets up the path trie and sets up stats for quota nodes
+     */
+    private void setupQuota() {
+        String quotaPath = Quotas.quotaZookeeper;
+        DataNode node = getNode(quotaPath);
+        if (node == null) {
+            return;
+        }
+        traverseNode(quotaPath);
+    }
+
+
 
     /**
-     * 移除监听
-     *
-     * @param path
-     * @param type
-     * @param watcher
-     * @return
+     * 封装了请求处理结果
      */
-    public boolean removeWatch(String path, WatcherType type, Watcher watcher) {
-        boolean removed = false;
-        switch (type) {
-            case Children:
-                removed = this.childWatches.removeWatcher(path, watcher);
-                break;
-            case Data:
-                removed = this.dataWatches.removeWatcher(path, watcher);
-                break;
-            case Any:
-                if (this.childWatches.removeWatcher(path, watcher)) {
-                    removed = true;
-                }
-                if (this.dataWatches.removeWatcher(path, watcher)) {
-                    removed = true;
-                }
-                break;
+    static public class ProcessTxnResult {
+        /** 一般为请求的sessionId */
+        public long clientId;
+        /** xid用于记录客户端请求发起的先后序号，用来确保单个客户端请求的响应顺序 */
+        public int cxid;
+        /** 全局的事务ID */
+        public long zxid;
+        /** 错误代码 */
+        public int err;
+        /** 请求的操作类型 */
+        public int type;
+        /** 表示节点路径 */
+        public String path;
+        /** 表示节点状态 */
+        public Stat stat;
+        /** 对应multi类型的请求result */
+        public List<ProcessTxnResult> multiResult;
+
+        @Override
+        public boolean equals(Object o) {
+            if (o instanceof ProcessTxnResult) {
+                ProcessTxnResult other = (ProcessTxnResult) o;
+                return other.clientId == clientId && other.cxid == cxid;
+            }
+            return false;
         }
-        return removed;
+        @Override
+        public int hashCode() {
+            return (int) ((clientId ^ cxid) % Integer.MAX_VALUE);
+        }
+
+    }
+    /**
+     * 返回值的封装类
+     */
+    private static class Counts {
+        long bytes;
+        int count;
     }
 
-    // visible for testing
-    public ReferenceCountedACLCache getReferenceCountedAclCache() {
-        return aclCache;
-    }
+
+
 }

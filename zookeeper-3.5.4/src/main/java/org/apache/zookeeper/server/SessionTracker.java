@@ -105,11 +105,14 @@ public interface SessionTracker {
     boolean addSession(long id, int to);
 
     /**
-     * 判断sessionId是否合法，并且是否有过期
+     * 判断sessionId是否合法，并且是否有过期.
+     * 为了保持客户端会话的有效性，在ZooKeeper的运行过程中，客户端会在会话超时时间过期范围内向服务端发送PING请求来保持会话的有效性，我们俗称“心跳检测”。
+     * 同时，服务端需要不断地接收来自客户端的这个心跳检测，并且需要重新激活对应的客户端会话，我们将这个重新激活的过程称为TouchSession。
+     * 会话激活的过程，不仅能够使服务端检测到对应客户端的存活性，也能让客户端自己保持连接状态。
      *
      * @param sessionId
      * @param sessionTimeout
-     * @return false if session is no longer active
+     * @return 如果会话不再是激活状态，则为false
      */
     boolean touchSession(long sessionId, int sessionTimeout);
 

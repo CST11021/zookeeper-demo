@@ -241,7 +241,14 @@ public class PathTrie {
     }
 
     /**
-     * return the largest prefix for the input path.
+     * 返回输入路径的最大前缀，比如：
+     * DataTree：
+     * 节点1：/zookeeper/t1/t2/t3
+     * 节点2：/zookeeper/t1/t2/t4
+     * 节点3：/zookeeper/t1/t5
+     *
+     * 则三个路径的最大路径前缀是：/zookeeper/t1
+     *
      * @param path the input path
      * @return the largest prefix for the input path.
      */
@@ -249,15 +256,18 @@ public class PathTrie {
         if (path == null) {
             return null;
         }
+
         if ("/".equals(path)) {
             return path;
         }
+
         String[] pathComponents = path.split("/");
         TrieNode parent = rootNode;
         List<String> components = new ArrayList<String>();
         if (pathComponents.length <= 1) {
             throw new IllegalArgumentException("Invalid path " + path);
         }
+
         int i = 1;
         String part = null;
         StringBuilder sb = new StringBuilder();
@@ -275,6 +285,7 @@ public class PathTrie {
             }
             i++;
         }
+
         for (int j = 0; j < (lastindex + 1); j++) {
             sb.append("/" + components.get(j));
         }

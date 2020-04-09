@@ -1,0 +1,34 @@
+
+
+##一、会话的创建过程
+
+初始化阶段
+
+1. 初始化ZooKeeper对象：通过调用ZooKeeper的构造方法来实例化一个ZooKeeper对象，在初始化过程中，会创建一个客户端Watcher管理器：ClientWatchManager。
+2. 设置默认的Watcher：如果在构造方法中传入一个Watcher对象，那么客户端会将这个对象作为默认Watcher保存在ClientWatchManager中。
+3. 构造ZooKeeper服务器地址列表管理器：HostProvider，对于构造方法中传入的服务器地址，客户端会将其存放在服务器地址列表管理器HostProvider中。
+4. 创建并初始化客户端网络连接器：ClientCnxn，ZooKeeper客户端首先会创建一个网络连接器ClientCnxn，用来管理客户端与服务器的网络交互。另外客户端在创建ClientCnxn的同时，还会初始化客户端两个核心队列outgoingQueue和pendingQueue，分别作为客户端的请求发送队列和服务端响应的等待队列。
+5. 初始化SendThread和EventThread：客户端会创建两个核心网络线程SendThread和EventThread，前者用于管理客户端和服务端之间的所有网络I/O，后者则用于进行客户端的事件处理。同时，客户端会将将ClientCnxnSocket分配给SendThread作为底层网络I/O处理器，并初始化EventThread的待处理事件队列waitingEvents，用于存放所有等待被客户端处理的事件。
+
+
+
+会话创建阶段
+
+6. 启动SendThread和EventThread：SendThread首先会判断当前客户端的状态，进行一系列清理性工作，为客户端发送"会话创建"请求做准备。
+7. 获取一个服务器地址：在开始TCP连接之前，SendThread首先需要获取一个ZooKeeper服务器的目标地址，这通常是从HostProvider中随机获取出一个地址，然后委托给ClientCnxnSocket去创建与Zk服务器之间的TCP连接。
+8. 创建TCP连接：获取一个服务器地址后，ClientCnxnSocket负责和服务器创建一个TCP长连接。
+9. 构造ConnectRequest请求：TCP连接创建完毕后，可能有的读者会认为，这样是否就说明已经合ZooKeeper服务器完成连接了呢？其实不然，步骤8只是纯碎地从网络TCP层面完成了客户端与服务器之间的Socket连接，但远未完成zk客户端的会话创建。SendThread会负责根据当前客户端的实际设置，构造出一个ConnectRequest请求，该请求代表了客户端试图与服务器创建一个会话。同时，ZooKeeper客户端还会进一步将该请求包装成网络I/O层的Packet对象，放入到请求发送队列outgoingQueue中去。
+10. 发送请求：当客户端请求准备完毕后，就可以开始向服务器发送请求了。ClientCnxnSocket负责从outgoingQueue中取出一个待发送的Packet对象，将其序列化成ByteBuffer后，向服务器进行发送。
+
+
+
+响应处理阶段
+
+11. 接收服务端响应：ClientCnxnSocket接收到服务端的响应后，会首先判断当前的客户端状态是否是"已初始化"，如果尚未完成初始化，那么就认为该响应一定是会话创建请求的响应，直接交由readConnectResult方法来处理该响应。
+12. 处理Response：ClientCnxnSocket会对接收到的服务端响应进行反序列化，得到ConnectResponse对象，并从中获取到zk服务端分配的会话sessionId。
+13. 连接成功：连接成功后，一方面需要通知SendThread线程，进一步对客户端进行会话参数的设置，包括readTimeout和connectTimeout等，并更新客户端状态；另一方面，需要通知地址管理器HostProvider当前成功连接的服务器地址。
+14. 生成事件：SyncConnected-None，为了能够让上层应用感知到会话的成功创建，SendThread会生成一个事件SyncConnected-None，代表客户端与服务器会话创建成功，并将该事件传递给EventThread线程。
+15. 查询Watcher：EventThread线程接收到事件后，会从ClientWatcherManager管理器中查询出对应的Watcher，针对SyncConnected-None事件，会找出步骤2中存储的默认Watcher，然后将其放到EventThread的waitingEvents队列中去。
+16. 处理事件：EventThread不断地从waitingEvents队列中取出待处理的Watcher对象，然后直接调用该对象的process接口方法，已达到粗发Watcher的目的。
+
+至此，zk客户端完成的一次会话创建过程已经全部完成。

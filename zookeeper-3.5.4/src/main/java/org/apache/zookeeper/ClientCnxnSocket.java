@@ -47,51 +47,41 @@ import java.util.concurrent.LinkedBlockingDeque;
  * ClientCnxnSocket使用套接字实现进行低层通信
  */
 abstract class ClientCnxnSocket {
+
     private static final Logger LOG = LoggerFactory.getLogger(ClientCnxnSocket.class);
 
     protected boolean initialized;
 
-    /**
-     * 此缓冲区仅用于读取传入消息的长度。
-     */
+    /** 此缓冲区仅用于读取传入消息的长度。*/
     protected final ByteBuffer lenBuffer = ByteBuffer.allocateDirect(4);
-
-    /**
-     * After the length is read, a new incomingBuffer is allocated in
-     * readLength() to receive the full message.
-     */
+    /** 用于缓存接收来自服务端的响应包内容，读取长度之后，在readLength()中分配一个新的incomingBuffer来接收完整的消息 */
     protected ByteBuffer incomingBuffer = lenBuffer;
+
+    /** 表示给zk服务发送请求的时间 */
+    protected long now;
+    /** 统计发送请求包的数量 */
     protected long sentCount = 0;
+    /** 接口响应包的数量 */
     protected long recvCount = 0;
+    /** 表示最后的心跳事件 */
     protected long lastHeard;
+    /** 表示最后一次发送请求包的时间 */
     protected long lastSend;
 
-    /**
-     * 表示给zk服务发送请求的时间
-     */
-    protected long now;
 
-    /**
-     * 表示给zk服务器发送请求的线程对象
-     */
+    /** 表示给zk服务器发送请求的线程对象 */
     protected ClientCnxn.SendThread sendThread;
-
-    /**
-     * 对应{@link ClientCnxn#outgoingQueue}，该队列是一个请求发送队列，专门用于存储那些需要发送到服务端的Packet集合
-     */
+    /** 对应{@link ClientCnxn#outgoingQueue}，该队列是一个请求发送队列，专门用于存储那些需要发送到服务端的Packet集合 */
     protected LinkedBlockingDeque<Packet> outgoingQueue;
-
-    /**
-     * zk客户端配置
-     */
+    /** zk客户端配置 */
     protected ZKClientConfig clientConfig;
-
+    /** zk客户端的请求包大小限制，最大限制为4MB */
     private int packetLen = ZKClientConfig.CLIENT_MAX_PACKET_LENGTH_DEFAULT;
-
-    /**
-     * 客户端给zk服务发送请求的携带的sessionId
-     */
+    /** 客户端给zk服务发送请求的携带的sessionId */
     protected long sessionId;
+
+
+
 
     /**
      * 设置发送请求的线程，sessionId和保存发送请求的队列
@@ -110,10 +100,20 @@ abstract class ClientCnxnSocket {
         now = Time.currentElapsedTime();
     }
 
+    /**
+     * 上一次接收到包的时间与当前的时间间隔了多久
+     *
+     * @return
+     */
     int getIdleRecv() {
         return (int) (now - lastHeard);
     }
 
+    /**
+     * 上一次发送包的时间与当前的时间间隔了多久
+     *
+     * @return
+     */
     int getIdleSend() {
         return (int) (now - lastSend);
     }
@@ -142,6 +142,11 @@ abstract class ClientCnxnSocket {
         this.lastHeard = now;
     }
 
+    /**
+     * 根据响应包大小，预分配incomingBuffer的缓存大小
+     *
+     * @throws IOException
+     */
     protected void readLength() throws IOException {
         int len = incomingBuffer.getInt();
         if (len < 0 || len >= packetLen) {
@@ -150,6 +155,10 @@ abstract class ClientCnxnSocket {
         incomingBuffer = ByteBuffer.allocate(len);
     }
 
+    /**
+     *
+     * @throws IOException
+     */
     void readConnectResult() throws IOException {
         if (LOG.isTraceEnabled()) {
             StringBuilder buf = new StringBuilder("0x[");
@@ -159,6 +168,8 @@ abstract class ClientCnxnSocket {
             buf.append("]");
             LOG.trace("readConnectResult " + incomingBuffer.remaining() + " " + buf.toString());
         }
+
+        // 对接收到的服务端响应进行反序列化，得到ConnectResponse对象，并从中获取到zk服务端分配的会话sessionId
         ByteBufferInputStream bbis = new ByteBufferInputStream(incomingBuffer);
         BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
         ConnectResponse conRsp = new ConnectResponse();
@@ -231,9 +242,14 @@ abstract class ClientCnxnSocket {
      * - write outgoing queue packets.
      * - update relevant timestamp.
      *
+     * 从事运输工作:
+     *
+     * -将数据包缓存到incomingBuffer。
+     * -将包放到outgoing queue
+     * -更新相关的时间戳
+     *
      * @param waitTimeOut timeout in blocking wait. Unit in MilliSecond.
-     * @param pendingQueue These are the packets that have been sent and
-     *                     are waiting for a response.
+     * @param pendingQueue These are the packets that have been sent and are waiting for a response.
      * @param cnxn
      * @throws IOException
      * @throws InterruptedException
@@ -260,15 +276,11 @@ abstract class ClientCnxnSocket {
 
     protected void initProperties() throws IOException {
         try {
-            packetLen = clientConfig.getInt(ZKConfig.JUTE_MAXBUFFER,
-                    ZKClientConfig.CLIENT_MAX_PACKET_LENGTH_DEFAULT);
-            LOG.info("{} value is {} Bytes", ZKConfig.JUTE_MAXBUFFER,
-                    packetLen);
+            packetLen = clientConfig.getInt(ZKConfig.JUTE_MAXBUFFER, ZKClientConfig.CLIENT_MAX_PACKET_LENGTH_DEFAULT);
+            LOG.info("{} value is {} Bytes", ZKConfig.JUTE_MAXBUFFER, packetLen);
         } catch (NumberFormatException e) {
-            String msg = MessageFormat.format(
-                    "Configured value {0} for property {1} can not be parsed to int",
-                    clientConfig.getProperty(ZKConfig.JUTE_MAXBUFFER),
-                    ZKConfig.JUTE_MAXBUFFER);
+            String msg = MessageFormat.format("Configured value {0} for property {1} can not be parsed to int",
+                    clientConfig.getProperty(ZKConfig.JUTE_MAXBUFFER), ZKConfig.JUTE_MAXBUFFER);
             LOG.error(msg);
             throw new IOException(msg);
         }

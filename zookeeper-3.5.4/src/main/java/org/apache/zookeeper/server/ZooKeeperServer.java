@@ -349,7 +349,8 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         close(sessionId);
     }
     /**
-     * 根据sessionId关闭session
+     * 根据sessionId关闭session：
+     * 为了使该会话的关闭操作在整个服务端集群中都生效，ZooKeeper使用了提交“会话关闭”请求的方式，并立即交付给PrepRequestProcessor处理器进行处理。
      *
      * @param sessionId
      */
@@ -388,7 +389,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         return sessionTracker.getSessionExpiryMap();
     }
     /**
-     * ServerCnxn处理来自客户端的请求时会调用该方法，检查当前请求的session是否有效
+     * ServerCnxn处理来自客户端的请求时会调用该方法，检查当前请求的session是否处于可用状态
      *
      * @param cnxn
      * @throws MissingSessionException

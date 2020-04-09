@@ -50,10 +50,7 @@ public class DataNode implements Record {
     Long acl;
     /** 表示节点保存到磁盘的状态 */
     public StatPersisted stat;
-    /**
-     * 此节点的子节点列表，注意，该字符串列表不包含父路径——只包含路径的最后一部分。
-     * 除反序列化(用于加速问题)外，此操作应同步。
-     */
+    /** 此节点的子节点列表，注意，该字符串列表不包含父路径——只包含路径的最后一部分，除反序列化(用于加速问题)外，此操作应同步 */
     private Set<String> children = null;
 
 
@@ -66,6 +63,9 @@ public class DataNode implements Record {
         this.acl = acl;
         this.stat = stat;
     }
+
+
+    // 子节点相关函数
 
     /**
      * 添加一个子节点
@@ -80,7 +80,6 @@ public class DataNode implements Record {
         }
         return children.add(child);
     }
-
     /**
      * 移除子节点
      * 
@@ -93,7 +92,6 @@ public class DataNode implements Record {
         }
         return children.remove(child);
     }
-
     /**
      * 设置子节点集合
      * 
@@ -102,7 +100,6 @@ public class DataNode implements Record {
     public synchronized void setChildren(HashSet<String> children) {
         this.children = children;
     }
-
     /**
      * 获取子节点集合
      * 
@@ -115,6 +112,9 @@ public class DataNode implements Record {
 
         return Collections.unmodifiableSet(children);
     }
+
+
+
 
     /**
      * 返回节点数据的字节大小
@@ -153,7 +153,7 @@ public class DataNode implements Record {
     }
 
     /**
-     * 如果znode是ephemeral类型节点，则这是znode所有者的 session ID。 如果znode不是ephemeral节点，则该字段设置为零
+     * 如果znode是ephemeral类型节点，则这是znode所有者的sessionId，如果znode不是ephemeral节点，则该字段设置为零
      *
      * @param stat
      * @return
@@ -167,6 +167,8 @@ public class DataNode implements Record {
         return stat.getEphemeralOwner();
     }
 
+    // 序列化和反序列化
+
     synchronized public void deserialize(InputArchive archive, String tag) throws IOException {
         archive.startRecord("node");
         data = archive.readBuffer("data");
@@ -175,7 +177,6 @@ public class DataNode implements Record {
         stat.deserialize(archive, "statpersisted");
         archive.endRecord("node");
     }
-
     synchronized public void serialize(OutputArchive archive, String tag) throws IOException {
         archive.startRecord(this, "node");
         archive.writeBuffer(data, "data");
