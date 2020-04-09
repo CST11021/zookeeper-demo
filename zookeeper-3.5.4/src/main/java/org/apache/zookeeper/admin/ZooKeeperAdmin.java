@@ -39,7 +39,6 @@ import java.util.List;
  *
  * @since 3.5.3
  */
-// See ZooKeeper.java for an explanation of why we need @SuppressWarnings("try")
 @SuppressWarnings("try")
 @InterfaceAudience.Public
 public class ZooKeeperAdmin extends ZooKeeper {

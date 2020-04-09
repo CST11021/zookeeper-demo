@@ -981,6 +981,53 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
             return;
         }
     }
+    /**
+     * 提交来自客户端的请求，并处理请求
+     *
+     * @param si
+     */
+    public void submitRequest(Request si) {
+
+        // 检查下firstProcessor，firstProcessor是不允许为null的
+        if (firstProcessor == null) {
+            synchronized (this) {
+                try {
+                    // 由于所有的请求都被传递给请求处理器，所以它应该等待请求处理器链的建立，建立完成后，将状态将更新为运行。
+                    while (state == State.INITIAL) {
+                        wait(1000);
+                    }
+                } catch (InterruptedException e) {
+                    LOG.warn("Unexpected interruption", e);
+                }
+                if (firstProcessor == null || state != State.RUNNING) {
+                    throw new RuntimeException("Not started");
+                }
+            }
+        }
+
+        try {
+            // 检查当前请求的session是否有效
+            touch(si.cnxn);
+            // 检查请求的类型是否有效
+            boolean validpacket = Request.isValid(si.type);
+            if (validpacket) {
+                firstProcessor.processRequest(si);
+                if (si.cnxn != null) {
+                    // 客户端的请求处理完成后，会调用该方法，将requestsInProcess+1
+                    incInProcess();
+                }
+            } else {
+                LOG.warn("Received packet at server of unknown type " + si.type);
+                new UnimplementedRequestProcessor().processRequest(si);
+            }
+        } catch (MissingSessionException e) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Dropping request: " + e.getMessage());
+            }
+        } catch (RequestProcessorException e) {
+            LOG.error("Unable to process request:" + e.getMessage(), e);
+        }
+    }
     private Record processSasl(ByteBuffer incomingBuffer, ServerCnxn cnxn) throws IOException {
         LOG.debug("Responding to client SASL token.");
         GetSASLRequest clientTokenRecord = new GetSASLRequest();
@@ -1149,53 +1196,6 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      * @param si
      */
     protected void setLocalSessionFlag(Request si) {
-    }
-    /**
-     * 提交来自客户端的请求，并处理请求
-     *
-     * @param si
-     */
-    public void submitRequest(Request si) {
-
-        // 检查下firstProcessor，firstProcessor是不允许为null的
-        if (firstProcessor == null) {
-            synchronized (this) {
-                try {
-                    // 由于所有的请求都被传递给请求处理器，所以它应该等待请求处理器链的建立，建立完成后，将状态将更新为运行。
-                    while (state == State.INITIAL) {
-                        wait(1000);
-                    }
-                } catch (InterruptedException e) {
-                    LOG.warn("Unexpected interruption", e);
-                }
-                if (firstProcessor == null || state != State.RUNNING) {
-                    throw new RuntimeException("Not started");
-                }
-            }
-        }
-
-        try {
-            // 检查当前请求的session是否有效
-            touch(si.cnxn);
-            // 检查请求的类型是否有效
-            boolean validpacket = Request.isValid(si.type);
-            if (validpacket) {
-                firstProcessor.processRequest(si);
-                if (si.cnxn != null) {
-                    // 客户端的请求处理完成后，会调用该方法，将requestsInProcess+1
-                    incInProcess();
-                }
-            } else {
-                LOG.warn("Received packet at server of unknown type " + si.type);
-                new UnimplementedRequestProcessor().processRequest(si);
-            }
-        } catch (MissingSessionException e) {
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Dropping request: " + e.getMessage());
-            }
-        } catch (RequestProcessorException e) {
-            LOG.error("Unable to process request:" + e.getMessage(), e);
-        }
     }
     /**
      * snapCount(系统属性：zookeeper.snapCount) //默认为100000，在新增log（txn log）条数达到snapCount/2 + Random.nextInt(snapCount/2)时，
@@ -1406,7 +1406,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         }
 
         /**
-         * 复制一个ChangeRecord对象
+         * 复制一个ChangeRecord对象，并设置zxid
          *
          * @param zxid
          * @return

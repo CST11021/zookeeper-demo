@@ -33,9 +33,8 @@ import java.util.List;
 
 /**
  * 表示多操作事务中的单个操作。
- * *每个操作可以是创建、更新或删除，也可以只是版本检查。
- * *
- * *每个Op的子类代表每个详细的类型，但是通常不应该被引用，除非通过提供的工厂方法。
+ * 每个操作可以是创建、更新或删除，也可以只是版本检查。
+ * 每个Op的子类代表每个详细的类型，但是通常不应该被引用，除非通过提供的工厂方法。
  *
  * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode)
  * @see ZooKeeper#create(String, byte[], java.util.List, CreateMode, org.apache.zookeeper.AsyncCallback.StringCallback, Object)

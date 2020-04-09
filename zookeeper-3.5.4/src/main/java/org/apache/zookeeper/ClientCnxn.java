@@ -57,9 +57,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 
 /**
- * This class manages the socket i/o for the client. ClientCnxn maintains a list
- * of available servers to connect to and "transparently" switches servers it is
- * connected to as needed.
+ * ClientCnxn用于创建、维持与zk服务端的TCP长连接及之间的通讯交互。
  *
  * ClientCnxn类中有SendThread和EventThread两个线程，SendThread负责io（发送和接收），EventThread负责事件处理：
  *
@@ -170,7 +168,9 @@ public class ClientCnxn {
     public ZooKeeperSaslClient zooKeeperSaslClient;
     /** zk客户端配置 */
     private final ZKClientConfig clientConfig;
+    /** 当客户端关闭时，会将该对象放入队列中 */
     private Object eventOfDeath = new Object();
+    /** 表示客户端接口来自服务响应的最后一个事务id */
     private volatile long lastZxid;
     /** 当数据包从outgoingQueue发送到服务器时，该xid++ */
     private int xid = 1;
@@ -181,48 +181,17 @@ public class ClientCnxn {
     // 构造器
 
     /**
-     * Creates a connection object. The actual network connect doesn't get
-     * established until needed. The start() instance method must be called
-     * subsequent to construction.
+     * 创建一个连接对象。直到需要时才建立实际的网络连接，必须在构造后调用start（）实例方法。
      *
-     * @param chrootPath - the chroot of this client. Should be removed from this Class in ZOOKEEPER-838
-     * @param hostProvider
-     *                the list of ZooKeeper servers to connect to
-     * @param sessionTimeout
-     *                the timeout for connections.
-     * @param zooKeeper
-     *                the zookeeper object that this connection is related to.
-     * @param watcher watcher for this connection
-     * @param clientCnxnSocket
-     *                the socket implementation used (e.g. NIO/Netty)
-     * @param canBeReadOnly
-     *                whether the connection is allowed to go to read-only
-     *                mode in case of partitioning
-     * @throws IOException
-     */
-    public ClientCnxn(String chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper, ClientWatchManager watcher, ClientCnxnSocket clientCnxnSocket, boolean canBeReadOnly) throws IOException {
-        this(chrootPath, hostProvider, sessionTimeout, zooKeeper, watcher, clientCnxnSocket, 0, new byte[16], canBeReadOnly);
-    }
-    /**
-     * Creates a connection object. The actual network connect doesn't get
-     * established until needed. The start() instance method must be called
-     * subsequent to construction.
-     *
-     * @param chrootPath - the chroot of this client. Should be removed from this Class in ZOOKEEPER-838
-     * @param hostProvider
-     *                the list of ZooKeeper servers to connect to
-     * @param sessionTimeout
-     *                the timeout for connections.
-     * @param zooKeeper
-     *                the zookeeper object that this connection is related to.
-     * @param watcher watcher for this connection
-     * @param clientCnxnSocket
-     *                the socket implementation used (e.g. NIO/Netty)
-     * @param sessionId session id if re-establishing session
-     * @param sessionPasswd session passwd if re-establishing session
-     * @param canBeReadOnly
-     *                whether the connection is allowed to go to read-only
-     *                mode in case of partitioning
+     * @param chrootPath        客户端隔离命名空间
+     * @param hostProvider      要连接到的ZooKeeper服务器列表
+     * @param sessionTimeout    连接的超时时间
+     * @param zooKeeper         与该连接相关的Zookeeper对象。
+     * @param watcher           客户端的Watcher监听管理器
+     * @param clientCnxnSocket  使用的套接字实现（例如NIO / Netty）
+     * @param sessionId         会话ID（如果重新建立会话）
+     * @param sessionPasswd     会话密码如果重新建立会话
+     * @param canBeReadOnly     在分区的情况下是否允许连接进入只读模式
      * @throws IOException
      */
     public ClientCnxn(String chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper, ClientWatchManager watcher, ClientCnxnSocket clientCnxnSocket, long sessionId, byte[] sessionPasswd, boolean canBeReadOnly) {
@@ -241,6 +210,21 @@ public class ClientCnxn {
         sendThread = new SendThread(clientCnxnSocket);
         eventThread = new EventThread();
         this.clientConfig = zooKeeper.getClientConfig();
+    }
+    /**
+     * 创建一个连接对象。直到需要时才建立实际的网络连接，必须在构造后调用start（）实例方法。
+     *
+     * @param chrootPath        客户端隔离命名空间
+     * @param hostProvider      要连接到的ZooKeeper服务器列表
+     * @param sessionTimeout    连接的超时时间
+     * @param zooKeeper         与该连接相关的Zookeeper对象。
+     * @param watcher           客户端的Watcher监听管理器
+     * @param clientCnxnSocket  使用的套接字实现（例如NIO / Netty）
+     * @param canBeReadOnly     在分区的情况下是否允许连接进入只读模式
+     * @throws IOException
+     */
+    public ClientCnxn(String chrootPath, HostProvider hostProvider, int sessionTimeout, ZooKeeper zooKeeper, ClientWatchManager watcher, ClientCnxnSocket clientCnxnSocket, boolean canBeReadOnly) throws IOException {
+        this(chrootPath, hostProvider, sessionTimeout, zooKeeper, watcher, clientCnxnSocket, 0, new byte[16], canBeReadOnly);
     }
 
 
@@ -263,17 +247,18 @@ public class ClientCnxn {
     }
 
     /**
+     * 将请求包标记为处理完成，并放到事件队列或触发回调
      *
      * @param p
      */
     private void finishPacket(Packet p) {
-        // 如果zk的影响头带有错误，则根据错误吗注册一个监听
+        // 如果zk的影响头带有错误，则根据错误码注册一个监听
         int err = p.replyHeader.getErr();
         if (p.watchRegistration != null) {
             p.watchRegistration.register(err);
         }
 
-        // Add all the removed watch events to the event queue, so that the clients will be notified with 'Data/Child WatchRemoved' event type.
+        // 将所有已删除的监视事件添加到事件队列中，以便客户端将收到“数据/child WatchRemoved”事件类型的通知。
         if (p.watchDeregistration != null) {
             Map<EventType, Set<Watcher>> materializedWatchers = null;
             try {
@@ -282,7 +267,7 @@ public class ClientCnxn {
                     Set<Watcher> watchers = entry.getValue();
                     if (watchers.size() > 0) {
                         queueEvent(p.watchDeregistration.getClientPath(), err, watchers, entry.getKey());
-                        // ignore connectionloss when removing from local session
+                        // 从本地会话中删除时忽略连接丢失
                         p.replyHeader.setErr(Code.OK.intValue());
                     }
                 }
@@ -477,7 +462,7 @@ public class ClientCnxn {
     }
 
     /**
-     * 根据请求后、请求体等参数构建一个Packet，并将Packet添加到outgoingQueue队列中，返回该请求包的引用，当该请求包被服务端正常处理完成后，客户端会将{@link Packet#finished}设置为true
+     * 根据请求头、请求体等参数构建一个Packet，并将Packet添加到outgoingQueue队列中，返回该请求包的引用，当该请求包被服务端正常处理完成后，客户端会将{@link Packet#finished}设置为true
      *
      * @param h
      * @param r
@@ -976,21 +961,23 @@ public class ClientCnxn {
          * @throws IOException
          */
         void readResponse(ByteBuffer incomingBuffer) throws IOException {
+
+            // 将字节反序列为replyHdr
             ByteBufferInputStream bbis = new ByteBufferInputStream(incomingBuffer);
             BinaryInputArchive bbia = BinaryInputArchive.getArchive(bbis);
             ReplyHeader replyHdr = new ReplyHeader();
-
             replyHdr.deserialize(bbia, "header");
+
+            // -2是ping的xid
             if (replyHdr.getXid() == -2) {
-                // -2 is the xid for pings
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Got ping response for sessionid: 0x" + Long.toHexString(sessionId)
-                            + " after " + ((System.nanoTime() - lastPingSentNs) / 1000000) + "ms");
+                    LOG.debug("Got ping response for sessionid: 0x" + Long.toHexString(sessionId) + " after " + ((System.nanoTime() - lastPingSentNs) / 1000000) + "ms");
                 }
                 return;
             }
+
+            //-4是AuthPacket的xid
             if (replyHdr.getXid() == -4) {
-                // -4 is the xid for AuthPacket
                 if (replyHdr.getErr() == KeeperException.Code.AUTHFAILED.intValue()) {
                     state = States.AUTH_FAILED;
                     eventThread.queueEvent(new WatchedEvent(Watcher.Event.EventType.None, Watcher.Event.KeeperState.AuthFailed, null));
@@ -1000,15 +987,18 @@ public class ClientCnxn {
                 }
                 return;
             }
+
+            // -1表示通知
             if (replyHdr.getXid() == -1) {
-                // -1 means notification
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Got notification sessionid:0x" + Long.toHexString(sessionId));
                 }
+
+                // 将字节反序列为WatcherEvent
                 WatcherEvent event = new WatcherEvent();
                 event.deserialize(bbia, "response");
 
-                // convert from a server path to a client path
+                // 从服务器路径转换为客户端路径
                 if (chrootPath != null) {
                     String serverPath = event.getPath();
                     if (serverPath.compareTo(chrootPath) == 0)
@@ -1029,9 +1019,7 @@ public class ClientCnxn {
                 return;
             }
 
-            // If SASL authentication is currently in progress, construct and
-            // send a response packet immediately, rather than queuing a
-            // response as with other packets.
+            // 如果当前正在进行SASL身份验证，请立即构造并发送响应数据包，而不是像其他数据包一样排队响应。
             if (tunnelAuthInProgress()) {
                 GetSASLRequest request = new GetSASLRequest();
                 request.deserialize(bbia, "token");
@@ -1047,10 +1035,8 @@ public class ClientCnxn {
                 }
                 packet = pendingQueue.remove();
             }
-            /*
-             * Since requests are processed in order, we better get a response
-             * to the first request!
-             */
+
+            // 由于请求是按顺序处理的，因此我们最好对第一个请求做出回应！
             try {
                 if (packet.requestHeader.getXid() != replyHdr.getXid()) {
                     packet.replyHeader.setErr(KeeperException.Code.CONNECTIONLOSS.intValue());
@@ -1371,6 +1357,11 @@ public class ClientCnxn {
             clientCnxnSocket.testableCloseSocket();
         }
 
+        /**
+         * 是否SASL
+         *
+         * @return
+         */
         public boolean tunnelAuthInProgress() {
             // 1. SASL client is disabled.
             if (!clientConfig.isSaslClientEnabled()) {

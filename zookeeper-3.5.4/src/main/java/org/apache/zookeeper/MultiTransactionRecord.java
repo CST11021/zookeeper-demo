@@ -28,11 +28,9 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Encodes a composite transaction.  In the wire format, each transaction
- * consists of a single MultiHeader followed by the appropriate request.
- * Each of these MultiHeaders has a type which indicates
- * the type of the following transaction or a negative number if no more transactions
- * are included.
+ * Encodes a composite transaction.
+ * In the wire format, each transaction consists of a single MultiHeader followed by the appropriate request.
+ * Each of these MultiHeaders has a type which indicates the type of the following transaction or a negative number if no more transactions are included.
  */
 public class MultiTransactionRecord implements Record, Iterable<Op> {
     private List<Op> ops = new ArrayList<Op>();
@@ -82,7 +80,6 @@ public class MultiTransactionRecord implements Record, Iterable<Op> {
         new MultiHeader(-1, true, -1).serialize(archive, tag);
         archive.endRecord(this, tag);
     }
-
     @Override
     public void deserialize(InputArchive archive, String tag) throws IOException {
         archive.startRecord(tag);
@@ -151,7 +148,6 @@ public class MultiTransactionRecord implements Record, Iterable<Op> {
         }
 
     }
-
     @Override
     public int hashCode() {
         int h = 1023;

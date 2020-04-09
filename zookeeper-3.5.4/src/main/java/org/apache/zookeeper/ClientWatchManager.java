@@ -28,7 +28,7 @@ public interface ClientWatchManager {
     /**
      * 根据事件的状态、类型和节点路径，来管理客户端对应的监听器，比如：当节点被移除的事件发生后，客户端需要移除对应的监听器
      * 
-     * @param state     事件状态
+     * @param state     客户端与服务端的连接状态
      * @param type      事件类型
      * @param path      节点路径
      * @return 可以返回empty，但不能返回null

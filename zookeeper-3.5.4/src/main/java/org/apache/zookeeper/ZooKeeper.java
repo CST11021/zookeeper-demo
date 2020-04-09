@@ -2518,19 +2518,6 @@ public class ZooKeeper implements AutoCloseable {
 
 
 
-
-
-
-
-
-
-
-    /*
-     * 下面是帮助测试的方法。
-     *
-     * THESE METHODS ARE EXPECTED TO BE USED FOR TESTING ONLY!!!
-     */
-
     /**
      * Wait up to wait milliseconds for the underlying threads to shutdown.
      * THIS METHOD IS EXPECTED TO BE USED FOR TESTING ONLY!!!
