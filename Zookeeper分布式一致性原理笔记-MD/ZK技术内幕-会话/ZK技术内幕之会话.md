@@ -2,7 +2,9 @@
 
 ##一、会话的创建过程
 
-初始化阶段
+
+
+###客户端初始化阶段
 
 1. 初始化ZooKeeper对象：通过调用ZooKeeper的构造方法来实例化一个ZooKeeper对象，在初始化过程中，会创建一个客户端Watcher管理器：ClientWatchManager。
 2. 设置默认的Watcher：如果在构造方法中传入一个Watcher对象，那么客户端会将这个对象作为默认Watcher保存在ClientWatchManager中。
@@ -12,7 +14,7 @@
 
 
 
-会话创建阶段
+###客户端创建会话请求阶段
 
 6. 启动SendThread和EventThread：SendThread首先会判断当前客户端的状态，进行一系列清理性工作，为客户端发送"会话创建"请求做准备。
 7. 获取一个服务器地址：在开始TCP连接之前，SendThread首先需要获取一个ZooKeeper服务器的目标地址，这通常是从HostProvider中随机获取出一个地址，然后委托给ClientCnxnSocket去创建与Zk服务器之间的TCP连接。
@@ -22,13 +24,47 @@
 
 
 
-响应处理阶段
+###客户端处理响应阶段
 
 11. 接收服务端响应：ClientCnxnSocket接收到服务端的响应后，会首先判断当前的客户端状态是否是"已初始化"，如果尚未完成初始化，那么就认为该响应一定是会话创建请求的响应，直接交由readConnectResult方法来处理该响应。
 12. 处理Response：ClientCnxnSocket会对接收到的服务端响应进行反序列化，得到ConnectResponse对象，并从中获取到zk服务端分配的会话sessionId。
 13. 连接成功：连接成功后，一方面需要通知SendThread线程，进一步对客户端进行会话参数的设置，包括readTimeout和connectTimeout等，并更新客户端状态；另一方面，需要通知地址管理器HostProvider当前成功连接的服务器地址。
 14. 生成事件：SyncConnected-None，为了能够让上层应用感知到会话的成功创建，SendThread会生成一个事件SyncConnected-None，代表客户端与服务器会话创建成功，并将该事件传递给EventThread线程。
 15. 查询Watcher：EventThread线程接收到事件后，会从ClientWatcherManager管理器中查询出对应的Watcher，针对SyncConnected-None事件，会找出步骤2中存储的默认Watcher，然后将其放到EventThread的waitingEvents队列中去。
-16. 处理事件：EventThread不断地从waitingEvents队列中取出待处理的Watcher对象，然后直接调用该对象的process接口方法，已达到粗发Watcher的目的。
+16. 处理事件：EventThread不断地从waitingEvents队列中取出待处理的Watcher对象，然后直接调用该对象的process接口方法，已达到触发Watcher的目的。
 
 至此，zk客户端完成的一次会话创建过程已经全部完成。
+
+
+
+
+
+
+
+在事务请求的处理过程中，需要我们注意的一个细节是，为了保证事务请求被顺序执行，从而确保ZK集群的数据一致性，所有的事务请求必须由Leader服务器来处理。但是，相信读者很容易就会发现一个问题，并不是所有的ZK都和Leader服务器保持连接，那么如何保证所有的事务请求都由Leader来处理呢？
+
+ZK实现了非常特别的事务请求转发机制：所有非Leader服务器如果接收到了来自客户端的事务请求，那么必须将其转发给Leader服务器来处理。
+
+在Follower或是Observer服务器中，第一个请求处理器分别是FollowerRequestProcessor和ObserverRequestProcessor，无论是哪个处理器，都会检查当前请求是否是事务请求，如果是事务请求，那么就会将该客户端请求以REQUSET消息的形式转发给Leader服务器。Leader服务器在接口到这个消息后，会解析出客户端的原始请求，然后提交到自己的请求处理链中开始进行事务请求的处理。
+
+
+请求接收
+
+1、I/O层接收来自客户端的请求。
+
+在ZK中，NIOServerCnxn实例维护每一个客户端连接，客户端与服务端的所有通信都是由NIOServerCnxn负责的，其负责统一接收来自客户端的所有请求，并将请求内容从底层网络I/O中完整地读取出来。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
