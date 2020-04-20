@@ -446,14 +446,14 @@ public class ClientCnxn {
     /**
      * 根据请求后、请求体等参数构建一个Packet，并将Packet添加到outgoingQueue队列中，返回该请求包的引用，当该请求包被服务端正常处理完成后，客户端会将{@link Packet#finished}设置为true
      *
-     * @param h
-     * @param r
-     * @param request
-     * @param response
-     * @param cb
-     * @param clientPath
-     * @param serverPath
-     * @param ctx
+     * @param h                     请求头
+     * @param r                     响应头
+     * @param request               请求体
+     * @param response              响应体
+     * @param cb                    异步时用的回调接口
+     * @param clientPath            客户端输入的节点路径，比如：/zk-book
+     * @param serverPath            服务端要操作的节点路径，这里会基于clientPath做一些Chroot等处理
+     * @param ctx                   提供给回调的上下文
      * @param watchRegistration
      * @return
      */
@@ -464,14 +464,14 @@ public class ClientCnxn {
     /**
      * 根据请求头、请求体等参数构建一个Packet，并将Packet添加到outgoingQueue队列中，返回该请求包的引用，当该请求包被服务端正常处理完成后，客户端会将{@link Packet#finished}设置为true
      *
-     * @param h
-     * @param r
-     * @param request
-     * @param response
-     * @param cb
-     * @param clientPath
-     * @param serverPath
-     * @param ctx
+     * @param h                     请求头
+     * @param r                     响应头
+     * @param request               请求体
+     * @param response              响应体
+     * @param cb                    异步时用的回调接口
+     * @param clientPath            客户端输入的节点路径，比如：/zk-book
+     * @param serverPath            服务端要操作的节点路径，这里会基于clientPath做一些Chroot等处理
+     * @param ctx                   提供给回调的上下文
      * @param watchRegistration
      * @param watchDeregistration
      * @return
@@ -488,9 +488,9 @@ public class ClientCnxn {
         packet.serverPath = serverPath;
         packet.watchDeregistration = watchDeregistration;
 
-        // The synchronized block here is for two purpose:
-        // 1. synchronize with the final cleanup() in SendThread.run() to avoid race
-        // 2. synchronized against each packet. So if a closeSession packet is added, later packet will be notified.
+        // 这里的同步块有两个目的：
+        // 1.与SendThread.run（）中的最终cleanup（）同步以避免竞争
+        // 2.针对每个数据包进行同步。因此，如果添加了closeSession数据包，则将通知以后的数据包。
         synchronized (state) {
             // 如果客户端与服务端连接状态不正常，或者客户端被关闭，则给packet的响应头设置对应的错误编码
             if (!state.isAlive() || closing) {

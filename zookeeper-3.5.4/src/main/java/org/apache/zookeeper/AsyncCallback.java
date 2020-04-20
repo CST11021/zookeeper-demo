@@ -250,8 +250,8 @@ public interface AsyncCallback {
     }
 
     /**
-     * This callback doesn't retrieve anything from the node. It is useful for some APIs that doesn't want anything sent back, e.g. {@link
-     * org.apache.zookeeper.ZooKeeper#sync(String, org.apache.zookeeper.AsyncCallback.VoidCallback, Object)}.
+     * 该回调不从节点检索任何内容。对于某些不需要回传任何东西的API来说非常有用，例如：
+     * {@link org.apache.zookeeper.ZooKeeper#sync(String, org.apache.zookeeper.AsyncCallback.VoidCallback, Object)}.
      */
     @InterfaceAudience.Public
     interface VoidCallback extends AsyncCallback {

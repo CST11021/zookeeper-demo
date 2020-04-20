@@ -31,6 +31,7 @@ import java.nio.ByteBuffer;
 
 @InterfaceAudience.Public
 public class ServerAdminClient {
+
     private static final Logger LOG = LoggerFactory.getLogger(ServerAdminClient.class);
 
     public static void ruok(String host, int port) {
@@ -252,6 +253,11 @@ public class ServerAdminClient {
 
     }
 
+    /**
+     *
+     *
+     * @param args ${host} ${port} ${op}
+     */
     public static void main(String[] args) {
         if (args.length < 3) {
             usage();

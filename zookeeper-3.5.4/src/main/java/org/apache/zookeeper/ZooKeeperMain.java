@@ -48,6 +48,8 @@ public class ZooKeeperMain {
 
     private static final Logger LOG = LoggerFactory.getLogger(ZooKeeperMain.class);
 
+    // ZooKeeperMain启动时，保存所有相关的命令
+
     /** 保存客户端所有可执行的命令，比如：ls、create、get、set等这些命令 */
     static final Map<String, String> commandMap = new HashMap<String, String>();
     /** 保存客户端所有可执行的命令，比如：ls、create、get、set等这些命令 */
@@ -55,24 +57,20 @@ public class ZooKeeperMain {
 
     /** 命令行选项和shell命令的存储类。 */
     protected MyCommandOptions cl = new MyCommandOptions();
-    /**
-     * 用于保存客户端控制台输入的历史命令行
-     */
-    protected HashMap<Integer, String> history = new HashMap<Integer, String>();
 
-    /**
-     * 用于统计执行过的命令行
-     */
+    // 保存执行过的历史命令
+
+    /** 用于统计执行过的命令行 */
     protected int commandCount = 0;
+    /** 用于保存客户端控制台输入的历史命令行 */
+    protected HashMap<Integer, String> history = new HashMap<Integer, String>();
 
     protected boolean printWatches = true;
 
     /** 表示System.exit(0);的入参0 */
     protected int exitCode = 0;
 
-    /**
-     * zk客户端
-     */
+    /** 所有命令都调用，该zk客户端执行 */
     protected ZooKeeper zk;
 
     protected String host = "";
@@ -88,7 +86,6 @@ public class ZooKeeperMain {
         new CreateCommand().addToMap(commandMapCli);
         new DeleteCommand().addToMap(commandMapCli);
         new DeleteAllCommand().addToMap(commandMapCli);
-        // Depricated: rmr
         new DeleteAllCommand("rmr").addToMap(commandMapCli);
         new SetCommand().addToMap(commandMapCli);
         new GetCommand().addToMap(commandMapCli);
@@ -623,24 +620,17 @@ public class ZooKeeperMain {
      */
     static class MyCommandOptions {
 
-        /**
-         * 表示当前执行的命令
-         */
-        private String command = null;
-
-        /**
-         * 一个命令行可能包含多个命令
-         */
-        private List<String> cmdArgs = null;
-
-        /**
-         * 表示一个命令行的选项参数
-         */
-        private Map<String, String> options = new HashMap<String, String>();
-
-
         public static final Pattern ARGS_PATTERN = Pattern.compile("\\s*([^\"\']\\S*|\"[^\"]*\"|'[^']*')\\s*");
         public static final Pattern QUOTED_PATTERN = Pattern.compile("^([\'\"])(.*)(\\1)$");
+
+        /** 表示当前执行的命令 */
+        private String command = null;
+
+        /** 一个命令行，可能包括多个命令 */
+        private List<String> cmdArgs = null;
+
+        /** 表示一个命令行的选项参数 */
+        private Map<String, String> options = new HashMap<String, String>();
 
         public MyCommandOptions() {
             options.put("server", "localhost:2181");
@@ -648,36 +638,10 @@ public class ZooKeeperMain {
         }
 
         /**
-         * 获取配置项
+         * 解析命令行，该命令行可能在可选命令字符串之前包含一个或多个标志
          *
-         * @param opt
-         * @return
-         */
-        public String getOption(String opt) {
-            return options.get(opt);
-        }
-
-        public String getCommand() {
-            return command;
-        }
-
-        public String getCmdArgument(int index) {
-            return cmdArgs.get(index);
-        }
-
-        public int getNumArguments() {
-            return cmdArgs.size();
-        }
-
-        public String[] getArgArray() {
-            return cmdArgs.toArray(new String[0]);
-        }
-
-        /**
-         * Parses a command line that may contain one or more flags before an optional command string
-         *
-         * @param args command line arguments
-         * @return true if parsing succeeded, false otherwise.
+         * @param args 命令行参数
+         * @return 如果解析成功，则为true，否则为false。
          */
         public boolean parseOptions(String[] args) {
             List<String> argList = Arrays.asList(args);
@@ -735,6 +699,52 @@ public class ZooKeeperMain {
             cmdArgs = args;
             return true;
         }
+
+
+
+        /**
+         * 获取配置项
+         *
+         * @param opt
+         * @return
+         */
+        public String getOption(String opt) {
+            return options.get(opt);
+        }
+        /**
+         * 获取要执行的命令
+         *
+         * @return
+         */
+        public String getCommand() {
+            return command;
+        }
+        /**
+         * 根据索引，获取命令参数
+         *
+         * @param index
+         * @return
+         */
+        public String getCmdArgument(int index) {
+            return cmdArgs.get(index);
+        }
+        /**
+         * 获取命令参数的个数
+         *
+         * @return
+         */
+        public int getNumArguments() {
+            return cmdArgs.size();
+        }
+        /**
+         * 获取命令参数
+         *
+         * @return
+         */
+        public String[] getArgArray() {
+            return cmdArgs.toArray(new String[0]);
+        }
+
     }
 
 }

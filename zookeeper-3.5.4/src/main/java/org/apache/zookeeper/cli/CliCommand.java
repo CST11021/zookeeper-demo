@@ -32,6 +32,7 @@ abstract public class CliCommand {
 
     /** 表示命令行执行的输出信息 */
     protected PrintStream out;
+    /** 用于输出执行命令的错误信息 */
     protected PrintStream err;
 
     /** 表示执行的命令 */
@@ -41,10 +42,9 @@ abstract public class CliCommand {
     private String optionStr;
 
     /**
-     * a CLI command with command string and options.
-     * Using System.out and System.err for printing
-     * @param cmdStr the string used to call this command
-     * @param optionStr the string used to call this command 
+     * 一个带有命令字符串和选项的CLI命令。使用System.out和System.err进行打印
+     * @param cmdStr    用于调用此命令的字符串
+     * @param optionStr 用于调用此命令的字符串
      */
     public CliCommand(String cmdStr, String optionStr) {
         this.out = System.out;
@@ -54,7 +54,8 @@ abstract public class CliCommand {
     }
 
     /**
-     * get a usage string, contains the command and the options
+     * 返回：命令 + " " + 选项
+     *
      * @return
      */
     public String getUsageStr() {
@@ -62,7 +63,8 @@ abstract public class CliCommand {
     }
 
     /**
-     * add this command to a map. Use the command string as key.
+     * 将此命令添加到map。使用命令字符串作为键。
+     *
      * @param cmdMap
      */
     public void addToMap(Map<String, CliCommand> cmdMap) {

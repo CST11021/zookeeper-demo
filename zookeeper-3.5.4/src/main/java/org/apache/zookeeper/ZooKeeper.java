@@ -1622,7 +1622,7 @@ public class ZooKeeper implements AutoCloseable {
     }
 
     /**
-     * 如何设置了chroot（隔离命名空间），则在路径添加chroot
+     * 如果设置了chroot（隔离命名空间），则在路径添加chroot
      *
      * @param clientPath path to the node
      * @return server view of the path (chroot prepended to client path)
@@ -1850,25 +1850,29 @@ public class ZooKeeper implements AutoCloseable {
 
 
     /**
-     * Asynchronous sync. Flushes channel between process and leader.
-     * @param path
-     * @param cb a handler for the callback
-     * @param ctx context to be provided to the callback
+     * 异步同步Leader的节点数据
+     *
+     * @param path  节点路径
+     * @param cb    回调的处理程序
+     * @param ctx   提供给回调的上下文
      * @throws IllegalArgumentException if an invalid path is specified
      */
     public void sync(final String path, VoidCallback cb, Object ctx) {
         final String clientPath = path;
         PathUtils.validatePath(clientPath);
 
+        // 如果设置了chroot（隔离命名空间），则在路径添加chroot
         final String serverPath = prependChroot(clientPath);
 
+        // 构建请求头
         RequestHeader h = new RequestHeader();
         h.setType(ZooDefs.OpCode.sync);
+
+        // 构建请求体和响应体
         SyncRequest request = new SyncRequest();
         SyncResponse response = new SyncResponse();
         request.setPath(serverPath);
-        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb,
-                clientPath, serverPath, ctx, null);
+        cnxn.queuePacket(h, new ReplyHeader(), request, response, cb, clientPath, serverPath, ctx, null);
     }
 
     /**

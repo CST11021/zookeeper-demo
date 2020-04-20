@@ -55,7 +55,6 @@ public class CreateCommand extends CliCommand {
         super("create", "[-s] [-e] [-c] [-t ttl] path [data] [acl]");
     }
 
-
     @Override
     public CliCommand parse(String[] cmdArgs) throws CliParseException {
         Parser parser = new PosixParser();

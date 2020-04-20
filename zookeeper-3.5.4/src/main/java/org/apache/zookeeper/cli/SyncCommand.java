@@ -16,17 +16,11 @@
  */
 package org.apache.zookeeper.cli;
 
-import java.io.IOException;
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-import org.apache.commons.cli.Parser;
-import org.apache.commons.cli.PosixParser;
+import org.apache.commons.cli.*;
 import org.apache.zookeeper.AsyncCallback;
-import org.apache.zookeeper.KeeperException;
 
 /**
- * sync command for cli
+ * sync命令用于强制同步，由于请求在半数以上的zk server上生效就表示此请求生效，那么就会有一些zk server上的数据是旧的。sync命令就是强制同步所有的更新操作。
  */
 public class SyncCommand extends CliCommand {
 
